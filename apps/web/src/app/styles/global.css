@@ -1,0 +1,168 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import '../../../../../docs/design-system/tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tokens Shadcn mapeados a la identidad ConfiApp */
+:root {
+  --tw-background: 210 40% 98%;
+  --tw-foreground: 222 47% 11%;
+  --tw-card: 0 0% 100%;
+  --tw-card-foreground: 222 47% 11%;
+  --tw-primary: 211 98% 18%;
+  --tw-primary-foreground: 0 0% 100%;
+  --tw-secondary: 171 49% 55%;
+  --tw-secondary-foreground: 211 98% 18%;
+  --tw-muted: 210 40% 96%;
+  --tw-muted-foreground: 215 16% 47%;
+  --tw-accent: 171 49% 94%;
+  --tw-accent-foreground: 211 98% 18%;
+  --tw-destructive: 0 72% 51%;
+  --tw-destructive-foreground: 0 0% 98%;
+  --tw-border: 214 32% 91%;
+  --tw-input: 214 32% 91%;
+  --tw-ring: 171 49% 55%;
+  --tw-radius: 0.5rem;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* ——— Dark mode: Bootstrap + utilidades de contraste ——— */
+[data-theme='dark'] .text-muted {
+  color: var(--text-muted) !important;
+}
+
+[data-theme='dark'] .form-control,
+[data-theme='dark'] .form-select,
+[data-theme='dark'] .form-control:focus,
+[data-theme='dark'] .form-select:focus {
+  background-color: var(--surface-sunken);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme='dark'] .form-control::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+[data-theme='dark'] .form-label,
+[data-theme='dark'] .form-check-label,
+[data-theme='dark'] .form-text {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--text-primary);
+  --bs-table-border-color: var(--border-default);
+  --bs-table-striped-bg: var(--surface-sunken);
+  --bs-table-striped-color: var(--text-primary);
+  --bs-table-hover-bg: var(--surface-overlay);
+  --bs-table-hover-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .badge.bg-light,
+[data-theme='dark'] .badge.text-bg-light {
+  background-color: var(--surface-overlay) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme='dark'] .badge.text-dark {
+  color: var(--text-primary) !important;
+}
+
+[data-theme='dark'] .badge.bg-warning.text-dark,
+[data-theme='dark'] .badge.text-bg-warning {
+  background-color: var(--warning-bg) !important;
+  color: var(--warning-fg) !important;
+}
+
+[data-theme='dark'] .alert-success {
+  background-color: var(--success-bg);
+  border-color: var(--success-border);
+  color: var(--success-fg);
+}
+
+[data-theme='dark'] .alert-danger {
+  background-color: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: var(--danger-fg);
+}
+
+[data-theme='dark'] .alert-warning {
+  background-color: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-fg);
+}
+
+[data-theme='dark'] .alert-info {
+  background-color: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--info-fg);
+}
+
+[data-theme='dark'] .card {
+  background-color: var(--surface-raised);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme='dark'] .modal-content {
+  background-color: var(--surface-overlay);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme='dark'] .dropdown-menu {
+  background-color: var(--surface-overlay);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme='dark'] .dropdown-item {
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .dropdown-item:hover,
+[data-theme='dark'] .dropdown-item:focus {
+  background-color: var(--surface-sidebar-hover);
+  color: var(--text-on-primary);
+}
+
+[data-theme='dark'] .btn-outline-secondary {
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
+}
+
+[data-theme='dark'] .btn-outline-secondary:hover {
+  background-color: var(--surface-overlay);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+[data-theme='dark'] .spinner-border {
+  color: var(--color-secondary-400);
+}

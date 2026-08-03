@@ -1,0 +1,133 @@
+.ca-audit {
+  --ca-surface: var(--surface-raised);
+  --ca-border: var(--border-default);
+  --ca-muted: var(--text-muted);
+  display: grid;
+  gap: 1.25rem;
+}
+
+.ca-audit__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ca-audit__kicker {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ca-muted);
+}
+
+.ca-audit__title {
+  margin: 0.15rem 0 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-audit__lead {
+  margin: 0.35rem 0 0;
+  max-width: 42rem;
+  color: var(--ca-muted);
+}
+
+.ca-audit__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.ca-audit__filters label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--ca-muted);
+}
+
+.ca-audit__filters select {
+  min-width: 10rem;
+}
+
+.ca-audit-panel {
+  border: 1px solid var(--ca-border);
+  border-radius: 0.75rem;
+  background: var(--ca-surface);
+  padding: 1rem 1.1rem;
+}
+
+.ca-audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ca-audit-item {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ca-border);
+  color: var(--text-primary);
+}
+
+.ca-audit-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ca-audit-item__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.ca-audit-item__action {
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.ca-audit-item__meta {
+  font-size: 0.85rem;
+  color: var(--ca-muted);
+}
+
+.ca-audit-item__code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.ca-audit__hint {
+  margin: 0;
+  color: var(--ca-muted);
+  font-size: 0.9rem;
+}
+
+.ca-audit-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.ca-audit-badge--ok {
+  background: var(--success-bg);
+  color: var(--success-fg);
+  border: 1px solid var(--success-border);
+}
+
+.ca-audit-badge--fail {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border: 1px solid var(--danger-border);
+}

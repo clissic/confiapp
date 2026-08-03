@@ -1,0 +1,9 @@
+{
+  "extends": "@confiapp/config/typescript/react",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

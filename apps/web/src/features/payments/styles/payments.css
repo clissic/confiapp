@@ -1,0 +1,122 @@
+.ca-payments {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ca-payments__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.ca-payments__kicker {
+  margin: 0;
+  font-size: var(--text-small-size);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ca-payments__title {
+  margin: 2px 0 0;
+  font-size: var(--text-h3-size);
+  font-weight: 650;
+}
+
+.ca-payments__lead {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 56ch;
+  font-size: var(--text-small-size);
+}
+
+.ca-payments-panel {
+  border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.08));
+  border-radius: 12px;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+}
+
+.ca-payments__lookup {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.ca-payments__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ca-payments__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.ca-payments-split {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.ca-payments-split > div {
+  border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.08));
+  border-radius: 10px;
+  padding: var(--space-2);
+  display: grid;
+  gap: 4px;
+}
+
+.ca-payments-split span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.ca-payments__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.ca-payments-logs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1-5);
+}
+
+.ca-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ca-btn-primary {
+  background: var(--action-primary-bg, #01285d) !important;
+  border-color: var(--action-primary-bg, #01285d) !important;
+  color: #fff !important;
+}
+
+.ca-btn-cta {
+  background: var(--action-primary-bg, #01285d) !important;
+  border-color: var(--action-primary-bg, #01285d) !important;
+  color: #fff !important;
+}
+
+@media (max-width: 720px) {
+  .ca-payments__lookup,
+  .ca-payments-split {
+    grid-template-columns: 1fr;
+  }
+}

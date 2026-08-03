@@ -1,0 +1,12 @@
+export { authRoutes } from './auth/routes';
+export { usersRoutes } from './users/routes';
+export { agentsRoutes } from './agents/routes';
+export { transactionsRoutes } from './transactions/routes';
+export { chatsRoutes } from './chats/routes';
+export { paymentsRoutes } from './payments/routes';
+export { walletRoutes } from './wallet/routes';
+export { auditRoutes } from './audit/routes';
+export { evidenceRoutes } from './evidence/routes';
+export { disputesRoutes } from './disputes/routes';
+export { reviewsRoutes } from './reviews/routes';
+export { healthRoutes } from './health/routes';

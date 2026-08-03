@@ -1,0 +1,585 @@
+import { randomBytes } from 'node:crypto';
+
+import {
+  ParticipantRole,
+  ParticipantStatus,
+  ProductCategory,
+  ProductStatus,
+  TransactionInitiator,
+  TransactionStatus,
+  type IProduct,
+  type ITransaction,
+} from '@confiapp/database';
+import type { HydratedDocument } from 'mongoose';
+
+import { ProductModel, UserModel } from '../../database/models';
+import { env } from '../../shared/config/env';
+import { AppError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
+import { generateOpaqueToken, hashToken } from '../../utils/crypto-tokens';
+
+import type {
+  ConfirmSaleProductDto,
+  CreateSellerTransactionDto,
+  CreateTransactionDto,
+  InvitePreviewDto,
+  TransactionDto,
+  TransactionProductDto,
+  TransactionsStatusDto,
+} from './dto';
+import { TransactionsRepository, type TransactionDocument } from './repository';
+import type { ConfirmSaleBody, CreateSellerTransactionBody } from './validation';
+
+function toAmountCents(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+function isInviteExpired(expiresAt?: Date | null): boolean {
+  if (!expiresAt) return true;
+  return expiresAt.getTime() < Date.now();
+}
+
+function buildShareUrl(rawToken: string): string {
+  return `${env.APP_URL.replace(/\/$/, '')}/operaciones/unirse/${rawToken}`;
+}
+
+async function generateUniqueCode(
+  repository: TransactionsRepository,
+): Promise<string> {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const code = `CONF-${randomBytes(4).toString('hex').toUpperCase()}`;
+    if (!(await repository.codeExists(code))) return code;
+  }
+  throw new AppError(500, 'No se pudo generar un código único', undefined, 'CODE_GENERATION_FAILED');
+}
+
+function isParticipant(tx: HydratedDocument<ITransaction>, userId: string): boolean {
+  const createdBy = String(tx.createdBy);
+  if (createdBy === userId) return true;
+  return tx.participants.some((p) => String(p.user) === userId);
+}
+
+function hasAcceptedCounterparty(tx: HydratedDocument<ITransaction>): boolean {
+  return tx.participants.some(
+    (p) =>
+      p.role === ParticipantRole.COUNTERPARTY &&
+      p.status === ParticipantStatus.ACCEPTED,
+  );
+}
+
+function getInitiatedBy(tx: HydratedDocument<ITransaction>): TransactionInitiator {
+  return tx.initiatedBy ?? TransactionInitiator.BUYER;
+}
+
+function toProductDto(
+  product: HydratedDocument<IProduct> | (IProduct & { _id: unknown }),
+): TransactionProductDto {
+  return {
+    id: String(product._id),
+    title: product.title,
+    description: product.description,
+    condition: product.condition,
+    category: product.category,
+    status: product.status,
+    estimatedValueCents: product.estimatedValueCents,
+    currency: product.currency,
+    images: (product.images ?? []).map((img, index) => ({
+      url: img.url,
+      alt: img.alt,
+      sortOrder: img.sortOrder ?? index,
+    })),
+  };
+}
+
+function toDto(
+  tx: HydratedDocument<ITransaction> | TransactionDocument,
+  options?: { shareUrl?: string; product?: TransactionProductDto },
+): TransactionDto {
+  const expiresAt = tx.inviteExpiresAt;
+  return {
+    id: String(tx._id),
+    code: tx.code,
+    title: tx.title,
+    description: tx.description,
+    createdBy: String(tx.createdBy),
+    initiatedBy: getInitiatedBy(tx),
+    status: tx.status,
+    conditions: {
+      summary: tx.conditions.summary,
+      checklist: tx.conditions.checklist,
+    },
+    amountCents: tx.amountCents,
+    currency: tx.currency,
+    productId: tx.product ? String(tx.product) : undefined,
+    product: options?.product,
+    participants: tx.participants.map((p) => ({
+      userId: p.user ? String(p.user) : undefined,
+      role: p.role,
+      status: p.status,
+      invitedAt: p.invitedAt.toISOString(),
+      respondedAt: p.respondedAt?.toISOString(),
+    })),
+    statusHistory: (tx.statusHistory ?? []).map((event) => ({
+      status: event.status,
+      changedAt: event.changedAt.toISOString(),
+      note: event.note,
+    })),
+    invite: {
+      shareUrl: options?.shareUrl,
+      expiresAt: expiresAt?.toISOString(),
+      isExpired: isInviteExpired(expiresAt),
+    },
+    createdAt: tx.createdAt.toISOString(),
+    updatedAt: tx.updatedAt.toISOString(),
+  };
+}
+
+async function loadProductDto(
+  productId?: { toString(): string } | string | null,
+): Promise<TransactionProductDto | undefined> {
+  if (!productId) return undefined;
+  const product = await ProductModel.findOne({
+    _id: productId,
+    deletedAt: null,
+  })
+    .lean()
+    .exec();
+  if (!product) return undefined;
+  return toProductDto(product);
+}
+
+async function loadProductsMap(
+  productIds: Array<{ toString(): string } | string | null | undefined>,
+): Promise<Map<string, TransactionProductDto>> {
+  const ids = [
+    ...new Set(
+      productIds
+        .filter(Boolean)
+        .map((id) => String(id)),
+    ),
+  ];
+  if (!ids.length) return new Map();
+  const products = await ProductModel.find({
+    _id: { $in: ids },
+    deletedAt: null,
+  })
+    .lean()
+    .exec();
+  return new Map(products.map((p) => [String(p._id), toProductDto(p)]));
+}
+
+async function resolveMeetingLocation(userId: string): Promise<
+  | { type: 'Point'; coordinates: [number, number]; label?: string }
+  | undefined
+> {
+  const user = await UserModel.findById(userId)
+    .select('location.point location.label')
+    .lean()
+    .exec();
+  const coords = user?.location?.point?.coordinates;
+  if (!coords || coords.length < 2) return undefined;
+  return {
+    type: 'Point',
+    coordinates: [coords[0]!, coords[1]!],
+    label: user?.location?.label,
+  };
+}
+
+function buildInvitePair() {
+  const rawToken = generateOpaqueToken(32);
+  return {
+    rawToken,
+    inviteTokenHash: hashToken(rawToken),
+  };
+}
+
+export class TransactionsService {
+  constructor(private readonly repository = new TransactionsRepository()) {}
+
+  async getStatus(): Promise<TransactionsStatusDto> {
+    return { module: 'transactions', status: 'ready' };
+  }
+
+  async create(userId: string, input: CreateTransactionDto): Promise<TransactionDto> {
+    const amountCents = toAmountCents(input.amount);
+    if (amountCents < 100) {
+      throw new ValidationError('El monto mínimo es 1.00');
+    }
+
+    const code = await generateUniqueCode(this.repository);
+    const { rawToken, inviteTokenHash } = buildInvitePair();
+    const days = input.inviteExpiresInDays ?? 7;
+    const inviteExpiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    const created = await this.repository.create({
+      code,
+      title: input.title.trim(),
+      description: input.description?.trim(),
+      createdBy: userId,
+      initiatedBy: TransactionInitiator.BUYER,
+      meetingLocation: await resolveMeetingLocation(userId),
+      conditions: {
+        summary: input.conditionsSummary.trim(),
+        checklist: input.checklist?.map((item) => item.trim()).filter(Boolean),
+      },
+      amountCents,
+      currency: (input.currency ?? 'UYU').toUpperCase(),
+      inviteTokenHash,
+      inviteExpiresAt,
+    });
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      action: AuditAction.CREATE,
+      entityType: 'Transaction',
+      entityId: String(created._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: code,
+      metadata: {
+        code,
+        initiatedBy: TransactionInitiator.BUYER,
+        amountCents,
+        currency: (input.currency ?? 'UYU').toUpperCase(),
+      },
+    });
+
+    return toDto(created, { shareUrl: buildShareUrl(rawToken) });
+  }
+
+  async createAsSeller(
+    userId: string,
+    input: CreateSellerTransactionBody | CreateSellerTransactionDto,
+  ): Promise<TransactionDto> {
+    const amountCents = toAmountCents(input.product.price);
+    if (amountCents < 100) {
+      throw new ValidationError('El precio mínimo es 1.00');
+    }
+
+    const currency = (input.product.currency ?? 'UYU').toUpperCase();
+    const code = await generateUniqueCode(this.repository);
+    const { rawToken, inviteTokenHash } = buildInvitePair();
+    const days = input.inviteExpiresInDays ?? 7;
+    const inviteExpiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    const images = input.product.images.map((img, index) => ({
+      url: img.url.trim(),
+      alt: img.alt?.trim(),
+      sortOrder: index,
+    }));
+
+    const product = await ProductModel.create({
+      owner: userId,
+      title: input.product.title.trim(),
+      description: input.product.description.trim(),
+      category: input.product.category ?? ProductCategory.OTHER,
+      condition: input.product.condition,
+      status: ProductStatus.IN_TRANSACTION,
+      images,
+      estimatedValueCents: amountCents,
+      currency,
+    });
+
+    const created = await this.repository.create({
+      code,
+      title: input.title.trim(),
+      description: input.description?.trim(),
+      createdBy: userId,
+      initiatedBy: TransactionInitiator.SELLER,
+      productId: String(product._id),
+      meetingLocation: await resolveMeetingLocation(userId),
+      conditions: {
+        summary: input.conditionsSummary.trim(),
+        checklist: input.checklist?.map((item) => item.trim()).filter(Boolean),
+      },
+      amountCents,
+      currency,
+      inviteTokenHash,
+      inviteExpiresAt,
+    });
+
+    product.activeTransaction = created._id;
+    await product.save();
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      action: AuditAction.CREATE,
+      entityType: 'Transaction',
+      entityId: String(created._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: code,
+      metadata: {
+        code,
+        initiatedBy: TransactionInitiator.SELLER,
+        amountCents,
+        currency,
+        productId: String(product._id),
+      },
+    });
+
+    return toDto(created, {
+      shareUrl: buildShareUrl(rawToken),
+      product: toProductDto(product),
+    });
+  }
+
+  async listMine(userId: string): Promise<TransactionDto[]> {
+    const list = await this.repository.listForUser(userId);
+    const products = await loadProductsMap(list.map((tx) => tx.product));
+    return list.map((tx) =>
+      toDto(tx, {
+        product: tx.product ? products.get(String(tx.product)) : undefined,
+      }),
+    );
+  }
+
+  async getByCode(userId: string, code: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+    return toDto(tx, { product: await loadProductDto(tx.product) });
+  }
+
+  async refreshInvite(userId: string, code: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByCodeWithInvite(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (String(tx.createdBy) !== userId) {
+      throw new ForbiddenError('Solo quien inició la operación puede regenerar el enlace');
+    }
+    if (
+      tx.status !== TransactionStatus.WAITING_PARTICIPANT &&
+      tx.status !== TransactionStatus.CREATED
+    ) {
+      throw new ValidationError('No se puede regenerar el enlace en el estado actual');
+    }
+
+    if (hasAcceptedCounterparty(tx)) {
+      throw new ValidationError('La contraparte ya se unió; el enlace ya no es necesario');
+    }
+
+    const { rawToken, inviteTokenHash } = buildInvitePair();
+    const updated = await this.repository.refreshInvite(
+      tx,
+      inviteTokenHash,
+      new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    );
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      action: AuditAction.UPDATE,
+      entityType: 'Transaction',
+      entityId: String(updated._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: updated.code,
+      metadata: { note: 'invite_refreshed' },
+    });
+
+    return toDto(updated, {
+      shareUrl: buildShareUrl(rawToken),
+      product: await loadProductDto(updated.product),
+    });
+  }
+
+  async previewInvite(token: string): Promise<InvitePreviewDto> {
+    const tx = await this.repository.findByInviteTokenHash(hashToken(token));
+    if (!tx) throw new NotFoundError('Enlace de invitación inválido');
+
+    const creator = await UserModel.findById(tx.createdBy)
+      .select('fullName displayName')
+      .lean()
+      .exec();
+
+    const product = await loadProductDto(tx.product);
+
+    return {
+      code: tx.code,
+      title: tx.title,
+      description: tx.description,
+      amountCents: tx.amountCents,
+      currency: tx.currency,
+      conditionsSummary: tx.conditions.summary,
+      status: tx.status,
+      initiatedBy: getInitiatedBy(tx),
+      inviteExpiresAt: tx.inviteExpiresAt?.toISOString(),
+      isExpired: isInviteExpired(tx.inviteExpiresAt),
+      creatorName: creator?.displayName || creator?.fullName,
+      hasProduct: Boolean(tx.product),
+      hasCounterparty: hasAcceptedCounterparty(tx),
+      product,
+    };
+  }
+
+  async joinInvite(userId: string, token: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByInviteTokenHash(hashToken(token));
+    if (!tx) throw new NotFoundError('Enlace de invitación inválido');
+
+    // Operación iniciada por vendedor: aceptar compra dispara la máquina de estados.
+    if (getInitiatedBy(tx) === TransactionInitiator.SELLER) {
+      return this.acceptPurchase(userId, token);
+    }
+
+    if (isInviteExpired(tx.inviteExpiresAt)) {
+      throw new ValidationError('El enlace de invitación expiró');
+    }
+
+    if (
+      tx.status !== TransactionStatus.WAITING_PARTICIPANT &&
+      tx.status !== TransactionStatus.CREATED
+    ) {
+      throw new ValidationError('Esta operación ya no acepta nuevos participantes');
+    }
+
+    if (String(tx.createdBy) === userId) {
+      throw new ValidationError('No podés unirte a tu propia operación con este enlace');
+    }
+
+    const already = tx.participants.find((p) => String(p.user) === userId);
+    if (already) {
+      return toDto(tx, { product: await loadProductDto(tx.product) });
+    }
+
+    if (hasAcceptedCounterparty(tx)) {
+      throw new ValidationError('Ya hay una contraparte en esta operación');
+    }
+
+    const updated = await this.repository.addCounterparty(
+      tx,
+      userId,
+      'Contraparte se unió mediante enlace de invitación',
+    );
+    return toDto(updated, { product: await loadProductDto(updated.product) });
+  }
+
+  /**
+   * Comprador acepta la compra (flujo iniciado por vendedor).
+   * Transición automática: WAITING_PARTICIPANT → ACCEPTED.
+   */
+  async acceptPurchase(userId: string, token: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByInviteTokenHash(hashToken(token));
+    if (!tx) throw new NotFoundError('Enlace de invitación inválido');
+
+    if (getInitiatedBy(tx) !== TransactionInitiator.SELLER) {
+      throw new ValidationError(
+        'Solo se puede aceptar la compra en operaciones iniciadas por el vendedor',
+      );
+    }
+
+    if (isInviteExpired(tx.inviteExpiresAt)) {
+      throw new ValidationError('El enlace de invitación expiró');
+    }
+
+    if (!tx.product) {
+      throw new ValidationError('La operación no tiene un producto para aceptar');
+    }
+
+    if (String(tx.createdBy) === userId) {
+      throw new ValidationError('El vendedor no puede aceptar su propia venta como comprador');
+    }
+
+    const already = tx.participants.find((p) => String(p.user) === userId);
+    if (already && tx.status === TransactionStatus.ACCEPTED) {
+      return toDto(tx, { product: await loadProductDto(tx.product) });
+    }
+
+    if (!already && hasAcceptedCounterparty(tx)) {
+      throw new ValidationError('Ya hay un comprador en esta operación');
+    }
+
+    if (
+      tx.status !== TransactionStatus.WAITING_PARTICIPANT &&
+      tx.status !== TransactionStatus.CREATED
+    ) {
+      throw new ValidationError(
+        `No se puede aceptar la compra en el estado actual (${tx.status})`,
+      );
+    }
+
+    // CREATED → WAITING_PARTICIPANT si hiciera falta, luego → ACCEPTED
+    if (tx.status === TransactionStatus.CREATED) {
+      await this.repository.transitionStatus(tx, TransactionStatus.WAITING_PARTICIPANT, {
+        userId,
+        note: 'Operación lista para aceptación del comprador',
+      });
+    }
+
+    const updated = await this.repository.acceptPurchase(tx, userId);
+    return toDto(updated, { product: await loadProductDto(updated.product) });
+  }
+
+  async confirmSale(
+    userId: string,
+    token: string,
+    input: ConfirmSaleBody | ConfirmSaleProductDto,
+  ): Promise<TransactionDto> {
+    const tx = await this.repository.findByInviteTokenHash(hashToken(token));
+    if (!tx) throw new NotFoundError('Enlace de invitación inválido');
+
+    if (getInitiatedBy(tx) === TransactionInitiator.SELLER) {
+      throw new ValidationError(
+        'Esta operación fue iniciada por el vendedor. El comprador debe unirse con el enlace.',
+      );
+    }
+
+    if (isInviteExpired(tx.inviteExpiresAt)) {
+      throw new ValidationError('El enlace de invitación expiró');
+    }
+
+    if (
+      tx.status !== TransactionStatus.WAITING_PARTICIPANT &&
+      tx.status !== TransactionStatus.CREATED
+    ) {
+      throw new ValidationError('Esta operación ya no acepta confirmación de venta');
+    }
+
+    if (String(tx.createdBy) === userId) {
+      throw new ValidationError('El comprador no puede confirmar la venta como vendedor');
+    }
+
+    if (tx.product) {
+      throw new ValidationError('Esta operación ya tiene un producto confirmado');
+    }
+
+    const alreadyParticipant = tx.participants.some((p) => String(p.user) === userId);
+    if (!alreadyParticipant && hasAcceptedCounterparty(tx)) {
+      throw new ValidationError('Ya hay una contraparte en esta operación');
+    }
+
+    const amountCents = toAmountCents(input.price);
+    if (amountCents < 100) {
+      throw new ValidationError('El precio mínimo es 1.00');
+    }
+
+    const currency = (input.currency ?? tx.currency ?? 'UYU').toUpperCase();
+    const images = input.images.map((img, index) => ({
+      url: img.url.trim(),
+      alt: img.alt?.trim(),
+      sortOrder: index,
+    }));
+
+    const product = await ProductModel.create({
+      owner: userId,
+      title: input.title.trim(),
+      description: input.description.trim(),
+      category: input.category ?? ProductCategory.OTHER,
+      condition: input.condition,
+      status: ProductStatus.IN_TRANSACTION,
+      images,
+      estimatedValueCents: amountCents,
+      currency,
+      activeTransaction: tx._id,
+    });
+
+    const updated = await this.repository.confirmSellerSale(tx, {
+      userId,
+      productId: String(product._id),
+      amountCents,
+      currency,
+      alreadyParticipant,
+    });
+
+    return toDto(updated, { product: toProductDto(product) });
+  }
+}

@@ -1,0 +1,104 @@
+/* Agent ops — búsqueda y ofertas */
+.ca-agent-ops {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ca-agent-ops__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.ca-agent-ops__title {
+  margin: 2px 0 0;
+  font-size: var(--text-h3-size);
+  font-weight: 650;
+}
+
+.ca-agent-ops__kicker {
+  margin: 0;
+  font-size: var(--text-small-size);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ca-agent-ops__lead {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 52ch;
+  font-size: var(--text-small-size);
+}
+
+.ca-agent-ops-panel {
+  border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.08));
+  border-radius: 12px;
+  padding: var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  background: color-mix(in srgb, var(--surface-elevated) 92%, transparent);
+}
+
+.ca-agent-ops-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1-5);
+}
+
+.ca-agent-ops-list__item {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-2);
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.08));
+}
+
+.ca-agent-ops-list__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ca-agent-ops-list__meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.ca-btn-primary {
+  background: var(--action-primary-bg) !important;
+  border-color: var(--action-primary-bg) !important;
+  color: var(--action-primary-fg) !important;
+  font-weight: 600;
+}
+
+.ca-btn-cta {
+  background: var(--action-cta-bg) !important;
+  border-color: var(--action-cta-bg) !important;
+  color: var(--action-cta-fg) !important;
+  font-weight: 600;
+}
+
+.ca-form-grid {
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .ca-form-grid {
+    grid-template-columns: 1fr 1fr 1fr auto;
+    align-items: end;
+  }
+}
+
+.ca-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

@@ -1,0 +1,3 @@
+{
+  "extends": "@confiapp/config/typescript/base"
+}

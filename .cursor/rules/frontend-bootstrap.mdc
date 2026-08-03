@@ -1,0 +1,12 @@
+---
+description: Frontend usa Bootstrap; si se pide Tailwind, interpretar Bootstrap
+alwaysApply: true
+---
+
+# Estilos frontend — Bootstrap
+
+- El CSS principal de la app es **Bootstrap 5** (+ `react-bootstrap`).
+- Si el usuario pide **Tailwind** (clases, utilidades, layout, diseño), asumir error y usar **Bootstrap**.
+- **Tailwind** solo existe como infraestructura de **Shadcn UI**, con prefijo `tw-` y `preflight: false`, para no chocar con Bootstrap.
+- No inventar pantallas con utilidades Tailwind; layout y spacing con clases Bootstrap (`container`, `row`, `col-*`, `d-flex`, `gap-*`, etc.).
+- Componentes Shadcn viven en `apps/web/src/shared/ui` y pueden usar clases `tw-*`.

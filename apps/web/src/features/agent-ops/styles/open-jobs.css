@@ -1,0 +1,57 @@
+.ca-open-jobs__filters {
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (min-width: 992px) {
+  .ca-open-jobs__filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    align-items: end;
+  }
+}
+
+.ca-open-jobs__layout {
+  display: grid;
+  gap: var(--space-2);
+}
+
+@media (min-width: 992px) {
+  .ca-open-jobs__layout {
+    grid-template-columns: 1.2fr 1fr;
+    align-items: start;
+  }
+}
+
+.ca-open-jobs__map {
+  padding: 0;
+  overflow: hidden;
+  min-height: 420px;
+}
+
+.ca-open-jobs__map-canvas {
+  width: 100%;
+  height: 480px;
+  border-radius: 12px;
+}
+
+.ca-open-jobs__list-panel {
+  max-height: 480px;
+  overflow: auto;
+}
+
+.ca-open-jobs__item--active {
+  border-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-secondary, #55c5b5) 35%, transparent);
+}
+
+.ca-open-jobs__ratings {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.ca-open-jobs__ratings span {
+  display: inline-flex;
+  align-items: center;
+}
