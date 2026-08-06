@@ -1,5 +1,6 @@
 import { PlatformRole } from '@confiapp/database';
 
+import { UserModel } from '../../src/database/models/user.model';
 import { signAccessToken } from '../../src/infrastructure/security/jwt';
 import { api } from './create-test-app';
 
@@ -46,6 +47,23 @@ export async function registerAndLogin(input?: {
   if (register.status >= 400) {
     throw new Error(`register failed: ${register.status} ${JSON.stringify(register.body)}`);
   }
+
+  // Los tests no pasan por el mail: marcamos el email como verificado.
+  const verifiedAt = new Date();
+  await UserModel.updateOne(
+    { email: email.toLowerCase() },
+    {
+      $set: {
+        emailVerifiedAt: verifiedAt,
+        'verification.email.verified': true,
+        'verification.email.verifiedAt': verifiedAt,
+      },
+      $unset: {
+        emailVerificationTokenHash: 1,
+        emailVerificationExpires: 1,
+      },
+    },
+  );
 
   const login = await api().post('/auth/login').send({ email, password });
   if (login.status >= 400) {

@@ -1,6 +1,8 @@
 # ConfiApp — Arquitectura de sistema
 
-Documento de diseño de arquitectura (sin implementación).  
+Documento de diseño de arquitectura (visión a escala + decisiones).  
+Estado implementado del monorepo y de la web: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`WEB_APP.md`](./WEB_APP.md).
+
 Plataforma SaaS de **intermediación segura** para compras entre particulares (escrow físico + control digital).
 
 **Objetivo de escala:** cientos de miles de usuarios activos, picos concurrentes altos en operaciones en curso, evidencias multimedia y eventos en tiempo real.
@@ -125,13 +127,16 @@ Cada contexto expone **puertos** (interfaces). Los adaptadores (Mongo, Stripe, S
 
 ### 3.3 Superficies UX críticas
 
-- Onboarding + verificación
-- Crear / aceptar operación
+- Onboarding + verificación (email; teléfono UI stub → backend pendiente)
+- Crear / aceptar operación (comprador/vendedor + invite)
 - Checkout / fondeo
 - Subida de evidencias con progreso
-- Mapa de punto de encuentro
+- Mapa de punto de encuentro / open jobs
 - Live status de la operación (Socket)
-- Centro de disputas y notificaciones
+- Centro de disputas y **inbox de notificaciones** (`/notificaciones` + campana)
+- Wallet, auditoría, reputación, perfil/KYC
+
+Detalle de rutas y patrones UI actuales: [`WEB_APP.md`](./WEB_APP.md).
 
 ---
 
@@ -309,15 +314,16 @@ Autorización al join: el socket debe probar membresía en la operación.
 ### 9.2 Flujo de alto nivel (escrow monetario)
 
 ```text
-CREATED → … → FUNDED (hold/capture authorized)
-                 ↓
-            IN_PROGRESS (evidencias)
-                 ↓
-         COMPLETED → release al vendedor
-         CANCELLED / DISPUTED → reverse / hold manual
+CREATED → WAITING_PARTICIPANT → ACCEPTED → … → FUNDED (hold/capture authorized)
+                                              ↓
+                                         IN_PROGRESS (evidencias)
+                                              ↓
+                                      COMPLETED → release al vendedor
+                                      CANCELLED / DISPUTED → reverse / hold manual
 ```
 
-Nota: el estado `FUNDED` del dominio de operación se alinea con “fondos comprometidos”, aunque el PSP use Authorization vs Capture según producto/país.
+- **`WAITING_PARTICIPANT`**: operación creada; se espera que la contraparte acepte el invite/enlace. Es estado **interno** (no se muestra como código en la UI de usuario común; ver [`WEB_APP.md`](./WEB_APP.md)).
+- Nota: el estado `FUNDED` del dominio de operación se alinea con “fondos comprometidos”, aunque el PSP use Authorization vs Capture según producto/país.
 
 ### 9.3 Componentes
 
@@ -367,17 +373,28 @@ Porque pierde el control del escrow digital. Se puede soportar modo “pago en e
 
 ## 11. Sistema de notificaciones
 
-### 11.1 Canales
+### 11.1 Estado actual (implementado)
+
+- Servicio único: `NotificationsService.notify` en `apps/api/src/modules/notifications/`.
+- Gating por `preferences.notifications` (`resolveDelivery`).
+- Persistencia in-app + eventos Socket `notification:new` / `notification:updated`.
+- Web: inbox `/notificaciones` + campana en topbar.
+- Push/email reales: parcial / stub según canal; SMS diferido.
+- Guía operativa: `.cursor/skills/notifications/`.
+
+**No confundir** con toasts de UI (`useAppToast`): esos son feedback efímero, no inbox.
+
+### 11.2 Canales (diseño a escala)
 
 | Canal | Uso |
 |-------|-----|
 | In-app (persistente) | Fuente de verdad del inbox |
 | Push (FCM/APNs) | Mobile / PWA |
 | Email | Transaccional + resumen |
-| SMS | Solo críticos (fondeo, disputa) — costo |
+| SMS | Solo críticos (fondeo, disputa) — costo; diferido |
 | Socket | Echo inmediato si el usuario está online |
 
-### 11.2 Arquitectura
+### 11.3 Arquitectura objetivo (workers)
 
 ```text
 Domain event → Notification use case → Outbox/Queue
@@ -423,9 +440,9 @@ Tracing distribuido en HTTP → use case → Mongo/Redis/PSP.
 
 | Fase | Alcance |
 |------|---------|
-| **MVP** | Auth, users, transactions, evidence metadata, disputes scaffold, health, monorepo |
-| **Trust** | Pagos sandbox + ledger, KYC, notificaciones email/in-app, Socket rooms |
-| **Scale** | Redis adapter, workers, S3 uploads, geofence, rate limits distribuidos |
+| **MVP** *(gran parte hecho)* | Auth, users, transactions (+ `WAITING_PARTICIPANT`), web app, health, monorepo |
+| **Trust** *(en curso)* | Pagos + ledger, KYC, notificaciones in-app, Socket (chat/notif), wallet, audit UI, agentes |
+| **Scale** | Redis adapter, workers/outbox, S3 uploads, geofence, rate limits distribuidos, phone verify real |
 | **Hardening** | Sharding, multi-región lectura, admin forense, warehouse analytics |
 
 ---

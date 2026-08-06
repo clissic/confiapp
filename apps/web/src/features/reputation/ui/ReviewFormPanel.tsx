@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 
+import { useAppToast } from '@/shared/ui';
+
 import { useCreateReview, usePendingTargets } from '../hooks/useReputation';
 import type { PartyRole } from '../model/types';
 
@@ -16,12 +18,12 @@ interface ReviewFormPanelProps {
 
 /** Formulario post-COMPLETED para calificar contraparte / agente. */
 export function ReviewFormPanel({ transactionCode }: ReviewFormPanelProps) {
+  const toast = useAppToast();
   const pending = usePendingTargets(transactionCode);
   const create = useCreateReview();
   const [revieweeId, setRevieweeId] = useState('');
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (pending.isLoading) {
@@ -51,7 +53,6 @@ export function ReviewFormPanel({ transactionCode }: ReviewFormPanelProps) {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setFeedback(null);
     try {
       await create.mutateAsync({
         transactionCode,
@@ -59,7 +60,7 @@ export function ReviewFormPanel({ transactionCode }: ReviewFormPanelProps) {
         rating,
         comment: comment.trim() || undefined,
       });
-      setFeedback('Calificación enviada. La reputación se actualizó con ponderación anti-fraude.');
+      toast.success('Calificación enviada. La reputación se actualizó con ponderación anti-fraude.');
       setComment('');
       setRating(5);
     } catch (err) {
@@ -74,7 +75,6 @@ export function ReviewFormPanel({ transactionCode }: ReviewFormPanelProps) {
         Tu rol: <strong>{ROLE_LABEL[pending.data.myRole]}</strong>. Plazo:{' '}
         {pending.data.windowDays} días desde el cierre.
       </p>
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
       {error ? <Alert variant="danger">{error}</Alert> : null}
       <Form onSubmit={(e) => void onSubmit(e)} className="d-grid gap-3">
         <Form.Group>

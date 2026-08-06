@@ -1,12 +1,14 @@
-import { Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { Wallet } from 'lucide-react';
 
 import { formatDateTime, formatMoney } from '@/shared/lib/money';
+import { usePreferencesSnapshot } from '@/shared/preferences';
+import { WalletStatusBadge } from '@/features/wallet/ui/WalletStatusBadge';
 
 import type { UserProfile } from '../../model/types';
 
 export function WalletSection({ profile }: { profile: UserProfile }) {
+  usePreferencesSnapshot();
   const { wallet } = profile;
 
   return (
@@ -23,7 +25,7 @@ export function WalletSection({ profile }: { profile: UserProfile }) {
             <p className="mb-0">Saldo disponible</p>
             <strong>{formatMoney(wallet.availableCents, wallet.currency)}</strong>
           </div>
-          <Badge className="ca-badge-positive ms-auto">{wallet.status}</Badge>
+          <WalletStatusBadge status={wallet.status} className="ms-auto" />
         </div>
 
         <div className="ca-stat-row">
@@ -46,7 +48,7 @@ export function WalletSection({ profile }: { profile: UserProfile }) {
         </div>
 
         {wallet.lastMovementAt ? (
-          <p className="ca-wallet-card__foot mb-2">
+          <p className="ca-wallet-card__foot">
             Último movimiento: {formatDateTime(wallet.lastMovementAt)}
           </p>
         ) : null}

@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Spinner } from 'react-bootstrap';
 
 import { MainLayout } from '@/app/layout/MainLayout';
+import { RequireAdmin } from '@/features/auth/ui/RequireAdmin';
 import { RequireAuth } from '@/features/auth/ui/RequireAuth';
 
 const LandingPage = lazy(() =>
@@ -14,6 +15,9 @@ const LoginPage = lazy(() =>
 const RegisterPage = lazy(() =>
   import('@/pages/RegisterPage').then((m) => ({ default: m.RegisterPage })),
 );
+const VerifyEmailPage = lazy(() =>
+  import('@/pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })),
+);
 const WorkspacePlaceholderPage = lazy(() =>
   import('@/pages/WorkspacePlaceholderPage').then((m) => ({
     default: m.WorkspacePlaceholderPage,
@@ -21,6 +25,9 @@ const WorkspacePlaceholderPage = lazy(() =>
 );
 const ProfilePage = lazy(() =>
   import('@/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+);
+const VerifyPhonePage = lazy(() =>
+  import('@/pages/VerifyPhonePage').then((m) => ({ default: m.VerifyPhonePage })),
 );
 const BecomeAgentPage = lazy(() =>
   import('@/pages/BecomeAgentPage').then((m) => ({ default: m.BecomeAgentPage })),
@@ -71,6 +78,12 @@ const AuditPage = lazy(() =>
 const ReputationPage = lazy(() =>
   import('@/pages/ReputationPage').then((m) => ({ default: m.ReputationPage })),
 );
+const AdminKycReviewPage = lazy(() =>
+  import('@/pages/AdminKycReviewPage').then((m) => ({ default: m.AdminKycReviewPage })),
+);
+const NotificationsPage = lazy(() =>
+  import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsInboxPage })),
+);
 
 function RouteFallback() {
   return (
@@ -90,11 +103,14 @@ export function AppRouter() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/ingresar" element={<LoginPage />} />
           <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/verificar-email" element={<VerifyEmailPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
 
           <Route element={<RequireAuth />}>
             <Route element={<MainLayout />}>
               <Route path="inicio" element={<WorkspacePlaceholderPage />} />
               <Route path="perfil" element={<ProfilePage />} />
+              <Route path="perfil/verificar-telefono" element={<VerifyPhonePage />} />
               <Route path="profile" element={<Navigate to="/perfil" replace />} />
               <Route path="agente" element={<BecomeAgentPage />} />
               <Route path="agente/buscar" element={<AgentSearchPage />} />
@@ -112,6 +128,10 @@ export function AppRouter() {
               <Route path="wallet" element={<WalletPage />} />
               <Route path="auditoria" element={<AuditPage />} />
               <Route path="reputacion" element={<ReputationPage />} />
+              <Route path="notificaciones" element={<NotificationsPage />} />
+              <Route element={<RequireAdmin />}>
+                <Route path="admin/kyc/:token" element={<AdminKycReviewPage />} />
+              </Route>
               <Route path="*" element={<Navigate to="/inicio" replace />} />
             </Route>
           </Route>

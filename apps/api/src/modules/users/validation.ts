@@ -34,7 +34,14 @@ export const addressBodySchema = z.object({
 });
 
 export const photoBodySchema = z.object({
-  url: z.string().url().max(2048),
+  url: z
+    .string()
+    .trim()
+    .max(2_000_000)
+    .refine(
+      (value) => /^https?:\/\//i.test(value) || value.startsWith('data:image/'),
+      'Se espera URL http(s) o data:image',
+    ),
   storageKey: z.string().trim().max(512).optional(),
   kind: z.nativeEnum(UserPhotoKind).optional(),
   mimeType: z.string().trim().max(128).optional(),
@@ -43,6 +50,35 @@ export const photoBodySchema = z.object({
   height: z.number().int().min(0).optional(),
   isPrimary: z.boolean().optional(),
 });
+
+export const payoutMethodBodySchema = z
+  .object({
+    id: z.string().trim().max(64).optional(),
+    bank: z.string().trim().min(2).max(64),
+    number: z
+      .string()
+      .trim()
+      .regex(/^\d{3,32}$/, 'El número de cuenta debe tener entre 3 y 32 dígitos'),
+    type: z.enum(['CA', 'CC', 'FINTECH']),
+    currency: z.enum(['', 'UYU', 'USD']),
+    createdAt: z.string().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.type === 'FINTECH' && value.currency !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Las billeteras electrónicas no requieren moneda',
+        path: ['currency'],
+      });
+    }
+    if (value.type !== 'FINTECH' && value.currency !== 'UYU' && value.currency !== 'USD') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Seleccioná UYU o USD',
+        path: ['currency'],
+      });
+    }
+  });
 
 export const preferencesBodySchema = z.object({
   language: z.string().trim().min(2).max(16).optional(),
@@ -92,20 +128,50 @@ export const registerUserBodySchema = z.object({
     }),
   fullName: z.string().trim().min(2).max(120),
   phone: phoneSchema.optional(),
-  avatar: z.string().url().max(2048).optional(),
+  avatar: z
+    .string()
+    .trim()
+    .max(2_000_000)
+    .refine(
+      (value) => /^https?:\/\//i.test(value) || value.startsWith('data:image/'),
+      'Se espera URL http(s) o data:image',
+    )
+    .optional(),
 });
 
 export const updateUserBodySchema = z
   .object({
     fullName: z.string().trim().min(2).max(120).optional(),
     displayName: z.string().trim().min(2).max(120).nullable().optional(),
+    documentNumber: z
+      .string()
+      .trim()
+      .min(5, 'Documento demasiado corto')
+      .max(32, 'Documento demasiado largo')
+      .regex(
+        /^[A-Za-z0-9][A-Za-z0-9.\-\s/]*$/,
+        'Usá solo letras, números y separadores (. - /)',
+      )
+      .nullable()
+      .optional(),
     bio: z.string().trim().max(2000).nullable().optional(),
     phone: phoneSchema.nullable().optional(),
-    avatar: z.string().url().max(2048).nullable().optional(),
+    avatar: z
+      .string()
+      .trim()
+      .max(2_000_000)
+      .refine(
+        (value) => /^https?:\/\//i.test(value) || value.startsWith('data:image/'),
+        'Se espera URL http(s) o data:image',
+      )
+      .nullable()
+      .optional(),
     status: z.nativeEnum(UserStatus).optional(),
     address: addressBodySchema.nullable().optional(),
     locationLabel: z.string().trim().max(200).nullable().optional(),
     photos: z.array(photoBodySchema).max(30).optional(),
+    submitKyc: z.boolean().optional(),
+    payoutMethods: z.array(payoutMethodBodySchema).max(20).optional(),
     preferences: preferencesBodySchema.optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {

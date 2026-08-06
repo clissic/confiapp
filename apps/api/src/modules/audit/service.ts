@@ -6,7 +6,7 @@ import {
 import { Types } from 'mongoose';
 import type { Request } from 'express';
 
-import { AuditLogModel } from '../../database/models';
+import { AuditLogModel, UserModel } from '../../database/models';
 import { logger } from '../../utils/logger';
 
 export interface AuditRequestMeta {
@@ -87,9 +87,11 @@ export class AuditService {
     entityId?: string;
     action?: string;
     limit?: number;
+    page?: number;
     before?: string;
   }) {
-    const limit = Math.min(opts.limit ?? 50, 200);
+    const limit = Math.min(opts.limit ?? 20, 200);
+    const page = Math.max(opts.page ?? 1, 1);
     const filter: Record<string, unknown> = {};
     if (opts.actorId && Types.ObjectId.isValid(opts.actorId)) {
       filter.actor = opts.actorId;
@@ -106,27 +108,68 @@ export class AuditService {
       }
     }
 
-    const rows = await AuditLogModel.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean()
-      .exec();
+    const [total, rows] = await Promise.all([
+      AuditLogModel.countDocuments(filter).exec(),
+      AuditLogModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean()
+        .exec(),
+    ]);
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+    const userIds = new Set<string>();
+    for (const row of rows) {
+      if (row.actor) userIds.add(String(row.actor));
+      if (row.entityType === 'User' && row.entityId) {
+        userIds.add(String(row.entityId));
+      }
+    }
+
+    const emailByUserId = new Map<string, string>();
+    if (userIds.size > 0) {
+      const users = await UserModel.find({ _id: { $in: [...userIds] } })
+        .select('email')
+        .lean()
+        .exec();
+      for (const user of users) {
+        if (user.email) {
+          emailByUserId.set(String(user._id), user.email);
+        }
+      }
+    }
 
     return {
-      items: rows.map((row) => ({
-        id: String(row._id),
-        actorId: row.actor ? String(row.actor) : undefined,
-        actorRole: row.actorRole,
-        action: row.action,
-        entityType: row.entityType,
-        entityId: String(row.entityId),
-        outcome: row.outcome,
-        correlationId: row.correlationId,
-        metadata: row.metadata,
-        ipAddress: row.ipAddress,
-        userAgent: row.userAgent,
-        createdAt: row.createdAt.toISOString(),
-      })),
+      items: rows.map((row) => {
+        const actorId = row.actor ? String(row.actor) : undefined;
+        const entityId = String(row.entityId);
+        const userId =
+          actorId ?? (row.entityType === 'User' ? entityId : undefined);
+        const userEmail = userId ? emailByUserId.get(userId) : undefined;
+
+        return {
+          id: String(row._id),
+          actorId,
+          actorRole: row.actorRole,
+          action: row.action,
+          entityType: row.entityType,
+          entityId,
+          userId,
+          userEmail,
+          outcome: row.outcome,
+          correlationId: row.correlationId,
+          metadata: row.metadata,
+          ipAddress: row.ipAddress,
+          userAgent: row.userAgent,
+          createdAt: row.createdAt.toISOString(),
+        };
+      }),
+      total,
+      page,
+      limit,
+      totalPages,
     };
   }
 }

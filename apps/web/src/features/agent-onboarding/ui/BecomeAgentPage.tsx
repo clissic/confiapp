@@ -1,15 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
+import { Controller } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { Plus, ShieldCheck, Trash2 } from 'lucide-react';
 
 import { useZodForm } from '@/shared/lib/form';
+import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
+import { useUserPreferences } from '@/shared/preferences';
+import { useAppToast } from '@/shared/ui';
+import { useProfile } from '@/features/profile/hooks/useProfile';
+import { TimezoneSelect } from '@/features/profile/ui/sections/TimezoneSelect';
+import { CountrySelect } from '@/features/profile/ui/sections/CountryDialSelect';
+import { UruguayCitySelect } from '@/features/profile/ui/sections/UruguayCitySelect';
 
-import { formatRate } from '../api/agent-onboarding.api';
 import {
   useAgentOnboarding,
+  useCloseAgency,
+  useResumeAgent,
   useSaveAgentDraft,
   useSubmitAgentOnboarding,
+  useSuspendAgent,
 } from '../hooks/useAgentOnboarding';
 import {
   areaStepSchema,
@@ -19,10 +30,10 @@ import {
   scheduleStepSchema,
   termsStepSchema,
   type AreaStepValues,
-  type RateStepValues,
   type ScheduleStepValues,
 } from '../model/schemas';
 import type { AgentOnboarding, AgentScheduleSlot } from '../model/types';
+import { AgentAgencyPanel } from './AgentAgencyPanel';
 import '../styles/agent-onboarding.css';
 
 const STEPS = [
@@ -33,21 +44,40 @@ const STEPS = [
   { id: 5, label: 'Vista previa' },
 ] as const;
 
+const AGENCY_STEPS = [
+  { id: 1, label: 'Términos' },
+  { id: 2, label: 'Horarios' },
+  { id: 3, label: 'Área' },
+  { id: 4, label: 'Tarifa' },
+  { id: 5, label: 'Resumen' },
+] as const;
+
 export function BecomeAgentPage() {
+  const toast = useAppToast();
   const { data, isLoading, isError } = useAgentOnboarding();
   const saveDraft = useSaveAgentDraft();
   const submit = useSubmitAgentOnboarding();
+  const suspend = useSuspendAgent();
+  const resume = useResumeAgent();
+  const closeAgency = useCloseAgency();
   const [step, setStep] = useState(1);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [editSection, setEditSection] = useState<'schedule' | 'area' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const onboarding = data?.data;
+  const isRegistered =
+    onboarding?.status === 'ACTIVE' || onboarding?.status === 'INACTIVE';
 
   useEffect(() => {
-    if (onboarding?.draftStep) {
-      setStep(onboarding.isAgent ? 5 : onboarding.draftStep);
+    if (!onboarding) return;
+    if (isRegistered) {
+      setStep(5);
+      return;
     }
-  }, [onboarding?.draftStep, onboarding?.isAgent]);
+    if (onboarding.draftStep) {
+      setStep(onboarding.draftStep);
+    }
+  }, [onboarding?.draftStep, onboarding?.status, isRegistered]);
 
   if (isLoading) {
     return (
@@ -62,69 +92,164 @@ export function BecomeAgentPage() {
     return <Alert variant="danger">No se pudo cargar el flujo de agente.</Alert>;
   }
 
+  const stepLabels = isRegistered ? AGENCY_STEPS : STEPS;
+  const busy =
+    saveDraft.isPending ||
+    submit.isPending ||
+    suspend.isPending ||
+    resume.isPending ||
+    closeAgency.isPending;
+
   return (
     <div className="ca-agent-flow">
       <header className="ca-agent-flow__header">
         <div className="ca-agent-flow__brand">
           <ShieldCheck size={22} strokeWidth={1.75} />
           <div>
-            <p className="ca-agent-flow__kicker">Convertirse en agente</p>
-            <h2 className="ca-agent-flow__title">Onboarding de intermediario</h2>
+            <p className="ca-agent-flow__kicker">
+              {isRegistered ? 'Tu agencia' : 'Convertirse en agente'}
+            </p>
+            <h2 className="ca-agent-flow__title">
+              {isRegistered ? 'Gestión de intermediario' : 'Onboarding de intermediario'}
+            </h2>
           </div>
         </div>
         <div className="ca-agent-flow__meta">
-          <Badge bg="primary">{onboarding.status}</Badge>
-          <Badge bg="light" text="dark">
-            {data.source === 'demo' ? 'Modo demo' : 'API'}
+          <Badge bg={onboarding.status === 'INACTIVE' ? 'secondary' : 'primary'}>
+            {onboarding.status}
           </Badge>
         </div>
       </header>
 
-      <ol className="ca-agent-steps">
-        {STEPS.map((item) => (
-          <li
-            key={item.id}
-            className={[
-              'ca-agent-steps__item',
-              step === item.id ? 'ca-agent-steps__item--active' : '',
-              step > item.id ? 'ca-agent-steps__item--done' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <span>{item.id}</span>
-            {item.label}
-          </li>
-        ))}
-      </ol>
+      <div className="ca-agent-steps-wrap">
+        <ol className="ca-agent-steps" aria-label="Pasos del onboarding">
+          {stepLabels.map((item) => (
+            <li
+              key={item.id}
+              className={[
+                'ca-agent-steps__item',
+                !isRegistered && step === item.id ? 'ca-agent-steps__item--active' : '',
+                isRegistered || step > item.id ? 'ca-agent-steps__item--done' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-current={!isRegistered && step === item.id ? 'step' : undefined}
+            >
+              <span className="ca-agent-steps__num">{item.id}</span>
+              <span className="ca-agent-steps__label">{item.label}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="ca-agent-steps__current" aria-live="polite">
+          {isRegistered && !editSection
+            ? 'Resumen'
+            : editSection === 'schedule'
+              ? 'Horarios'
+              : editSection === 'area'
+                ? 'Área'
+                : stepLabels.find((item) => item.id === step)?.label}
+        </p>
+      </div>
 
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
-      {onboarding.isAgent ? (
-        <Alert variant="success" className="d-flex align-items-center gap-2">
-          <CheckCircle2 size={18} />
-          Ya sos agente activo. Podés revisar tu configuración abajo.
-        </Alert>
-      ) : null}
-
       <motion.div
-        key={step}
+        key={isRegistered ? `agency-${editSection ?? 'summary'}` : step}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18 }}
         className="ca-agent-panel"
       >
-        {step === 1 ? (
+        {isRegistered && editSection === 'schedule' ? (
+          <ScheduleStep
+            onboarding={onboarding}
+            disabled={false}
+            saving={saveDraft.isPending}
+            onBack={() => setEditSection(null)}
+            onNext={async (values) => {
+              setError(null);
+              try {
+                await saveDraft.mutateAsync({ ...values });
+                toast.success('Horarios actualizados.');
+                setEditSection(null);
+              } catch {
+                setError('No se pudieron actualizar los horarios.');
+              }
+            }}
+          />
+        ) : null}
+
+        {isRegistered && editSection === 'area' ? (
+          <AreaStep
+            onboarding={onboarding}
+            disabled={false}
+            saving={saveDraft.isPending}
+            onBack={() => setEditSection(null)}
+            onNext={async (values) => {
+              setError(null);
+              try {
+                await saveDraft.mutateAsync({ ...values });
+                toast.success('Área actualizada.');
+                setEditSection(null);
+              } catch {
+                setError('No se pudo actualizar el área.');
+              }
+            }}
+          />
+        ) : null}
+
+        {isRegistered && !editSection ? (
+          <AgentAgencyPanel
+            onboarding={onboarding}
+            busy={busy}
+            onEditSchedule={() => setEditSection('schedule')}
+            onEditArea={() => setEditSection('area')}
+            onSuspend={async () => {
+              setError(null);
+              try {
+                await suspend.mutateAsync();
+                toast.success('Actividad suspendida. Estado: INACTIVE.');
+              } catch {
+                setError('No se pudo suspender la actividad.');
+              }
+            }}
+            onResume={async () => {
+              setError(null);
+              try {
+                await resume.mutateAsync();
+                toast.success('Actividad reactivada.');
+              } catch {
+                setError('No se pudo reactivar la actividad.');
+              }
+            }}
+            onClose={async () => {
+              const ok = window.confirm(
+                '¿Cerrar la agencia? Vas a tener que completar el onboarding de nuevo. Tus estadísticas se conservan.',
+              );
+              if (!ok) return;
+              setError(null);
+              try {
+                await closeAgency.mutateAsync();
+                setEditSection(null);
+                setStep(1);
+                toast.success('Agencia cerrada. Podés volver a registrarte cuando quieras.');
+              } catch {
+                setError('No se pudo cerrar la agencia.');
+              }
+            }}
+          />
+        ) : null}
+
+        {!isRegistered && step === 1 ? (
           <TermsStep
             onboarding={onboarding}
-            disabled={onboarding.isAgent}
+            disabled={false}
             saving={saveDraft.isPending}
             onNext={async (termsAccepted) => {
               setError(null);
               try {
                 await saveDraft.mutateAsync({ termsAccepted, draftStep: 2 });
-                setFeedback('Términos guardados.');
+                toast.success('Términos guardados.');
                 setStep(2);
               } catch {
                 setError('No se pudo guardar los términos.');
@@ -133,17 +258,17 @@ export function BecomeAgentPage() {
           />
         ) : null}
 
-        {step === 2 ? (
+        {!isRegistered && step === 2 ? (
           <ScheduleStep
             onboarding={onboarding}
-            disabled={onboarding.isAgent}
+            disabled={false}
             saving={saveDraft.isPending}
             onBack={() => setStep(1)}
             onNext={async (values) => {
               setError(null);
               try {
                 await saveDraft.mutateAsync({ ...values, draftStep: 3 });
-                setFeedback('Horarios guardados.');
+                toast.success('Horarios guardados.');
                 setStep(3);
               } catch {
                 setError('No se pudieron guardar los horarios.');
@@ -152,17 +277,17 @@ export function BecomeAgentPage() {
           />
         ) : null}
 
-        {step === 3 ? (
+        {!isRegistered && step === 3 ? (
           <AreaStep
             onboarding={onboarding}
-            disabled={onboarding.isAgent}
+            disabled={false}
             saving={saveDraft.isPending}
             onBack={() => setStep(2)}
             onNext={async (values) => {
               setError(null);
               try {
                 await saveDraft.mutateAsync({ ...values, draftStep: 4 });
-                setFeedback('Área de trabajo guardada.');
+                toast.success('Área de trabajo guardada.');
                 setStep(4);
               } catch {
                 setError('No se pudo guardar el área.');
@@ -171,46 +296,45 @@ export function BecomeAgentPage() {
           />
         ) : null}
 
-        {step === 4 ? (
+        {!isRegistered && step === 4 ? (
           <RateStep
             onboarding={onboarding}
-            disabled={onboarding.isAgent}
+            disabled={false}
             saving={saveDraft.isPending}
             onBack={() => setStep(3)}
-            onNext={async (values) => {
+            onNext={async () => {
               setError(null);
               try {
                 await saveDraft.mutateAsync({
-                  hourlyRateCents: Math.round(values.hourlyRate * 100),
-                  currency: values.currency,
+                  ratesAccepted: true,
+                  currency: 'USD',
                   draftStep: 5,
                 });
-                setFeedback('Tarifa guardada.');
+                toast.success('Esquema de tarifas aceptado.');
                 setStep(5);
               } catch {
-                setError('No se pudo guardar la tarifa.');
+                setError('No se pudo guardar la aceptación de tarifas.');
               }
             }}
           />
         ) : null}
 
-        {step === 5 ? (
+        {!isRegistered && step === 5 ? (
           <PreviewStep
-            onboarding={data.data}
+            onboarding={onboarding}
             submitting={submit.isPending}
             onBack={() => setStep(4)}
             onSubmit={async () => {
               setError(null);
-              setFeedback(null);
-              const current = data.data;
+              const current = onboarding;
               if (
                 !current.termsAccepted ||
-                !current.weeklySlots.length ||
+                !current.ratesAccepted ||
+                (!current.unspecifiedSchedule && !current.weeklySlots.length) ||
                 !current.workAreaLabel ||
                 !current.workAreaCity ||
                 !current.workAreaCountry ||
-                current.coverageRadiusKm == null ||
-                current.hourlyRateCents == null
+                current.coverageRadiusKm == null
               ) {
                 setError('Completá todos los pasos antes de confirmar.');
                 return;
@@ -218,18 +342,21 @@ export function BecomeAgentPage() {
               try {
                 await submit.mutateAsync({
                   termsAccepted: true,
+                  ratesAccepted: true,
                   timezone: current.timezone,
-                  weeklySlots: current.weeklySlots,
+                  weeklySlots: current.unspecifiedSchedule ? [] : current.weeklySlots,
+                  unspecifiedSchedule: Boolean(current.unspecifiedSchedule),
                   workAreaLabel: current.workAreaLabel,
                   workAreaCity: current.workAreaCity,
                   workAreaCountry: current.workAreaCountry,
                   coverageRadiusKm: current.coverageRadiusKm,
-                  hourlyRateCents: current.hourlyRateCents,
-                  currency: current.currency,
+                  currency: current.currency || 'USD',
                 });
-                setFeedback('¡Ya sos agente de ConfiApp!');
+                toast.success('¡Ya sos agente de ConfiApp!');
               } catch {
-                setError('No se pudo completar el alta de agente.');
+                setError(
+                  'No se pudo completar el alta de agente. Verificá tu identidad si aún no lo hiciste.',
+                );
               }
             }}
           />
@@ -250,6 +377,11 @@ function TermsStep({
   saving: boolean;
   onNext: (accepted: true) => Promise<void>;
 }) {
+  const { data: profileData } = useProfile();
+  const profile = profileData?.profile;
+  const identityVerified =
+    Boolean(profile?.identityVerified) || profile?.kyc?.status === 'VERIFIED';
+
   const form = useZodForm(termsStepSchema, {
     defaultValues: { termsAccepted: onboarding.termsAccepted },
   });
@@ -258,32 +390,63 @@ function TermsStep({
     <section>
       <h3 className="ca-section-title">Aceptación de términos</h3>
       <p className="ca-section-lead">Versión {onboarding.termsVersion}</p>
-      <pre className="ca-terms-box">{onboarding.termsText}</pre>
-      <Form
-        onSubmit={form.handleSubmit(async () => {
-          await onNext(true);
-        })}
-      >
-        <Form.Check
-          type="checkbox"
-          id="termsAccepted"
-          className="mb-3"
-          label="Acepto los términos y condiciones del agente intermediario"
-          checked={Boolean(form.watch('termsAccepted'))}
-          disabled={disabled}
-          onChange={(event) =>
-            form.setValue('termsAccepted', event.target.checked, {
-              shouldValidate: true,
-            })
-          }
-        />
-        {form.formState.errors.termsAccepted ? (
-          <div className="text-danger small mb-3">{form.formState.errors.termsAccepted.message}</div>
-        ) : null}
-        <Button type="submit" className="ca-btn-cta" disabled={disabled || saving}>
-          {saving ? 'Guardando…' : 'Continuar'}
-        </Button>
-      </Form>
+      <div className="ca-agent-form-shell ca-onboarding-media">
+        <div className="ca-onboarding-media__visual" aria-hidden="true">
+          <img
+            src="/landing/Files.png"
+            alt=""
+            width={512}
+            height={512}
+            decoding="async"
+          />
+        </div>
+        <div className="ca-onboarding-media__body">
+          {!identityVerified ? (
+            <Alert variant="warning" className="mb-3">
+              Para continuar necesitás tener la identidad verificada (DNI o pasaporte con las fotos
+              requeridas).{' '}
+              <Link to="/perfil?tab=settings#verificar-identidad">
+                Ir a Configuración → Verificar identidad
+              </Link>
+            </Alert>
+          ) : null}
+          <pre className="ca-terms-box">{onboarding.termsText}</pre>
+          <Form
+            onSubmit={form.handleSubmit(async () => {
+              if (!identityVerified) return;
+              await onNext(true);
+            })}
+          >
+            <Form.Check
+              type="checkbox"
+              id="termsAccepted"
+              className="mb-3"
+              label="Acepto los términos y condiciones del agente intermediario"
+              checked={Boolean(form.watch('termsAccepted'))}
+              disabled={disabled || !identityVerified}
+              onChange={(event) =>
+                form.setValue('termsAccepted', event.target.checked, {
+                  shouldValidate: true,
+                })
+              }
+            />
+            {form.formState.errors.termsAccepted ? (
+              <div className="text-danger small mb-3">
+                {form.formState.errors.termsAccepted.message}
+              </div>
+            ) : null}
+            <div className="ca-form-actions">
+              <Button
+                type="submit"
+                className="ca-btn-primary"
+                disabled={disabled || saving || !identityVerified}
+              >
+                {saving ? 'Guardando…' : 'Continuar'}
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </div>
     </section>
   );
 }
@@ -304,6 +467,7 @@ function ScheduleStep({
   const form = useZodForm(scheduleStepSchema, {
     defaultValues: {
       timezone: onboarding.timezone,
+      unspecifiedSchedule: onboarding.unspecifiedSchedule === true,
       weeklySlots: onboarding.weeklySlots.length
         ? onboarding.weeklySlots
         : [{ dayOfWeek: 'MONDAY', startTime: '09:00', endTime: '13:00' }],
@@ -311,8 +475,11 @@ function ScheduleStep({
   });
 
   const slots = form.watch('weeklySlots');
+  const unspecifiedSchedule = Boolean(form.watch('unspecifiedSchedule'));
+  const slotsDisabled = disabled || unspecifiedSchedule;
 
   const addSlot = () => {
+    if (unspecifiedSchedule) return;
     const next: AgentScheduleSlot[] = [
       ...(slots ?? []),
       { dayOfWeek: 'TUESDAY', startTime: '14:00', endTime: '18:00' },
@@ -321,6 +488,7 @@ function ScheduleStep({
   };
 
   const removeSlot = (index: number) => {
+    if (unspecifiedSchedule) return;
     form.setValue(
       'weeklySlots',
       (slots ?? []).filter((_, i) => i !== index),
@@ -332,89 +500,147 @@ function ScheduleStep({
     <section>
       <h3 className="ca-section-title">Configuración de horarios</h3>
       <p className="ca-section-lead">Definí tu disponibilidad semanal como intermediario.</p>
-      <Form onSubmit={form.handleSubmit(onNext)} className="ca-form-grid">
-        <Form.Group controlId="timezone" className="ca-form-grid__full">
-          <Form.Label>Zona horaria</Form.Label>
-          <Form.Control {...form.register('timezone')} disabled={disabled} />
-        </Form.Group>
-
-        <div className="ca-form-grid__full">
-          {(slots ?? []).map((slot, index) => (
-            <div key={`${slot.dayOfWeek}-${index}`} className="ca-slot-row">
-              <Form.Select
-                value={slot.dayOfWeek}
-                disabled={disabled}
-                onChange={(event) => {
-                  const next = [...(slots ?? [])];
-                  next[index] = {
-                    ...next[index]!,
-                    dayOfWeek: event.target.value as AgentScheduleSlot['dayOfWeek'],
-                  };
-                  form.setValue('weeklySlots', next, { shouldValidate: true });
-                }}
+      <div className="ca-agent-form-shell ca-onboarding-media">
+        <div className="ca-onboarding-media__visual" aria-hidden="true">
+          <img
+            src="/landing/TimeManagement.png"
+            alt=""
+            width={512}
+            height={512}
+            decoding="async"
+          />
+        </div>
+        <div className="ca-onboarding-media__body">
+          <Form
+            onSubmit={form.handleSubmit(async (values) => {
+              await onNext({
+                ...values,
+                weeklySlots: values.unspecifiedSchedule ? [] : values.weeklySlots,
+              });
+            })}
+            className="ca-form-grid"
+          >
+            <div className="row g-3 ca-form-grid__full">
+              <Form.Group controlId="timezone" className="col-12 col-md-8">
+                <Form.Label>Zona horaria</Form.Label>
+                <Controller
+                  name="timezone"
+                  control={form.control}
+                  render={({ field }) => (
+                    <TimezoneSelect
+                      id="timezone"
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      disabled={disabled}
+                    />
+                  )}
+                />
+              </Form.Group>
+              <Form.Group
+                controlId="unspecifiedSchedule"
+                className="col-12 col-md-4 d-flex align-items-end"
               >
-                {DAYS.map((day) => (
-                  <option key={day} value={day}>
-                    {DAY_LABELS[day]}
-                  </option>
-                ))}
-              </Form.Select>
-              <Form.Control
-                type="time"
-                value={slot.startTime}
-                disabled={disabled}
-                onChange={(event) => {
-                  const next = [...(slots ?? [])];
-                  next[index] = { ...next[index]!, startTime: event.target.value };
-                  form.setValue('weeklySlots', next, { shouldValidate: true });
-                }}
-              />
-              <Form.Control
-                type="time"
-                value={slot.endTime}
-                disabled={disabled}
-                onChange={(event) => {
-                  const next = [...(slots ?? [])];
-                  next[index] = { ...next[index]!, endTime: event.target.value };
-                  form.setValue('weeklySlots', next, { shouldValidate: true });
-                }}
-              />
+                <Form.Check
+                  type="switch"
+                  id="unspecifiedSchedule"
+                  label="No especificar horario"
+                  checked={unspecifiedSchedule}
+                  disabled={disabled}
+                  onChange={(event) => {
+                    form.setValue('unspecifiedSchedule', event.target.checked, {
+                      shouldValidate: true,
+                    });
+                  }}
+                />
+              </Form.Group>
+            </div>
+
+            {unspecifiedSchedule ? (
+              <p className="ca-form-grid__full text-muted small mb-0">
+                Vas a recibir notificaciones de trabajo las 24 horas.
+              </p>
+            ) : null}
+
+            <div className="ca-form-grid__full">
+              {(slots ?? []).map((slot, index) => (
+                <div key={`${slot.dayOfWeek}-${index}`} className="ca-slot-row">
+                  <Form.Select
+                    value={slot.dayOfWeek}
+                    disabled={slotsDisabled}
+                    onChange={(event) => {
+                      const next = [...(slots ?? [])];
+                      next[index] = {
+                        ...next[index]!,
+                        dayOfWeek: event.target.value as AgentScheduleSlot['dayOfWeek'],
+                      };
+                      form.setValue('weeklySlots', next, { shouldValidate: true });
+                    }}
+                  >
+                    {DAYS.map((day) => (
+                      <option key={day} value={day}>
+                        {DAY_LABELS[day]}
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Control
+                    type="time"
+                    value={slot.startTime}
+                    disabled={slotsDisabled}
+                    onChange={(event) => {
+                      const next = [...(slots ?? [])];
+                      next[index] = { ...next[index]!, startTime: event.target.value };
+                      form.setValue('weeklySlots', next, { shouldValidate: true });
+                    }}
+                  />
+                  <Form.Control
+                    type="time"
+                    value={slot.endTime}
+                    disabled={slotsDisabled}
+                    onChange={(event) => {
+                      const next = [...(slots ?? [])];
+                      next[index] = { ...next[index]!, endTime: event.target.value };
+                      form.setValue('weeklySlots', next, { shouldValidate: true });
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline-danger"
+                    disabled={slotsDisabled || (slots?.length ?? 0) <= 1}
+                    onClick={() => removeSlot(index)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              ))}
+              {form.formState.errors.weeklySlots ? (
+                <div className="text-danger small">
+                  {form.formState.errors.weeklySlots.message as string}
+                </div>
+              ) : null}
               <Button
                 type="button"
-                variant="outline-danger"
-                disabled={disabled || (slots?.length ?? 0) <= 1}
-                onClick={() => removeSlot(index)}
+                variant="outline-primary"
+                className="mt-2"
+                disabled={slotsDisabled}
+                onClick={addSlot}
               >
-                <Trash2 size={16} />
+                <Plus size={16} className="me-1" />
+                Agregar franja
               </Button>
             </div>
-          ))}
-          {form.formState.errors.weeklySlots ? (
-            <div className="text-danger small">
-              {form.formState.errors.weeklySlots.message as string}
-            </div>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline-primary"
-            className="mt-2"
-            disabled={disabled}
-            onClick={addSlot}
-          >
-            <Plus size={16} className="me-1" />
-            Agregar franja
-          </Button>
-        </div>
 
-        <div className="ca-form-actions ca-form-grid__full">
-          <Button type="button" variant="outline-secondary" onClick={onBack}>
-            Atrás
-          </Button>
-          <Button type="submit" className="ca-btn-primary" disabled={disabled || saving}>
-            {saving ? 'Guardando…' : 'Continuar'}
-          </Button>
+            <div className="ca-form-actions ca-form-grid__full">
+              <Button type="button" variant="outline-secondary" onClick={onBack}>
+                Atrás
+              </Button>
+              <Button type="submit" className="ca-btn-primary" disabled={disabled || saving}>
+                {saving ? 'Guardando…' : 'Continuar'}
+              </Button>
+            </div>
+          </Form>
         </div>
-      </Form>
+      </div>
     </section>
   );
 }
@@ -432,77 +658,132 @@ function AreaStep({
   onBack: () => void;
   onNext: (values: AreaStepValues) => Promise<void>;
 }) {
+  const { distanceUnit } = useUserPreferences();
   const form = useZodForm(areaStepSchema, {
     defaultValues: {
       workAreaLabel: onboarding.workAreaLabel ?? '',
       workAreaCity: onboarding.workAreaCity ?? '',
-      workAreaCountry: onboarding.workAreaCountry ?? 'AR',
+      workAreaCountry: onboarding.workAreaCountry ?? 'UY',
       coverageRadiusKm: onboarding.coverageRadiusKm ?? 10,
     },
   });
+
+  const coverageKm = form.watch('coverageRadiusKm');
+  const maxDisplay = distanceUnit === 'MI' ? 62 : 100;
+  const minDisplay = distanceUnit === 'MI' ? 1 : 1;
 
   return (
     <section>
       <h3 className="ca-section-title">Área de trabajo y cobertura</h3>
       <p className="ca-section-lead">Zona donde podés mediar encuentros presenciales.</p>
-      <Form onSubmit={form.handleSubmit(onNext)} className="ca-form-grid">
-        <Form.Group controlId="workAreaLabel" className="ca-form-grid__full">
-          <Form.Label>Área / barrio</Form.Label>
-          <Form.Control
-            {...form.register('workAreaLabel')}
-            disabled={disabled}
-            isInvalid={Boolean(form.formState.errors.workAreaLabel)}
+      <div className="ca-agent-form-shell ca-onboarding-media">
+        <div className="ca-onboarding-media__visual" aria-hidden="true">
+          <img
+            src="/landing/Map.png"
+            alt=""
+            width={512}
+            height={512}
+            decoding="async"
           />
-          <Form.Control.Feedback type="invalid">
-            {form.formState.errors.workAreaLabel?.message}
-          </Form.Control.Feedback>
-        </Form.Group>
-        <Form.Group controlId="workAreaCity">
-          <Form.Label>Ciudad</Form.Label>
-          <Form.Control
-            {...form.register('workAreaCity')}
-            disabled={disabled}
-            isInvalid={Boolean(form.formState.errors.workAreaCity)}
-          />
-          <Form.Control.Feedback type="invalid">
-            {form.formState.errors.workAreaCity?.message}
-          </Form.Control.Feedback>
-        </Form.Group>
-        <Form.Group controlId="workAreaCountry">
-          <Form.Label>País</Form.Label>
-          <Form.Control
-            {...form.register('workAreaCountry')}
-            disabled={disabled}
-            isInvalid={Boolean(form.formState.errors.workAreaCountry)}
-          />
-          <Form.Control.Feedback type="invalid">
-            {form.formState.errors.workAreaCountry?.message}
-          </Form.Control.Feedback>
-        </Form.Group>
-        <Form.Group controlId="coverageRadiusKm" className="ca-form-grid__full">
-          <Form.Label>Radio de cobertura (km)</Form.Label>
-          <Form.Range
-            min={1}
-            max={100}
-            disabled={disabled}
-            value={form.watch('coverageRadiusKm')}
-            onChange={(event) =>
-              form.setValue('coverageRadiusKm', Number(event.target.value), {
-                shouldValidate: true,
-              })
-            }
-          />
-          <div className="ca-range-value">{form.watch('coverageRadiusKm')} km</div>
-        </Form.Group>
-        <div className="ca-form-actions ca-form-grid__full">
-          <Button type="button" variant="outline-secondary" onClick={onBack}>
-            Atrás
-          </Button>
-          <Button type="submit" className="ca-btn-primary" disabled={disabled || saving}>
-            {saving ? 'Guardando…' : 'Continuar'}
-          </Button>
         </div>
-      </Form>
+        <div className="ca-onboarding-media__body">
+          <Form onSubmit={form.handleSubmit(onNext)}>
+            <div className="row g-3">
+              <Form.Group controlId="workAreaLabel" className="col-12 col-md-4">
+                <Form.Label>Área / barrio</Form.Label>
+                <Form.Control
+                  {...form.register('workAreaLabel')}
+                  disabled={disabled}
+                  isInvalid={Boolean(form.formState.errors.workAreaLabel)}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {form.formState.errors.workAreaLabel?.message}
+                </Form.Control.Feedback>
+              </Form.Group>
+              <Form.Group controlId="workAreaCity" className="col-12 col-md-4">
+                <Form.Label>Ciudad</Form.Label>
+                <Controller
+                  name="workAreaCity"
+                  control={form.control}
+                  render={({ field }) => (
+                    <UruguayCitySelect
+                      id="workAreaCity"
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      disabled={disabled}
+                      invalid={Boolean(form.formState.errors.workAreaCity)}
+                    />
+                  )}
+                />
+                {form.formState.errors.workAreaCity ? (
+                  <div className="invalid-feedback d-block">
+                    {form.formState.errors.workAreaCity.message}
+                  </div>
+                ) : null}
+              </Form.Group>
+              <Form.Group controlId="workAreaCountry" className="col-12 col-md-4">
+                <Form.Label>País</Form.Label>
+                <Controller
+                  name="workAreaCountry"
+                  control={form.control}
+                  render={({ field }) => (
+                    <CountrySelect
+                      id="workAreaCountry"
+                      variant="name"
+                      value={field.value || 'UY'}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      disabled={disabled}
+                      invalid={Boolean(form.formState.errors.workAreaCountry)}
+                    />
+                  )}
+                />
+                {form.formState.errors.workAreaCountry ? (
+                  <div className="invalid-feedback d-block">
+                    {form.formState.errors.workAreaCountry.message}
+                  </div>
+                ) : null}
+              </Form.Group>
+
+              <Form.Group controlId="coverageRadiusKm" className="col-12">
+                <Form.Label>Radio de cobertura ({distanceUnitLabel(distanceUnit)})</Form.Label>
+                <div className="row g-2 align-items-center ca-coverage-row">
+                  <div className="col-10">
+                    <Form.Range
+                      min={minDisplay}
+                      max={maxDisplay}
+                      disabled={disabled}
+                      value={Number(fromKm(coverageKm, distanceUnit).toFixed(0))}
+                      onChange={(event) =>
+                        form.setValue(
+                          'coverageRadiusKm',
+                          toKm(Number(event.target.value), distanceUnit),
+                          { shouldValidate: true },
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="col-2">
+                    <div className="ca-range-value" aria-live="polite">
+                      {formatDistance(coverageKm, distanceUnit, 0)}
+                    </div>
+                  </div>
+                </div>
+              </Form.Group>
+
+              <div className="col-12 ca-form-actions">
+                <Button type="button" variant="outline-secondary" onClick={onBack}>
+                  Atrás
+                </Button>
+                <Button type="submit" className="ca-btn-primary" disabled={disabled || saving}>
+                  {saving ? 'Guardando…' : 'Continuar'}
+                </Button>
+              </div>
+            </div>
+          </Form>
+        </div>
+      </div>
     </section>
   );
 }
@@ -518,54 +799,106 @@ function RateStep({
   disabled: boolean;
   saving: boolean;
   onBack: () => void;
-  onNext: (values: RateStepValues) => Promise<void>;
+  onNext: () => Promise<void>;
 }) {
   const form = useZodForm(rateStepSchema, {
-    defaultValues: {
-      hourlyRate: onboarding.hourlyRateCents != null ? onboarding.hourlyRateCents / 100 : 25,
-      currency: onboarding.currency || 'UYU',
-    },
+    defaultValues: { ratesAccepted: onboarding.ratesAccepted },
   });
 
   return (
     <section>
-      <h3 className="ca-section-title">Tarifa</h3>
-      <p className="ca-section-lead">Valor horario transparente para tus asignaciones.</p>
-      <Form onSubmit={form.handleSubmit(onNext)} className="ca-form-grid">
-        <Form.Group controlId="hourlyRate">
-          <Form.Label>Tarifa por hora</Form.Label>
-          <Form.Control
-            type="number"
-            step="0.01"
-            min={1}
-            disabled={disabled}
-            {...form.register('hourlyRate')}
-            isInvalid={Boolean(form.formState.errors.hourlyRate)}
+      <h3 className="ca-section-title">Tarifa de intermediación</h3>
+      <p className="ca-section-lead">
+        La tarifa la define ConfiApp según el valor del producto. Acá te explicamos cómo se calcula
+        y cómo se reparte.
+      </p>
+      <div className="ca-agent-form-shell ca-onboarding-media">
+        <div className="ca-onboarding-media__visual" aria-hidden="true">
+          <img
+            src="/landing/Finance.png"
+            alt=""
+            width={512}
+            height={512}
+            decoding="async"
           />
-          <Form.Control.Feedback type="invalid">
-            {form.formState.errors.hourlyRate?.message}
-          </Form.Control.Feedback>
-        </Form.Group>
-        <Form.Group controlId="currency">
-          <Form.Label>Moneda</Form.Label>
-          <Form.Control
-            {...form.register('currency')}
-            disabled={disabled}
-            isInvalid={Boolean(form.formState.errors.currency)}
-          />
-          <Form.Control.Feedback type="invalid">
-            {form.formState.errors.currency?.message}
-          </Form.Control.Feedback>
-        </Form.Group>
-        <div className="ca-form-actions ca-form-grid__full">
-          <Button type="button" variant="outline-secondary" onClick={onBack}>
-            Atrás
-          </Button>
-          <Button type="submit" className="ca-btn-primary" disabled={disabled || saving}>
-            {saving ? 'Guardando…' : 'Continuar'}
-          </Button>
         </div>
-      </Form>
+        <div className="ca-onboarding-media__body">
+          <div className="ca-rates-copy">
+            <p>
+              La tarifa es dinámica y depende del valor del producto de la operación:
+            </p>
+            <ul className="ca-rates-tiers">
+              <li>
+                <strong>Hasta USD $200</strong> (doscientos dólares americanos): la tarifa para los
+                usuarios será de <strong>USD $10</strong> (diez dólares americanos).
+              </li>
+              <li>
+                <strong>De USD $200 a USD $600</strong> (doscientos a seiscientos dólares
+                americanos): la tarifa será de <strong>USD $15</strong> (quince dólares americanos).
+              </li>
+              <li>
+                <strong>De USD $600 a USD $1.200</strong> (seiscientos a mil doscientos dólares
+                americanos): la tarifa será de <strong>USD $20</strong> (veinte dólares americanos).
+              </li>
+              <li>
+                <strong>De USD $1.200 a USD $2.000</strong> (mil doscientos a dos mil dólares
+                americanos): la tarifa será de <strong>USD $25</strong> (veinticinco dólares
+                americanos).
+              </li>
+              <li>
+                <strong>De USD $2.000 en adelante</strong> (dos mil dólares americanos): la tarifa
+                será de <strong>USD $35</strong> (treinta y cinco dólares americanos).
+              </li>
+            </ul>
+            <p>
+              De esa tarifa, el reparto es del <strong>80%</strong> (ochenta por ciento) para el
+              Agente y del <strong>20%</strong> (veinte por ciento) para ConfiApp.
+            </p>
+            <p>
+              Todos los impuestos que se generen por el cobro del servicio de ConfiApp serán a cargo
+              de la aplicación y no del Agente.
+            </p>
+            <p>
+              Los usuarios podrán sumar más dinero a los montos mencionados para persuadir a los
+              Agentes a tomar sus intercambios antes que otros. Sobre esos montos adicionales se
+              mantienen los mismos porcentajes de reparto.
+            </p>
+          </div>
+
+          <Form
+            onSubmit={form.handleSubmit(async () => {
+              await onNext();
+            })}
+          >
+            <Form.Check
+              type="checkbox"
+              id="ratesAccepted"
+              className="mb-3"
+              label="Entiendo y acepto el esquema de tarifas de intermediación de ConfiApp"
+              checked={Boolean(form.watch('ratesAccepted'))}
+              disabled={disabled}
+              onChange={(event) =>
+                form.setValue('ratesAccepted', event.target.checked, {
+                  shouldValidate: true,
+                })
+              }
+            />
+            {form.formState.errors.ratesAccepted ? (
+              <div className="text-danger small mb-3">
+                {form.formState.errors.ratesAccepted.message}
+              </div>
+            ) : null}
+            <div className="ca-form-actions">
+              <Button type="button" variant="outline-secondary" onClick={onBack}>
+                Atrás
+              </Button>
+              <Button type="submit" className="ca-btn-primary" disabled={disabled || saving}>
+                {saving ? 'Guardando…' : 'Continuar'}
+              </Button>
+            </div>
+          </Form>
+        </div>
+      </div>
     </section>
   );
 }
@@ -581,79 +914,90 @@ function PreviewStep({
   onBack: () => void;
   onSubmit: () => Promise<void>;
 }) {
-  const slotsLabel = useMemo(
-    () =>
-      onboarding.weeklySlots
-        .map(
-          (slot) =>
-            `${DAY_LABELS[slot.dayOfWeek] ?? slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`,
-        )
-        .join(' · '),
-    [onboarding.weeklySlots],
-  );
+  const { distanceUnit } = useUserPreferences();
+  const slotsLabel = useMemo(() => {
+    if (onboarding.unspecifiedSchedule) return 'Disponible 24 h';
+    return onboarding.weeklySlots
+      .map(
+        (slot) =>
+          `${DAY_LABELS[slot.dayOfWeek] ?? slot.dayOfWeek} ${slot.startTime}–${slot.endTime}`,
+      )
+      .join(' · ');
+  }, [onboarding.unspecifiedSchedule, onboarding.weeklySlots]);
 
   return (
     <section>
       <h3 className="ca-section-title">Vista previa</h3>
       <p className="ca-section-lead">Revisá todo antes de confirmar tu alta como agente.</p>
 
-      <div className="ca-preview-card">
-        <p className="ca-preview-card__name">{onboarding.preview.fullName}</p>
-        <p className="ca-preview-card__email">{onboarding.preview.email}</p>
-        <p className="ca-preview-card__summary">{onboarding.preview.summary}</p>
-        <dl className="ca-preview-list">
-          <div>
-            <dt>Términos</dt>
-            <dd>
-              {onboarding.termsAccepted
-                ? `Aceptados (v${onboarding.termsVersion})`
-                : 'Pendientes'}
-            </dd>
+      <div className="ca-agent-form-shell ca-onboarding-media">
+        <div className="ca-onboarding-media__visual" aria-hidden="true">
+          <img
+            src="/landing/Folder.png"
+            alt=""
+            width={512}
+            height={512}
+            decoding="async"
+          />
+        </div>
+        <div className="ca-onboarding-media__body">
+          <div className="ca-preview-card">
+            <p className="ca-preview-card__name">{onboarding.preview.fullName}</p>
+            <p className="ca-preview-card__email">{onboarding.preview.email}</p>
+            <p className="ca-preview-card__summary">{onboarding.preview.summary}</p>
+            <dl className="ca-preview-list">
+              <div>
+                <dt>Términos</dt>
+                <dd>
+                  {onboarding.termsAccepted
+                    ? `Aceptados (v${onboarding.termsVersion})`
+                    : 'Pendientes'}
+                </dd>
+              </div>
+              <div>
+                <dt>Horarios</dt>
+                <dd>{slotsLabel || 'Sin franjas'}</dd>
+              </div>
+              <div>
+                <dt>Área</dt>
+                <dd>
+                  {onboarding.workAreaLabel} · {onboarding.workAreaCity},{' '}
+                  {onboarding.workAreaCountry}
+                </dd>
+              </div>
+              <div>
+                <dt>Radio</dt>
+                <dd>
+                  {onboarding.coverageRadiusKm != null
+                    ? formatDistance(onboarding.coverageRadiusKm, distanceUnit, 0)
+                    : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt>Tarifa</dt>
+                <dd>
+                  {onboarding.ratesAccepted
+                    ? 'Esquema de plataforma aceptado (80% agente / 20% ConfiApp)'
+                    : 'Pendiente'}
+                </dd>
+              </div>
+            </dl>
           </div>
-          <div>
-            <dt>Horarios</dt>
-            <dd>{slotsLabel || 'Sin franjas'}</dd>
-          </div>
-          <div>
-            <dt>Área</dt>
-            <dd>
-              {onboarding.workAreaLabel} · {onboarding.workAreaCity},{' '}
-              {onboarding.workAreaCountry}
-            </dd>
-          </div>
-          <div>
-            <dt>Radio</dt>
-            <dd>{onboarding.coverageRadiusKm ?? '—'} km</dd>
-          </div>
-          <div>
-            <dt>Tarifa</dt>
-            <dd>
-              {onboarding.hourlyRateCents != null
-                ? `${formatRate(onboarding.hourlyRateCents, onboarding.currency)} / h`
-                : '—'}
-            </dd>
-          </div>
-        </dl>
-      </div>
 
-      <div className="ca-form-actions mt-3">
-        {!onboarding.isAgent ? (
-          <Button type="button" variant="outline-secondary" onClick={onBack}>
-            Atrás
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          className="ca-btn-cta"
-          disabled={onboarding.isAgent || submitting}
-          onClick={() => void onSubmit()}
-        >
-          {onboarding.isAgent
-            ? 'Agente activo'
-            : submitting
-              ? 'Confirmando…'
-              : 'Confirmar y convertirme en agente'}
-        </Button>
+          <div className="ca-form-actions">
+            <Button type="button" variant="outline-secondary" onClick={onBack}>
+              Atrás
+            </Button>
+            <Button
+              type="button"
+              className="ca-btn-cta"
+              disabled={submitting}
+              onClick={() => void onSubmit()}
+            >
+              {submitting ? 'Confirmando…' : 'Confirmar y convertirme en agente'}
+            </Button>
+          </div>
+        </div>
       </div>
     </section>
   );

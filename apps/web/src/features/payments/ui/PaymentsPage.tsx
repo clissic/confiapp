@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Alert, Badge, Button, Form, Spinner, Table } from 'react-bootstrap';
 
 import { formatDateTime, formatMoney } from '@/shared/lib/money';
+import { usePreferencesSnapshot } from '@/shared/preferences';
+import { useAppToast } from '@/shared/ui';
 
 import {
   useEscrow,
@@ -14,12 +16,13 @@ import {
 import '../styles/payments.css';
 
 export function PaymentsPage() {
+  usePreferencesSnapshot();
+  const toast = useAppToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCode = searchParams.get('code') ?? 'DEMO-001';
   const [code, setCode] = useState(initialCode);
   const [lookup, setLookup] = useState(initialCode);
   const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
 
   const { data: paymentsData } = useMyPayments();
   const { data: escrowData, isFetching } = useEscrow(lookup);
@@ -32,11 +35,11 @@ export function PaymentsPage() {
 
   useEffect(() => {
     if (statusParam === 'success') {
-      setFeedback('Pago confirmado / retención actualizada.');
+      toast.success('Pago confirmado / retención actualizada.');
     } else if (statusParam === 'failure') {
       setError('El pago falló o fue cancelado en Mercado Pago.');
     }
-  }, [statusParam]);
+  }, [statusParam, toast]);
 
   const onLookup = (event: FormEvent) => {
     event.preventDefault();
@@ -48,10 +51,9 @@ export function PaymentsPage() {
 
   const onCheckout = async () => {
     setError(null);
-    setFeedback(null);
     try {
       const result = await checkout.mutateAsync();
-      setFeedback(
+      toast.success(
         `Checkout listo (${result.providerMode}). Split: plataforma ${formatMoney(result.split.platformFeeCents)} · agente ${formatMoney(result.split.agentFeeCents)} · vendedor ${formatMoney(result.split.sellerCents)}`,
       );
       if (result.checkoutUrl && result.checkoutUrl !== '#') {
@@ -64,10 +66,9 @@ export function PaymentsPage() {
 
   const onRelease = async () => {
     setError(null);
-    setFeedback(null);
     try {
       await release.mutateAsync();
-      setFeedback('Escrow liberado: neto al vendedor, 20% plataforma, pago al agente.');
+      toast.success('Escrow liberado: neto al vendedor, 20% plataforma, pago al agente.');
     } catch {
       setError('No se pudo liberar. ¿La operación está FUNDED?');
     }
@@ -84,9 +85,11 @@ export function PaymentsPage() {
             comisión y pago al agente.
           </p>
         </div>
-        <Badge bg="light" text="dark">
-          {escrow?.providerMode ?? '—'} · {escrowData?.source === 'demo' ? 'demo' : 'API'}
-        </Badge>
+        {escrow?.providerMode ? (
+          <Badge bg="light" text="dark">
+            {escrow.providerMode}
+          </Badge>
+        ) : null}
       </header>
 
       <section className="ca-payments-panel">
@@ -105,7 +108,6 @@ export function PaymentsPage() {
         </Form>
       </section>
 
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
       <section className="ca-payments-panel">

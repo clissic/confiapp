@@ -6,10 +6,14 @@ vi.mock('../../database/models', () => ({
     create: vi.fn().mockResolvedValue({}),
     find: vi.fn(),
     findById: vi.fn(),
+    countDocuments: vi.fn(),
+  },
+  UserModel: {
+    find: vi.fn(),
   },
 }));
 
-import { AuditLogModel } from '../../database/models';
+import { AuditLogModel, UserModel } from '../../database/models';
 import { AuditAction, AuditOutcome, auditMetaFromRequest, auditService } from './service';
 
 describe('audit/service', () => {
@@ -67,7 +71,7 @@ describe('audit/service', () => {
     await new Promise((r) => setTimeout(r, 20));
   });
 
-  it('lista con filtros y before cursor', async () => {
+  it('lista con filtros, página y before cursor', async () => {
     const leanExec = vi.fn().mockResolvedValue([
       {
         _id: '507f1f77bcf86cd799439012',
@@ -80,11 +84,24 @@ describe('audit/service', () => {
     ]);
     const lean = vi.fn().mockReturnValue({ exec: leanExec });
     const limit = vi.fn().mockReturnValue({ lean });
-    const sort = vi.fn().mockReturnValue({ limit });
+    const skip = vi.fn().mockReturnValue({ limit });
+    const sort = vi.fn().mockReturnValue({ skip });
     (AuditLogModel.find as ReturnType<typeof vi.fn>).mockReturnValue({ sort });
+    (AuditLogModel.countDocuments as ReturnType<typeof vi.fn>).mockReturnValue({
+      exec: vi.fn().mockResolvedValue(21),
+    });
     (AuditLogModel.findById as ReturnType<typeof vi.fn>).mockReturnValue({
       select: vi.fn().mockReturnValue({
         lean: vi.fn().mockResolvedValue({ createdAt: new Date('2026-01-02T00:00:00Z') }),
+      }),
+    });
+    (UserModel.find as ReturnType<typeof vi.fn>).mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockReturnValue({
+          exec: vi.fn().mockResolvedValue([
+            { _id: '507f1f77bcf86cd799439011', email: 'alice@confiapp.demo' },
+          ]),
+        }),
       }),
     });
 
@@ -94,10 +111,18 @@ describe('audit/service', () => {
       entityId: '507f1f77bcf86cd799439011',
       action: AuditAction.LOGIN,
       before: '507f1f77bcf86cd799439099',
-      limit: 10,
+      limit: 20,
+      page: 2,
     });
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.action).toBe(AuditAction.LOGIN);
+    expect(result.items[0]?.userEmail).toBe('alice@confiapp.demo');
+    expect(result.items[0]?.userId).toBe('507f1f77bcf86cd799439011');
+    expect(result.total).toBe(21);
+    expect(result.page).toBe(2);
+    expect(result.limit).toBe(20);
+    expect(result.totalPages).toBe(2);
+    expect(skip).toHaveBeenCalledWith(20);
   });
 
   it('extrae IP desde x-forwarded-for', () => {

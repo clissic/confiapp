@@ -5,17 +5,22 @@ import { motion } from 'framer-motion';
 import { MapPin, Radar } from 'lucide-react';
 
 import { useAgentSearch, useOfferAssignment } from '../hooks/useAgentOps';
+import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
 import { formatMoney } from '@/shared/lib/money';
+import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
+import { useAppToast } from '@/shared/ui';
 import '../styles/agent-ops.css';
 
 export function AgentSearchPage() {
+  usePreferencesSnapshot();
+  const toast = useAppToast();
+  const { distanceUnit } = useUserPreferences();
   // Montevideo por defecto (Mercado Pago Uruguay / MLU)
   const [lng, setLng] = useState(-56.1645);
   const [lat, setLat] = useState(-34.9011);
   const [radiusKm, setRadiusKm] = useState(10);
   const [txCode, setTxCode] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const search = useAgentSearch({ lng, lat, radiusKm, enabled });
@@ -31,7 +36,6 @@ export function AgentSearchPage() {
 
   const onOffer = async () => {
     setError(null);
-    setFeedback(null);
     if (!/^CONF-[A-Z0-9]{6,16}$/i.test(txCode.trim())) {
       setError('Ingresá un código de operación válido (CONF-…)');
       return;
@@ -44,7 +48,7 @@ export function AgentSearchPage() {
         radiusKm,
         expiresInSeconds: 120,
       });
-      setFeedback('Oferta enviada al mejor agente. Notificación push + WebSocket despachadas.');
+      toast.success('Oferta enviada al mejor agente. Notificación push + WebSocket despachadas.');
     } catch {
       setError('No se pudo ofrecer la asignación. Revisá la operación y los agentes.');
     }
@@ -87,14 +91,14 @@ export function AgentSearchPage() {
             />
           </Form.Group>
           <Form.Group controlId="radius">
-            <Form.Label>Radio (km)</Form.Label>
+            <Form.Label>Radio ({distanceUnitLabel(distanceUnit)})</Form.Label>
             <Form.Control
               type="number"
-              min={0.5}
-              max={100}
+              min={distanceUnit === 'MI' ? 0.3 : 0.5}
+              max={distanceUnit === 'MI' ? 62 : 100}
               step="0.5"
-              value={radiusKm}
-              onChange={(e) => setRadiusKm(Number(e.target.value))}
+              value={Number(fromKm(radiusKm, distanceUnit).toFixed(2))}
+              onChange={(e) => setRadiusKm(toKm(Number(e.target.value), distanceUnit))}
             />
           </Form.Group>
           <Button type="submit" className="ca-btn-primary">
@@ -104,14 +108,13 @@ export function AgentSearchPage() {
         </Form>
       </section>
 
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
       <section className="ca-agent-ops-panel">
         <div className="ca-agent-ops-list__row">
           <h3 className="mb-0">Resultados</h3>
           <Badge bg="light" text="dark">
-            {search.data?.source === 'demo' ? 'Modo demo' : 'API'} · {items.length}
+            {items.length}
           </Badge>
         </div>
 
@@ -140,13 +143,14 @@ export function AgentSearchPage() {
                 </div>
                 <div className="ca-agent-ops-list__meta">
                   <MapPin size={14} className="me-1" />
-                  {agent.distanceKm.toFixed(2)} km · ★ {agent.ratingAverage.toFixed(1)} (
-                  {agent.ratingCount}) · trabajos {agent.activeJobs}/{agent.maxActiveTransactions} ·{' '}
+                  {formatDistance(agent.distanceKm, distanceUnit, 2)} · ★{' '}
+                  {agent.ratingAverage.toFixed(1)} ({agent.ratingCount}) · trabajos{' '}
+                  {agent.activeJobs}/{agent.maxActiveTransactions} ·{' '}
                   {formatMoney(agent.hourlyRateCents, agent.currency)}
                 </div>
                 <div className="ca-agent-ops-list__meta">
-                  Cobertura {agent.coverageRadiusKm} km · {agent.locationLabel || 'Sin etiqueta'} ·{' '}
-                  {agent.timezone}
+                  Cobertura {formatDistance(agent.coverageRadiusKm, distanceUnit, 0)} ·{' '}
+                  {agent.locationLabel || 'Sin etiqueta'} · {agent.timezone}
                 </div>
               </motion.li>
             ))}

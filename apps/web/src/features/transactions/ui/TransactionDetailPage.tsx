@@ -5,7 +5,11 @@ import { motion } from 'framer-motion';
 import { Copy, Handshake, Link2, RefreshCw, Share2 } from 'lucide-react';
 
 import { formatMoney } from '../api/transactions.api';
-import { useRefreshInvite, useTransaction } from '../hooks/useTransactions';
+import { formatDateTime } from '@/shared/lib/money';
+import { usePreferencesSnapshot } from '@/shared/preferences';
+import { useAuth } from '@/features/auth/ui/AuthProvider';
+import { useAppToast } from '@/shared/ui';
+import { useRefreshInvite, useToggleChecklistItem, useTransaction } from '../hooks/useTransactions';
 import {
   CONDITION_LABELS,
   INITIATOR_LABELS,
@@ -13,6 +17,7 @@ import {
   type TransactionStatus,
 } from '../model/types';
 import { ReviewFormPanel } from '@/features/reputation';
+import { AgentChecklistPanel } from './AgentChecklistPanel';
 import '../styles/transactions.css';
 
 const STATE_PIPELINE: TransactionStatus[] = [
@@ -30,6 +35,9 @@ function pipelineIndex(status: TransactionStatus): number {
 }
 
 export function TransactionDetailPage() {
+  usePreferencesSnapshot();
+  const toast = useAppToast();
+  const { user } = useAuth();
   const { code } = useParams<{ code: string }>();
   const location = useLocation();
   const state = location.state as {
@@ -38,23 +46,31 @@ export function TransactionDetailPage() {
     sellerConfirmed?: boolean;
     buyerAccepted?: boolean;
     initiatedBySeller?: boolean;
+    agentAccepted?: boolean;
   } | null;
   const { data, isLoading, isError } = useTransaction(code);
   const refresh = useRefreshInvite();
+  const toggleChecklist = useToggleChecklistItem(code);
   const [shareUrl, setShareUrl] = useState<string | undefined>(state?.shareUrl);
-  const [copied, setCopied] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(
-    state?.buyerAccepted
-      ? 'Compra aceptada. Estado actualizado a Aceptada — pendiente de fondeo.'
-      : state?.sellerConfirmed
-        ? 'Venta confirmada. Estado actualizado a Aceptada — pendiente de fondeo.'
-        : state?.justCreated
-          ? state.initiatedBySeller
-            ? 'Operación creada. Compartí el enlace con el comprador.'
-            : 'Operación creada. Compartí el enlace con el vendedor.'
-          : null,
-  );
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (state?.agentAccepted) {
+      toast.success('Oferta aceptada. Usá el checklist como guía de la entrega.');
+    } else if (state?.buyerAccepted) {
+      toast.success('Compra aceptada. Estado actualizado a Aceptada — pendiente de fondeo.');
+    } else if (state?.sellerConfirmed) {
+      toast.success('Venta confirmada. Estado actualizado a Aceptada — pendiente de fondeo.');
+    } else if (state?.justCreated) {
+      toast.success(
+        state.initiatedBySeller
+          ? 'Operación creada. Compartí el enlace con el comprador.'
+          : 'Operación creada. Compartí el enlace con el vendedor.',
+      );
+    }
+    // Solo al montar (feedback inicial desde location.state).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (data?.data.invite.shareUrl) {
@@ -84,13 +100,22 @@ export function TransactionDetailPage() {
   const hasCounterparty = tx.participants.some(
     (p) => p.role === 'COUNTERPARTY' && p.status === 'ACCEPTED',
   );
+  const isAssignedAgent = Boolean(
+    user?.id &&
+      tx.participants.some(
+        (p) =>
+          p.userId === user.id &&
+          p.role === 'INTERMEDIARY' &&
+          p.status === 'ACCEPTED',
+      ),
+  );
+  const checklist = tx.conditions.checklist ?? [];
 
   const copyLink = async () => {
     if (!shareUrl) return;
     try {
       await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      toast.success('Enlace copiado.');
     } catch {
       setError('No se pudo copiar al portapapeles');
     }
@@ -117,7 +142,7 @@ export function TransactionDetailPage() {
     try {
       const result = await refresh.mutateAsync(tx.code);
       setShareUrl(result.data.invite.shareUrl);
-      setFeedback('Nuevo enlace generado. El anterior dejó de ser válido.');
+      toast.success('Nuevo enlace generado. El anterior dejó de ser válido.');
     } catch {
       setError('No se pudo regenerar el enlace.');
     }
@@ -137,13 +162,9 @@ export function TransactionDetailPage() {
         <div className="ca-tx__meta">
           <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
           <Badge bg="secondary">{INITIATOR_LABELS[tx.initiatedBy ?? 'BUYER']}</Badge>
-          <Badge bg="light" text="dark">
-            {data.source === 'demo' ? 'Modo demo' : 'API'}
-          </Badge>
         </div>
       </header>
 
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
       <section className="ca-tx-panel">
@@ -189,14 +210,31 @@ export function TransactionDetailPage() {
           Monto: <strong>{formatMoney(tx.amountCents, tx.currency)}</strong>
         </p>
         <p>{tx.conditions.summary}</p>
-        {tx.conditions.checklist?.length ? (
-          <ul>
-            {tx.conditions.checklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        ) : null}
       </motion.section>
+
+      {checklist.length ? (
+        <motion.section
+          className="ca-tx-panel"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.02 }}
+        >
+          <AgentChecklistPanel
+            items={checklist}
+            canToggle={isAssignedAgent}
+            pendingItemId={
+              toggleChecklist.isPending
+                ? (toggleChecklist.variables?.itemId ?? null)
+                : null
+            }
+            onToggle={(itemId, done) => {
+              void toggleChecklist.mutateAsync({ itemId, done }).catch(() => {
+                toast.error('No se pudo actualizar el checklist.');
+              });
+            }}
+          />
+        </motion.section>
+      ) : null}
 
       {tx.product ? (
         <motion.section
@@ -240,7 +278,7 @@ export function TransactionDetailPage() {
             ? 'Compartí este enlace con el comprador.'
             : 'Compartí este enlace con el vendedor.'}{' '}
           {tx.invite.expiresAt
-            ? `Vence: ${new Date(tx.invite.expiresAt).toLocaleString('es-AR')}`
+            ? `Vence: ${formatDateTime(tx.invite.expiresAt)}`
             : 'Sin vencimiento registrado'}
           {tx.invite.isExpired ? ' · Expirado' : ''}
         </p>
@@ -251,7 +289,7 @@ export function TransactionDetailPage() {
             <div className="ca-tx-share__actions">
               <Button className="ca-btn-primary" onClick={() => void copyLink()}>
                 <Copy size={16} className="me-1" />
-                {copied ? 'Copiado' : 'Copiar enlace'}
+                Copiar enlace
               </Button>
               <Button variant="outline-primary" onClick={() => void shareNative()}>
                 <Share2 size={16} className="me-1" />
@@ -297,7 +335,7 @@ export function TransactionDetailPage() {
               </span>
               <p className="ca-tx-timeline__note">
                 {event.note || 'Cambio de estado'} ·{' '}
-                {new Date(event.changedAt).toLocaleString('es-AR')}
+                {formatDateTime(event.changedAt)}
               </p>
             </li>
           ))}

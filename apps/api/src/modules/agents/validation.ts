@@ -18,6 +18,7 @@ export const saveAgentOnboardingBodySchema = z
     termsAccepted: z.boolean().optional(),
     timezone: z.string().trim().min(2).max(64).optional(),
     weeklySlots: z.array(scheduleSlotSchema).max(70).optional(),
+    unspecifiedSchedule: z.boolean().optional(),
     workAreaLabel: z.string().trim().min(2).max(200).optional(),
     workAreaCity: z.string().trim().min(2).max(120).optional(),
     workAreaCountry: z
@@ -28,6 +29,7 @@ export const saveAgentOnboardingBodySchema = z
       .optional(),
     coverageRadiusKm: z.number().min(1).max(500).optional(),
     hourlyRateCents: z.number().int().min(100).max(10_000_000).optional(),
+    ratesAccepted: z.boolean().optional(),
     currency: z
       .string()
       .trim()
@@ -40,28 +42,41 @@ export const saveAgentOnboardingBodySchema = z
     message: 'At least one field is required',
   });
 
-export const submitAgentOnboardingBodySchema = z.object({
-  termsAccepted: z.literal(true, {
-    errorMap: () => ({ message: 'Debés aceptar los términos' }),
-  }),
-  timezone: z.string().trim().min(2).max(64),
-  weeklySlots: z.array(scheduleSlotSchema).min(1, 'Configurá al menos un horario'),
-  workAreaLabel: z.string().trim().min(2).max(200),
-  workAreaCity: z.string().trim().min(2).max(120),
-  workAreaCountry: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{2}$/, 'country must be ISO 3166-1 alpha-2'),
-  coverageRadiusKm: z.number().min(1).max(500),
-  hourlyRateCents: z.number().int().min(100).max(10_000_000),
-  currency: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{3}$/)
-    .default('UYU'),
-});
+export const submitAgentOnboardingBodySchema = z
+  .object({
+    termsAccepted: z.literal(true, {
+      errorMap: () => ({ message: 'Debés aceptar los términos' }),
+    }),
+    ratesAccepted: z.literal(true, {
+      errorMap: () => ({ message: 'Debés aceptar el esquema de tarifas' }),
+    }),
+    timezone: z.string().trim().min(2).max(64),
+    weeklySlots: z.array(scheduleSlotSchema).max(70),
+    unspecifiedSchedule: z.boolean().default(false),
+    workAreaLabel: z.string().trim().min(2).max(200),
+    workAreaCity: z.string().trim().min(2).max(120),
+    workAreaCountry: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{2}$/, 'country must be ISO 3166-1 alpha-2'),
+    coverageRadiusKm: z.number().min(1).max(500),
+    currency: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{3}$/)
+      .default('USD'),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.unspecifiedSchedule && value.weeklySlots.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Configurá al menos un horario',
+        path: ['weeklySlots'],
+      });
+    }
+  });
 
 export type SaveAgentOnboardingBody = z.infer<typeof saveAgentOnboardingBodySchema>;
 export type SubmitAgentOnboardingBody = z.infer<typeof submitAgentOnboardingBodySchema>;

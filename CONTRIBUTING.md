@@ -4,8 +4,10 @@ Gracias por contribuir. Este documento define cómo trabajamos en el monorepo pa
 
 Documentación relacionada:
 
+- [Estado del producto web](./docs/WEB_APP.md)
 - [Arquitectura de sistema](./docs/SYSTEM_ARCHITECTURE.md)
 - [Estructura del repositorio](./docs/ARCHITECTURE.md)
+- [Design system](./docs/design-system/GUIDE.md)
 
 ---
 

@@ -1,0 +1,117 @@
+.ca-admin-kyc {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 960px;
+}
+
+.ca-admin-kyc--loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  min-height: 120px;
+}
+
+.ca-admin-kyc__alert {
+  margin-top: var(--space-3);
+}
+
+.ca-admin-kyc__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ca-admin-kyc__kicker {
+  margin: 0;
+  font-size: var(--text-caption-size, 0.75rem);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ca-admin-kyc__title {
+  margin: 0.15rem 0 0;
+  display: flex;
+  align-items: center;
+  font-size: var(--text-h3-size, 1.35rem);
+  color: var(--text-primary);
+}
+
+.ca-admin-kyc__card {
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.ca-admin-kyc__card h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+}
+
+.ca-admin-kyc__meta {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.ca-admin-kyc__meta dt {
+  margin: 0;
+  font-size: var(--text-small-size);
+  color: var(--text-muted);
+}
+
+.ca-admin-kyc__meta dd {
+  margin: 0.15rem 0 0;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.ca-admin-kyc__docs {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ca-admin-kyc__doc {
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.ca-admin-kyc__doc figcaption {
+  margin-bottom: 0.5rem;
+  font-size: var(--text-small-size);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ca-admin-kyc__doc img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.ca-admin-kyc__actions {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.ca-admin-kyc__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

@@ -66,9 +66,19 @@ export interface UserPreferencesDto {
   };
 }
 
+export interface UserPayoutMethodDto {
+  id: string;
+  bank: string;
+  number: string;
+  type: 'CA' | 'CC' | 'FINTECH';
+  currency: 'UYU' | 'USD' | '';
+  createdAt: string;
+}
+
 export interface UpdateUserDto {
   fullName?: string;
   displayName?: string | null;
+  documentNumber?: string | null;
   bio?: string | null;
   phone?: string | null;
   avatar?: string | null;
@@ -84,6 +94,15 @@ export interface UpdateUserDto {
     width?: number;
     height?: number;
     isPrimary?: boolean;
+  }>;
+  submitKyc?: boolean;
+  payoutMethods?: Array<{
+    id?: string;
+    bank: string;
+    number: string;
+    type: 'CA' | 'CC' | 'FINTECH';
+    currency: 'UYU' | 'USD' | '';
+    createdAt?: string;
   }>;
   preferences?: Partial<{
     language: string;
@@ -104,6 +123,7 @@ export interface UserPublicDto {
   phoneVerified: boolean;
   fullName: string;
   displayName?: string;
+  documentNumber?: string;
   bio?: string;
   avatar?: string;
   status: UserStatus;
@@ -113,6 +133,7 @@ export interface UserPublicDto {
   address: UserAddressDto;
   locationLabel?: string;
   photos: UserPhotoDto[];
+  payoutMethods: UserPayoutMethodDto[];
   wallet: {
     status: WalletStatus;
     currency: string;
@@ -178,7 +199,9 @@ export interface UserPublicDto {
   kyc: {
     status: string;
     verifiedAt?: string;
+    rejectionReason?: string;
   };
+  identityVerified: boolean;
   verification: {
     email: boolean;
     phone: boolean;

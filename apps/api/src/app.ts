@@ -19,6 +19,7 @@ import {
   disputesRoutes,
   evidenceRoutes,
   healthRoutes,
+  notificationsRoutes,
   paymentsRoutes,
   transactionsRoutes,
   usersRoutes,
@@ -76,6 +77,13 @@ function isChatMessageWrite(req: Request): boolean {
   );
 }
 
+function isUserProfileWrite(req: Request): boolean {
+  return (
+    (req.method === 'PATCH' || req.method === 'PUT') &&
+    /^\/users\/(me|[a-fA-F0-9]{24})\/?$/.test(req.path)
+  );
+}
+
 export function createApp(): Express {
   const app = express();
 
@@ -101,7 +109,8 @@ export function createApp(): Express {
   app.use(compression());
   // Límite estricto global; chat permite base64 más grande solo en esa ruta.
   app.use((req, res, next) => {
-    const limit = isChatMessageWrite(req) ? '6mb' : '256kb';
+    const limit =
+      isChatMessageWrite(req) || isUserProfileWrite(req) ? '6mb' : '256kb';
     express.json({ limit })(req, res, next);
   });
   app.use(express.urlencoded({ extended: true, limit: '256kb' }));
@@ -135,6 +144,7 @@ export function createApp(): Express {
   app.use('/reviews', reviewsRoutes);
   app.use('/evidence', evidenceRoutes);
   app.use('/disputes', disputesRoutes);
+  app.use('/notifications', notificationsRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

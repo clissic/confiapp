@@ -1,0 +1,40 @@
+---
+description: Avisos temporales en web con Bootstrap Toasts (useAppToast), no Alert success
+globs: apps/web/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Avisos temporales → Toasts
+
+Para feedback breve (éxito al guardar, copiar al portapapeles, confirmación de acción), usar **Bootstrap Toasts** vía el sistema global — no `Alert variant="success"` ni banners caseros con `setTimeout`.
+
+## API
+
+```ts
+import { useAppToast } from '@/shared/ui';
+
+const toast = useAppToast();
+toast.success('Configuración guardada.');
+toast.error('No se pudo copiar al portapapeles.');
+toast.showToast('Mensaje', { variant: 'info', delay: 5000, title: 'Aviso' });
+```
+
+Implementación: `apps/web/src/shared/ui/ToastProvider.tsx` (ya montado en `AppProviders`). Delay por defecto: **5000 ms**.
+
+## Usar Toast cuando
+
+- Guardado / actualización OK
+- Copiado al portapapeles
+- Acción disparada con confirmación breve (retiro, oferta enviada, etc.)
+- Feedback inicial desde `location.state` al montar (un `toast.success` en `useEffect`)
+
+## Seguir con Alert cuando
+
+- Errores de formulario o fallos de carga persistentes en la página (`Alert variant="danger"`)
+- Estado permanente de la vista (p. ej. “Ya sos agente activo”)
+
+## No hacer
+
+- `const [feedback, setFeedback]` + `{feedback && <Alert variant="success">…}`
+- Toasts locales duplicando `ToastContainer` si basta `useAppToast`
+- Inventar otro sistema de notificaciones in-app para este tipo de aviso

@@ -3,7 +3,14 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchMyAuditLogs, type FetchAuditParams } from '../api/audit.api';
 
 export const auditLogsKey = (params: FetchAuditParams) =>
-  ['audit', 'mine', params.action ?? '', params.entityType ?? ''] as const;
+  [
+    'audit',
+    'mine',
+    params.action ?? '',
+    params.entityType ?? '',
+    params.page ?? 1,
+    params.limit ?? 20,
+  ] as const;
 
 export function useMyAuditLogs(params: FetchAuditParams = {}) {
   return useQuery({

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
 import { BriefcaseBusiness, MapPin, Star } from 'lucide-react';
@@ -16,6 +16,9 @@ import '../styles/agent-ops.css';
 import '../styles/open-jobs.css';
 
 import { formatMoney } from '@/shared/lib/money';
+import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
+import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
+import { useAppToast } from '@/shared/ui';
 
 // Fix default marker icons with Vite bundling.
 L.Icon.Default.mergeOptions({
@@ -39,6 +42,10 @@ function MapFocus({
 }
 
 export function OpenJobsPage() {
+  usePreferencesSnapshot();
+  const toast = useAppToast();
+  const navigate = useNavigate();
+  const { distanceUnit } = useUserPreferences();
   const [lng, setLng] = useState(-56.1645);
   const [lat, setLat] = useState(-34.9011);
   const [radiusKm, setRadiusKm] = useState(15);
@@ -47,7 +54,6 @@ export function OpenJobsPage() {
   const [minSellerRating, setMinSellerRating] = useState(0);
   const [maxDistanceKm, setMaxDistanceKm] = useState(15);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const filters = useMemo(
@@ -77,11 +83,10 @@ export function OpenJobsPage() {
 
   const onAccept = async (job: OpenJob) => {
     setError(null);
-    setFeedback(null);
     try {
       await accept.mutateAsync(job.code);
-      setFeedback(`Aceptaste el trabajo ${job.code}. Ya figurás como intermediario.`);
-      void refetch();
+      toast.success(`Aceptaste el trabajo ${job.code}. Ya figurás como intermediario.`);
+      navigate(`/operaciones/${job.code}`, { state: { agentAccepted: true } });
     } catch {
       setError('No se pudo aceptar el trabajo. Puede que otro agente lo haya tomado.');
     }
@@ -114,7 +119,7 @@ export function OpenJobsPage() {
         </div>
         <div className="d-flex gap-2 flex-wrap">
           <Badge bg="light" text="dark">
-            {data?.source === 'demo' ? 'Modo demo' : 'API'} · {items.length}
+            {items.length}
           </Badge>
           <Link to="/agente/ofertas" className="btn btn-outline-secondary">
             Ofertas
@@ -144,14 +149,14 @@ export function OpenJobsPage() {
             />
           </Form.Group>
           <Form.Group>
-            <Form.Label>Radio (km)</Form.Label>
+            <Form.Label>Radio ({distanceUnitLabel(distanceUnit)})</Form.Label>
             <Form.Control
               type="number"
               min={1}
-              max={100}
-              value={radiusKm}
+              max={distanceUnit === 'MI' ? 62 : 100}
+              value={Number(fromKm(radiusKm, distanceUnit).toFixed(2))}
               onChange={(e) => {
-                const value = Number(e.target.value);
+                const value = toKm(Number(e.target.value), distanceUnit);
                 setRadiusKm(value);
                 setMaxDistanceKm(value);
               }}
@@ -199,7 +204,6 @@ export function OpenJobsPage() {
         </Form>
       </section>
 
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
       {error || isError ? (
         <Alert variant="danger">{error || 'No se pudieron cargar los trabajos.'}</Alert>
       ) : null}
@@ -236,7 +240,8 @@ export function OpenJobsPage() {
                 <Popup>
                   <strong>{job.title}</strong>
                   <br />
-                  {formatMoney(job.amountCents, job.currency)} · {job.distanceKm.toFixed(1)} km
+                  {formatMoney(job.amountCents, job.currency)} ·{' '}
+                  {formatDistance(job.distanceKm, distanceUnit, 1)}
                 </Popup>
               </Marker>
             ))}
@@ -278,7 +283,8 @@ export function OpenJobsPage() {
                     </div>
                     <div className="ca-agent-ops-list__meta">
                       <MapPin size={14} className="me-1" />
-                      {job.distanceKm.toFixed(2)} km · {job.meeting.label || job.code}
+                      {formatDistance(job.distanceKm, distanceUnit, 2)} ·{' '}
+                      {job.meeting.label || job.code}
                     </div>
                     <div className="ca-open-jobs__ratings">
                       <span>

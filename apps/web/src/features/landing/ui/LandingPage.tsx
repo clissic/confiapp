@@ -19,7 +19,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: 'Tu pago, bajo resguardo',
-    text: 'La plata no se libera a ciegas: queda protegida hasta que la entrega queda confirmada. Menos miedo, más control.',
+    text: 'El dinero no se libera a ciegas: queda protegida hasta que la entrega queda confirmada. Menos miedo, más control.',
   },
   {
     icon: BadgeCheck,
@@ -135,9 +135,13 @@ const FAQS = [
 function BrandMark() {
   return (
     <>
-      <span className="ca-landing__brand-mark" aria-hidden>
-        <img src="/landing/ConfiApp-logo-blanco.png" alt="" width={29} height={29} />
-      </span>
+      <img
+        className="ca-landing__brand-logo"
+        src="/landing/ConfiApp-logo.png"
+        alt=""
+        width={36}
+        height={36}
+      />
       <span className="ca-landing__brand-name">
         <span className="ca-landing__brand-name--dark">Confi</span>
         <span className="ca-landing__brand-name--light">App</span>
@@ -214,8 +218,8 @@ export function LandingPage() {
         <div className="ca-landing__hero-visual">
           <img
             className="ca-landing__hero-img"
-            src="/landing/ConfiApp-logo.png"
-            alt="Logo de ConfiApp"
+            src="/landing/Shopping2.png"
+            alt="Compra y venta segura con ConfiApp"
             width={512}
             height={512}
             fetchPriority="high"
@@ -229,13 +233,13 @@ export function LandingPage() {
             Cuando la entrega depende solo de la buena fe, el miedo gana
           </h2>
           <p className="ca-landing__section-lead">
-            La confianza no debería ser un salto al vacío. Estos son los miedos que ConfiApp
-            aborda de raíz.
+            La confianza no debería ser un salto al vacío. Estos son los miedos que ConfiApp aborda
+            de raíz.
           </p>
           <div className="ca-landing__pains">
             <article className="ca-landing__pain">
               <h3>Pagué y no recibí</h3>
-              <p>El dinero salió… y el producto nunca apareció. Queda la bronca y la desconfianza.</p>
+              <p>El dinero salió… y el producto nunca apareció.</p>
             </article>
             <article className="ca-landing__pain">
               <h3>Entregué y no cobré</h3>
@@ -243,7 +247,10 @@ export function LandingPage() {
             </article>
             <article className="ca-landing__pain">
               <h3>No sé a quién confiarle el envío</h3>
-              <p>Entre el vendedor y el comprador hace falta alguien — pero ¿quién garantiza el proceso?</p>
+              <p>
+                Entre el vendedor y el comprador hace falta alguien — pero ¿quién garantiza el
+                proceso?
+              </p>
             </article>
           </div>
         </div>
@@ -298,7 +305,9 @@ export function LandingPage() {
               loading="lazy"
               decoding="async"
             />
-            <figcaption>Vendedor → Agente → Comprador. El Agente es el puente de confianza.</figcaption>
+            <figcaption>
+              Vendedor → Agente → Comprador. El Agente es el puente de confianza.
+            </figcaption>
           </figure>
         </div>
       </section>

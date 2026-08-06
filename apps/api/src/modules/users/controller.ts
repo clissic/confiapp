@@ -46,4 +46,21 @@ export class UsersController {
     );
     res.status(200).json(user);
   };
+
+  getKycReview = async (req: Request, res: Response): Promise<void> => {
+    const { token } = req.params as { token: string };
+    const data = await this.service.getKycReviewByToken(token);
+    res.status(200).json(data);
+  };
+
+  decideKycReview = async (req: Request, res: Response): Promise<void> => {
+    const { token } = req.params as { token: string };
+    const body = req.body as { action: 'approve' | 'reject'; reason?: string };
+    const data = await this.service.decideKycReview(
+      { id: req.user!.id, role: req.user!.role },
+      token,
+      body,
+    );
+    res.status(200).json(data);
+  };
 }

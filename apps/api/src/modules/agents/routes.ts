@@ -32,6 +32,12 @@ agentsRoutes.post(
   asyncHandler(controller.submit),
 );
 
+agentsRoutes.post('/onboarding/suspend', authenticate, asyncHandler(controller.suspend));
+
+agentsRoutes.post('/onboarding/resume', authenticate, asyncHandler(controller.resume));
+
+agentsRoutes.post('/onboarding/close', authenticate, asyncHandler(controller.closeAgency));
+
 agentsRoutes.get(
   '/search',
   authenticate,

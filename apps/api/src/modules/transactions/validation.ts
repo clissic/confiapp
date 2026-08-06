@@ -65,6 +65,14 @@ export const transactionCodeParamsSchema = z.object({
     .regex(/^CONF-[A-Z0-9]{6,16}$/, 'Invalid transaction code'),
 });
 
+export const transactionChecklistParamsSchema = transactionCodeParamsSchema.extend({
+  itemId: z.string().trim().min(1).max(64),
+});
+
+export const toggleChecklistBodySchema = z.object({
+  done: z.boolean(),
+});
+
 export const inviteTokenParamsSchema = z.object({
   token: z.string().trim().min(20).max(200),
 });
@@ -78,3 +86,4 @@ export type CreateSellerTransactionBody = z.infer<typeof createSellerTransaction
 export type ConfirmSaleBody = z.infer<typeof confirmSaleBodySchema>;
 export type TransactionCodeParams = z.infer<typeof transactionCodeParamsSchema>;
 export type InviteTokenParams = z.infer<typeof inviteTokenParamsSchema>;
+export type ToggleChecklistBody = z.infer<typeof toggleChecklistBodySchema>;

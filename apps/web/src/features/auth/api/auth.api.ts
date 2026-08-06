@@ -9,6 +9,7 @@ export interface AuthUser {
   status: string;
   role: string;
   emailVerified: boolean;
+  identityVerified?: boolean;
 }
 
 export interface AuthTokens {
@@ -69,11 +70,27 @@ export async function registerRequest(input: {
   password: string;
   fullName: string;
   phone?: string;
-}): Promise<{ user: AuthUser; message: string }> {
-  const { data } = await apiClient.post<{ user: AuthUser; message: string }>(
-    '/auth/register',
-    input,
-  );
+}): Promise<{ user: AuthUser; message: string; needsVerification: boolean }> {
+  const { data } = await apiClient.post<{
+    user: AuthUser;
+    message: string;
+    needsVerification?: boolean;
+  }>('/auth/register', input);
+  return {
+    ...data,
+    needsVerification: data.needsVerification ?? true,
+  };
+}
+
+export async function verifyEmailRequest(token: string): Promise<{ message: string }> {
+  const { data } = await apiClient.post<{ message: string }>('/auth/verify-email', { token });
+  return data;
+}
+
+export async function resendVerificationRequest(email: string): Promise<{ message: string }> {
+  const { data } = await apiClient.post<{ message: string }>('/auth/resend-verification', {
+    email,
+  });
   return data;
 }
 

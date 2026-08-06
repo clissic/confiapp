@@ -1,32 +1,32 @@
-import { Bell, Menu, Moon, Sun } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Moon, Sun } from 'lucide-react';
 
-import type { LayoutTheme } from './useLayoutChrome';
+import { NotificationsMenu } from '@/features/notifications/ui/NotificationsMenu';
+import type { ResolvedTheme } from '@/shared/preferences';
 import { UserMenu } from './UserMenu';
 
 export interface TopbarProps {
-  onMenuClick: () => void;
-  theme: LayoutTheme;
+  theme: ResolvedTheme;
   onToggleTheme: () => void;
 }
 
-/** Barra superior — estructura visual. */
-export function Topbar({ onMenuClick, theme, onToggleTheme }: TopbarProps) {
+/** Header tipo marketplace: logo + acciones de cuenta. */
+export function Topbar({ theme, onToggleTheme }: TopbarProps) {
   return (
     <header className="ca-topbar">
-      <div className="ca-topbar__left">
-        <button
-          type="button"
-          className="ca-icon-btn d-lg-none"
-          aria-label="Abrir menú"
-          onClick={onMenuClick}
-        >
-          <Menu size={20} strokeWidth={1.75} />
-        </button>
-        <div className="ca-topbar__title d-none d-sm-block">
-          <p className="ca-topbar__eyebrow">Espacio de trabajo</p>
-          <h1 className="ca-topbar__heading">Panel principal</h1>
-        </div>
-      </div>
+      <Link to="/inicio" className="ca-topbar__brand" aria-label="ConfiApp — Inicio">
+        <img
+          className="ca-topbar__logo"
+          src="/landing/ConfiApp-logo.png"
+          alt=""
+          width={36}
+          height={36}
+        />
+        <span className="ca-topbar__brand-name">
+          <span className="ca-topbar__brand-name--dark">Confi</span>
+          <span className="ca-topbar__brand-name--accent">App</span>
+        </span>
+      </Link>
 
       <div className="ca-topbar__right">
         <button
@@ -42,10 +42,7 @@ export function Topbar({ onMenuClick, theme, onToggleTheme }: TopbarProps) {
           )}
         </button>
 
-        <button type="button" className="ca-icon-btn ca-icon-btn--badge" aria-label="Notificaciones">
-          <Bell size={18} strokeWidth={1.75} />
-          <span className="ca-icon-btn__dot" aria-hidden />
-        </button>
+        <NotificationsMenu />
 
         <UserMenu />
       </div>

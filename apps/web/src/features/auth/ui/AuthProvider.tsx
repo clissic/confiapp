@@ -25,6 +25,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isBootstrapping: boolean;
   setSession: (session: AuthSession) => void;
+  patchUser: (partial: Partial<AuthUser>) => void;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -71,6 +72,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(session.user);
   }, []);
 
+  const patchUser = useCallback((partial: Partial<AuthUser>) => {
+    setUser((current) => {
+      if (!current) return current;
+      const next = { ...current, ...partial };
+      persistUser(next);
+      return next;
+    });
+  }, []);
+
   const refreshUser = useCallback(async () => {
     const me = await fetchAuthMe();
     persistUser(me);
@@ -89,10 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(user && getAccessToken()),
       isBootstrapping,
       setSession,
+      patchUser,
       refreshUser,
       logout,
     }),
-    [user, isBootstrapping, setSession, refreshUser, logout],
+    [user, isBootstrapping, setSession, patchUser, refreshUser, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

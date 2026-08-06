@@ -1,24 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useAuth } from '@/features/auth/ui/AuthProvider';
+import { useUpdateProfile } from '@/features/profile/hooks/useProfile';
+import { useUserPreferences } from '@/shared/preferences';
+import type { ResolvedTheme } from '@/shared/preferences';
 
-export type LayoutTheme = 'light' | 'dark';
-
-/** Estado visual del chrome (sin persistencia ni lógica de producto). */
+/** Tema del chrome: resuelve SYSTEM y sincroniza toggle con preferencias del perfil. */
 export function useLayoutChrome() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [theme, setTheme] = useState<LayoutTheme>('light');
+  const { isAuthenticated } = useAuth();
+  const { resolvedTheme, theme, applyLocalPrefs } = useUserPreferences();
+  const update = useUpdateProfile();
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+  const toggleTheme = () => {
+    const next: 'LIGHT' | 'DARK' = resolvedTheme === 'light' ? 'DARK' : 'LIGHT';
+    applyLocalPrefs({ theme: next });
+    if (isAuthenticated) {
+      void update.mutateAsync({ preferences: { theme: next } });
+    }
+  };
 
   return {
-    sidebarOpen,
-    sidebarCollapsed,
-    theme,
-    toggleSidebar: () => setSidebarOpen((value) => !value),
-    closeSidebar: () => setSidebarOpen(false),
-    toggleCollapse: () => setSidebarCollapsed((value) => !value),
-    toggleTheme: () => setTheme((value) => (value === 'light' ? 'dark' : 'light')),
+    theme: resolvedTheme as ResolvedTheme,
+    preference: theme,
+    toggleTheme,
   };
 }

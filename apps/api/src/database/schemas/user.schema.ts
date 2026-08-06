@@ -32,6 +32,8 @@ const kycSchema = new Schema(
     rejectionReason: { type: String, trim: true, maxlength: 1000 },
     notes: { type: String, trim: true, maxlength: 2000 },
     reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    reviewTokenHash: { type: String, select: false, maxlength: 128 },
+    reviewTokenExpiresAt: { type: Date, select: false },
   },
   { _id: false },
 );
@@ -59,7 +61,7 @@ const walletSchema = new Schema(
       trim: true,
       minlength: 3,
       maxlength: 3,
-      default: 'UYU',
+      default: 'USD',
       match: [/^[A-Z]{3}$/, 'currency must be ISO 4217'],
     },
     availableCents: {
@@ -254,6 +256,7 @@ const scheduleSchema = new Schema(
     },
     isAcceptingAssignments: { type: Boolean, default: false },
     maxActiveTransactions: { type: Number, default: 5, min: 1, max: 100 },
+    unspecifiedSchedule: { type: Boolean, default: false },
     weeklySlots: {
       type: [scheduleSlotSchema],
       default: [],
@@ -276,7 +279,7 @@ const scheduleSchema = new Schema(
 
 const photoSchema = new Schema(
   {
-    url: { type: String, required: true, trim: true, maxlength: 2048 },
+    url: { type: String, required: true, trim: true, maxlength: 2_000_000 },
     storageKey: { type: String, trim: true, maxlength: 512 },
     kind: {
       type: String,
@@ -292,6 +295,25 @@ const photoSchema = new Schema(
     verifiedAt: { type: Date },
   },
   { _id: false },
+);
+
+const payoutMethodSchema = new Schema(
+  {
+    bank: { type: String, required: true, trim: true, maxlength: 64 },
+    number: { type: String, required: true, trim: true, maxlength: 32 },
+    type: {
+      type: String,
+      enum: ['CA', 'CC', 'FINTECH'],
+      required: true,
+    },
+    currency: {
+      type: String,
+      enum: ['', 'UYU', 'USD'],
+      default: '',
+    },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true },
 );
 
 const channelVerificationSchema = new Schema(
@@ -387,7 +409,7 @@ const preferencesSchema = new Schema(
       trim: true,
       minlength: 3,
       maxlength: 3,
-      default: 'UYU',
+      default: 'USD',
       match: [/^[A-Z]{3}$/, 'currency must be ISO 4217'],
     },
     theme: {
@@ -462,12 +484,13 @@ export const userSchema = new Schema<IUser>(
       maxlength: [120, 'Full name is too long'],
     },
     displayName: { type: String, trim: true, maxlength: 120 },
+    documentNumber: { type: String, trim: true, maxlength: 32 },
     bio: { type: String, trim: true, maxlength: 2000 },
     dateOfBirth: { type: Date },
     avatar: {
       type: String,
       trim: true,
-      maxlength: [2048, 'Avatar URL is too long'],
+      maxlength: [2_000_000, 'Avatar URL is too long'],
     },
     status: {
       type: String,
@@ -514,7 +537,7 @@ export const userSchema = new Schema<IUser>(
       type: walletSchema,
       default: () => ({
         status: WalletStatus.ACTIVE,
-        currency: 'UYU',
+        currency: 'USD',
         availableCents: 0,
         pendingCents: 0,
         heldCents: 0,
@@ -582,6 +605,14 @@ export const userSchema = new Schema<IUser>(
         message: 'Máximo 30 fotografías',
       },
     },
+    payoutMethods: {
+      type: [payoutMethodSchema],
+      default: [],
+      validate: {
+        validator: (value: unknown[]) => Array.isArray(value) && value.length <= 20,
+        message: 'Máximo 20 métodos de cobro',
+      },
+    },
     verification: {
       type: verificationSchema,
       default: () => ({
@@ -621,13 +652,15 @@ export const userSchema = new Schema<IUser>(
           },
           coverageRadiusKm: { type: Number, min: 1, max: 500 },
           hourlyRateCents: { type: Number, min: 0 },
+          ratesAccepted: { type: Boolean, default: false },
+          ratesAcceptedAt: { type: Date },
           currency: {
             type: String,
             uppercase: true,
             trim: true,
             minlength: 3,
             maxlength: 3,
-            default: 'UYU',
+            default: 'USD',
           },
           draftStep: { type: Number, default: 1, min: 1, max: 5 },
           submittedAt: { type: Date },
@@ -638,7 +671,8 @@ export const userSchema = new Schema<IUser>(
       default: () => ({
         status: AgentOnboardingStatus.NONE,
         termsAccepted: false,
-        currency: 'UYU',
+        ratesAccepted: false,
+        currency: 'USD',
         draftStep: 1,
       }),
     },

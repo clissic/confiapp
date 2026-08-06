@@ -9,4 +9,5 @@ export { auditRoutes } from './audit/routes';
 export { evidenceRoutes } from './evidence/routes';
 export { disputesRoutes } from './disputes/routes';
 export { reviewsRoutes } from './reviews/routes';
+export { notificationsRoutes } from './notifications/routes';
 export { healthRoutes } from './health/routes';

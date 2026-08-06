@@ -1,9 +1,12 @@
 import { Router } from 'express';
+import { PlatformRole } from '@confiapp/database';
+import { z } from 'zod';
 
 import {
   asyncHandler,
   authenticate,
   authRateLimiter,
+  requireRoles,
   validateRequest,
 } from '../../middleware';
 import { UsersController } from './controller';
@@ -14,6 +17,15 @@ import {
 } from './validation';
 
 const controller = new UsersController();
+
+const kycTokenParamsSchema = z.object({
+  token: z.string().trim().min(20).max(128),
+});
+
+const kycDecisionBodySchema = z.object({
+  action: z.enum(['approve', 'reject']),
+  reason: z.string().trim().max(1000).optional(),
+});
 
 export const usersRoutes: Router = Router();
 
@@ -32,6 +44,22 @@ usersRoutes.patch(
   authenticate,
   validateRequest({ body: updateUserBodySchema }),
   asyncHandler(controller.updateMe),
+);
+
+usersRoutes.get(
+  '/kyc-reviews/:token',
+  authenticate,
+  requireRoles(PlatformRole.ADMIN),
+  validateRequest({ params: kycTokenParamsSchema }),
+  asyncHandler(controller.getKycReview),
+);
+
+usersRoutes.post(
+  '/kyc-reviews/:token/decide',
+  authenticate,
+  requireRoles(PlatformRole.ADMIN),
+  validateRequest({ params: kycTokenParamsSchema, body: kycDecisionBodySchema }),
+  asyncHandler(controller.decideKycReview),
 );
 
 usersRoutes.get(

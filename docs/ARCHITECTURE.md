@@ -1,6 +1,7 @@
 # ConfiApp — Arquitectura del repositorio
 
 Stack: **React · Vite · TypeScript · Node · Express · MongoDB · Socket.io**  
+UI web: **Bootstrap 5 + react-bootstrap** · tokens en `docs/design-system`  
 Estilo: **Clean Architecture** en monorepo (`pnpm` + Turborepo).
 
 ## Vista general
@@ -9,13 +10,14 @@ Estilo: **Clean Architecture** en monorepo (`pnpm` + Turborepo).
 confiapp/
 ├── apps/
 │   ├── api/                 # Backend HTTP + realtime (Express, Mongoose, Socket.io)
-│   └── web/                 # Frontend (React + Vite)
+│   └── web/                 # Frontend (React + Vite + Bootstrap)
 ├── packages/
 │   ├── shared/              # Contratos/tipos/constantes cross-app
 │   ├── database/            # Modelos/seed/utilidades de persistencia compartidas
 │   ├── config/              # ESLint / TS / Prettier compartidos
 │   └── ui/                  # Design system / componentes reutilizables (prep)
-├── docs/                    # Documentación de arquitectura y ADRs
+├── docs/                    # Arquitectura, design system, producto web
+├── .cursor/                 # Rules + skills para agentes
 ├── docker-compose.yml
 ├── package.json
 ├── pnpm-workspace.yaml
@@ -36,7 +38,7 @@ infrastructure ───────┘
 - **Presentation**: HTTP (Express) y realtime (Socket.io gateways).
 - **Composition root** (`server.ts` / `composition/`): cablea dependencias.
 
-> Estado actual: los módulos en `apps/api/src/modules/*` ya implementan el flujo
+> Estado actual: los módulos en `apps/api/src/modules/*` implementan
 > controller → service → repository. Las carpetas `domain/`, `application/`,
 > `infrastructure/` y `presentation/` son el **target** Clean Architecture;
 > se migrará módulo a módulo sin romper lo existente.
@@ -45,119 +47,55 @@ infrastructure ───────┘
 
 ## `apps/api` — Backend
 
-```text
-apps/api/src/
-├── app.ts                         # Composition HTTP (Express app)
-├── server.ts                      # Bootstrap: DB + HTTP + (futuro) Socket.io
-│
-├── domain/                        # Capa de dominio (pura)
-│   ├── entities/                  # User, Transaction, Evidence, Dispute…
-│   ├── value-objects/             # Email, Money (futuro), TransactionCode…
-│   ├── repositories/              # Interfaces (puertos de persistencia)
-│   ├── events/                    # Domain events (TransactionStatusChanged…)
-│   └── errors/                    # Errores de dominio
-│
-├── application/                   # Casos de uso / aplicación
-│   ├── use-cases/
-│   │   ├── auth/
-│   │   ├── users/                 # RegisterUser, GetUser, UpdateUser…
-│   │   ├── transactions/
-│   │   ├── evidence/
-│   │   └── disputes/
-│   ├── dto/                       # DTOs de aplicación (entrada/salida)
-│   └── ports/                     # Puertos: Hasher, Mailer, RealtimePublisher…
-│
-├── infrastructure/                # Adaptadores concretos
-│   ├── database/                  # (alias/migración de src/database)
-│   ├── realtime/                  # Socket.io server, rooms, emitters
-│   ├── storage/                   # Evidencias (S3/local) — futuro
-│   ├── security/                  # JWT, bcrypt adapters
-│   └── logger/                    # Logger estructurado
-│
-├── presentation/                  # Adaptadores de entrada
-│   ├── http/
-│   │   ├── routes/
-│   │   ├── controllers/
-│   │   ├── middleware/
-│   │   └── validators/
-│   └── realtime/                  # Handlers Socket.io (eventos cliente)
-│
-├── composition/                   # Wiring / DI manual
-│
-├── modules/                       # ★ Implementación actual por feature
-│   ├── auth|users|transactions|evidence|disputes|health
-│   └── */{controller,service,repository,routes,dto,validation}.ts
-│
-├── database/                      # ★ Persistencia actual (Mongoose)
-│   ├── connection.ts
-│   ├── database.module.ts
-│   ├── schemas|indexes|models/
-│
-├── middleware/                    # ★ Middlewares Express actuales
-├── shared/                        # config, errors compartidos en API
-└── utils/                         # helpers (password, logger, openapi)
-```
+### Módulos implementados (`src/modules/`)
 
-### Responsabilidades clave (API)
+| Módulo | Rol |
+|--------|-----|
+| `auth` | Registro, login, verify email, reset password |
+| `users` | Perfil, KYC, preferencias, payout methods |
+| `transactions` | Ciclo de vida escrow + invites (`WAITING_PARTICIPANT`, …) |
+| `payments` | Checkout / hold / webhooks (Mercado Pago / stub) |
+| `wallet` | Saldos, retiros, comisiones, export |
+| `notifications` | Inbox + `NotificationsService.notify` + gating prefs |
+| `chats` | Mensajería + realtime |
+| `agents` | Ofertas, open jobs, asignación |
+| `reviews` | Calificaciones |
+| `audit` | Append-only log de actividad |
+| `health` | Healthcheck |
 
-| Directorio | Responsabilidad |
-|---|---|
-| `domain/` | Reglas de negocio puras, entidades e interfaces de repositorio |
-| `application/use-cases/` | Orquestación de un caso de uso (1 acción de negocio) |
-| `application/ports/` | Contratos hacia afuera (hash, realtime, storage) |
-| `infrastructure/realtime/` | Socket.io: conexión, rooms por `transactionId`, broadcasts |
-| `infrastructure/database/` | Implementación Mongoose de los puertos de persistencia |
-| `presentation/http/` | Controllers, routes, validation HTTP |
-| `presentation/realtime/` | Eventos entrantes Socket.io → use cases |
-| `modules/` | Features ya implementadas (Users, Health, scaffolds) |
-| `database/` | Conexión Mongo + schemas/indexes/models actuales |
-| `composition/` | Ensambla use cases + repos + HTTP/Socket al boot |
+Estructura típica por feature: `{controller,service,repository,routes,dto,validation}.ts`.
+
+Persistencia actual: `src/database/` (Mongoose schemas/models/indexes).  
+Realtime: Socket.io cableado en el bootstrap del server (chat + notificaciones).
 
 ---
 
-## `apps/web` — Frontend (React + Vite)
+## `apps/web` — Frontend
 
 ```text
-apps/web/
-├── index.html
-├── vite.config.ts
-├── src/
-│   ├── main.tsx                   # Entry Vite
-│   ├── app/                       # Shell de aplicación
-│   │   ├── providers/             # QueryClient, Auth, Socket providers
-│   │   ├── router/                # React Router
-│   │   └── styles/                # tokens / global CSS
-│   ├── pages/                     # Rutas/páginas (composition de features)
-│   ├── widgets/                   # Bloques UI compuestos (header, sidebars)
-│   ├── features/                  # Casos de uso de UI por dominio
-│   │   ├── auth/
-│   │   ├── users/
-│   │   ├── transactions/
-│   │   ├── evidence/
-│   │   └── disputes/
-│   ├── entities/                  # Modelos de cliente + UI atómica de entidad
-│   │   ├── user/
-│   │   └── transaction/
-│   └── shared/
-│       ├── api/                   # HTTP client (fetch/axios) hacia Express
-│       ├── realtime/              # Socket.io-client
-│       ├── config/                # env (VITE_*)
-│       ├── lib/                   # utils, dates, formatters
-│       └── ui/                    # primitivos locales (si no vienen de packages/ui)
+apps/web/src/
+├── main.tsx
+├── app/                 # layout, router, providers, styles (global.css)
+├── pages/               # re-exports lazy por ruta
+├── features/            # UI por dominio
+│   ├── landing/
+│   ├── auth/
+│   ├── profile/         # edición, KYC, wallet section, verify phone stub
+│   ├── transactions/    # listado, hub, comprador/vendedor, join, detalle
+│   ├── payments/
+│   ├── wallet/
+│   ├── notifications/   # inbox
+│   ├── chat/
+│   ├── agent-ops/
+│   ├── agent-onboarding/
+│   ├── audit/
+│   ├── reputation/
+│   ├── admin/
+│   └── home/
+└── shared/              # api client, toast, form helpers, preferences
 ```
 
-### Responsabilidades clave (Web)
-
-| Directorio | Responsabilidad |
-|---|---|
-| `app/` | Bootstrap, providers globales, router |
-| `pages/` | Páginas por ruta; ensamblan features/widgets |
-| `features/` | Flujos de producto (login, crear operación, subir evidencia) |
-| `entities/` | Representación de entidades de negocio en el cliente |
-| `widgets/` | UI reutilizable de alto nivel |
-| `shared/api/` | Cliente REST tipado contra `apps/api` |
-| `shared/realtime/` | Cliente Socket.io (estado de operación en vivo) |
-| `shared/ui/` | Componentes base locales |
+Detalle de rutas, copy vs estados internos y patrones UI: [`WEB_APP.md`](./WEB_APP.md).
 
 ---
 
@@ -172,26 +110,31 @@ apps/web/
 
 ---
 
-## Realtime (Socket.io)
+## Documentación relacionada
 
-Flujo previsto:
-
-1. Cliente (`web/shared/realtime`) se conecta al namespace Socket.io del API.
-2. Servidor (`api/infrastructure/realtime`) autentica y une rooms `transaction:{id}`.
-3. Cambios de estado / evidencia / disputa emiten eventos desde use cases vía puerto `RealtimePublisher`.
-4. UI actualiza sin polling.
+| Doc | Contenido |
+|-----|-----------|
+| [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | Diseño SaaS a escala |
+| [`WEB_APP.md`](./WEB_APP.md) | Estado del producto web / UI |
+| [`DEMO_PUBLICO.md`](./DEMO_PUBLICO.md) | Túnel Cloudflare para demos |
+| [`design-system/GUIDE.md`](./design-system/GUIDE.md) | Tokens y componentes |
+| [`BACKEND_BOOTSTRAP.md`](./BACKEND_BOOTSTRAP.md) | Snapshot histórico del bootstrap Express |
+| `.cursor/skills/notifications/` | Cómo emitir notificaciones |
 
 ---
 
 ## Qué ya está implementado (no rehacer)
 
 - Monorepo pnpm + Turborepo
-- API Express con health, middleware, rate-limit, users register/get/patch
-- Persistencia Mongoose (`database/`) + modelos de dominio
-- Package `@confiapp/database` + seed
+- API Express con auth, users, transactions, payments, wallet, notifications, chats, agents, reviews, audit, health
+- Web Vite con landing + app autenticada (perfil, operaciones, pagos, wallet, chat, notificaciones, auditoría, agentes)
+- Persistencia Mongoose + `@confiapp/database` + seed
+- Toasts Bootstrap globales (`useAppToast`)
+- Design tokens + Bootstrap como UI primaria
 
 ## Próximos pasos naturales
 
-1. Scaffold Vite real en `apps/web` (entry + deps).
-2. Socket.io server en `infrastructure/realtime` + composition en `server.ts`.
-3. Migrar `modules/users` → `application/use-cases/users` + ports.
+1. Completar cableado de eventos de notificación (P0–P2 en skill `notifications/reference.md`).
+2. Verificación de teléfono real (hoy stub UI + limpieza de `phoneVerified` al cambiar número).
+3. Migrar módulos API hacia carpetas Clean Architecture target.
+4. Workers/outbox para email/push reales a escala.

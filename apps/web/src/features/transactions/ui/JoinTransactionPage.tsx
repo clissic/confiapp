@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 
 import { useZodForm } from '@/shared/lib/form';
+import { defaultPaymentCurrency } from '@/shared/lib/money';
+import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
 
 import { formatMoney } from '../api/transactions.api';
 import {
@@ -49,6 +51,8 @@ export function JoinTransactionPage() {
   const { data, isLoading, isError } = useInvitePreview(token);
   const confirm = useConfirmSale();
   const acceptPurchase = useAcceptPurchase();
+  usePreferencesSnapshot();
+  const { currency: preferredCurrency } = useUserPreferences();
 
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<Array<{ url: string; alt?: string }>>([]);
@@ -61,7 +65,7 @@ export function JoinTransactionPage() {
       condition: 'GOOD',
       category: 'OTHER',
       price: undefined as unknown as number,
-      currency: 'UYU',
+      currency: defaultPaymentCurrency(preferredCurrency),
       imageUrl: '',
     },
   });
@@ -136,9 +140,7 @@ export function JoinTransactionPage() {
         return;
       }
       if (result.length > 2048 && localStorage.getItem('accessToken')) {
-        setError(
-          'Con sesión API usá una URL pública (las fotos locales grandes solo funcionan en demo).',
-        );
+        setError('Para fotos grandes usá una URL pública de la imagen.');
         return;
       }
       setImages((prev) => [...prev, { url: result, alt: file.name }]);
@@ -243,9 +245,6 @@ export function JoinTransactionPage() {
           </div>
           <div className="ca-tx__meta">
             <Badge bg="primary">{STATUS_LABELS[preview.status]}</Badge>
-            <Badge bg="light" text="dark">
-              {data?.source === 'demo' ? 'Modo demo' : 'API'}
-            </Badge>
           </div>
         </header>
 
@@ -336,9 +335,6 @@ export function JoinTransactionPage() {
         </div>
         <div className="ca-tx__meta">
           <Badge bg="primary">{STATUS_LABELS[preview.status]}</Badge>
-          <Badge bg="light" text="dark">
-            {data?.source === 'demo' ? 'Modo demo' : 'API'}
-          </Badge>
         </div>
       </header>
 
@@ -471,10 +467,8 @@ export function JoinTransactionPage() {
             <Form.Group controlId="sale-currency">
               <Form.Label>Moneda</Form.Label>
               <Form.Select {...form.register('currency')}>
-                <option value="UYU">UYU · Peso uruguayo</option>
-                <option value="USD">USD · Dólar</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
+                <option value="UYU">UYU $</option>
+                <option value="USD">USD $</option>
               </Form.Select>
             </Form.Group>
 

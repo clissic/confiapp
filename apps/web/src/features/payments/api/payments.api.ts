@@ -108,7 +108,7 @@ export async function listPaymentLogs(): Promise<{
           source: 'system',
           event: 'demo',
           level: 'info',
-          message: 'Modo demo — conectá API para ver logs reales',
+          message: 'Sin eventos de pago registrados todavía',
           createdAt: new Date().toISOString(),
         },
       ],

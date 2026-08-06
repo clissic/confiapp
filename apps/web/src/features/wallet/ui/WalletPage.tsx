@@ -2,7 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { Alert, Badge, Button, Form, Spinner, Table } from 'react-bootstrap';
 import { Download, Wallet } from 'lucide-react';
 
-import { formatDateTime, formatMoney } from '@/shared/lib/money';
+import { convertCents } from '@/shared/lib/fx';
+import { CURRENCY_OPTIONS, formatDateTime, formatMoney } from '@/shared/lib/money';
+import { usePreferencesSnapshot } from '@/shared/preferences';
+import { useAppToast } from '@/shared/ui';
 
 import {
   useCompleteWithdrawal,
@@ -13,9 +16,16 @@ import {
   useWalletSummary,
   useWalletWithdrawals,
 } from '../hooks/useWallet';
+import { WalletStatusBadge } from './WalletStatusBadge';
 import '../styles/wallet.css';
 
 export function WalletPage() {
+  const prefs = usePreferencesSnapshot();
+  const toast = useAppToast();
+  const displayCurrency = prefs.currency;
+  const displayCurrencyLabel =
+    CURRENCY_OPTIONS.find((item) => item.code === displayCurrency)?.label ?? displayCurrency;
+
   const { data: summaryRes, isFetching } = useWalletSummary();
   const { data: movementsRes } = useWalletMovements();
   const { data: commissionsRes } = useWalletCommissions();
@@ -28,23 +38,40 @@ export function WalletPage() {
   const [amount, setAmount] = useState('');
   const [destination, setDestination] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
 
   const onWithdraw = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    setFeedback(null);
     const value = Number(amount);
     if (!Number.isFinite(value) || value <= 0) {
       setError('Ingresá un monto válido');
       return;
     }
+
+    const walletCurrency = (summary?.currency ?? 'USD').toUpperCase();
+    const displayCents = Math.round(value * 100);
+    let amountInWalletUnits = value;
+
+    if (displayCurrency !== walletCurrency) {
+      if (!prefs.rates) {
+        setError('Todavía no hay cotización para convertir el monto. Reintentá en unos segundos.');
+        return;
+      }
+      const walletCents = convertCents(
+        displayCents,
+        displayCurrency,
+        walletCurrency,
+        prefs.rates,
+      );
+      amountInWalletUnits = walletCents / 100;
+    }
+
     try {
       await requestWd.mutateAsync({
-        amount: value,
+        amount: amountInWalletUnits,
         destinationHint: destination.trim() || undefined,
       });
-      setFeedback('Retiro solicitado. El monto pasó a Pendiente.');
+      toast.success('Retiro solicitado. El monto pasó a Pendiente.');
       setAmount('');
     } catch {
       setError('No se pudo solicitar el retiro. Revisá el saldo disponible.');
@@ -55,7 +82,7 @@ export function WalletPage() {
     setError(null);
     try {
       await exportWd.mutateAsync();
-      setFeedback('Historial exportado (CSV).');
+      toast.success('Historial exportado (CSV).');
     } catch {
       setError('No se pudo exportar el historial.');
     }
@@ -68,13 +95,11 @@ export function WalletPage() {
           <p className="ca-wallet__kicker">Billetera</p>
           <h2 className="ca-wallet__title">Wallet</h2>
           <p className="ca-wallet__lead">
-            Saldo, pendiente, movimientos, comisiones y retiros en {summary?.currency ?? 'UYU'}.
+            Saldo, pendiente, movimientos, comisiones y retiros en {displayCurrencyLabel}.
           </p>
         </div>
-        <div className="d-flex gap-2 flex-wrap">
-          <Badge bg="light" text="dark">
-            {summary?.status ?? '—'} · {summaryRes?.source === 'demo' ? 'demo' : 'API'}
-          </Badge>
+        <div className="d-flex gap-2 flex-wrap align-items-center">
+          <WalletStatusBadge status={summary?.status} />
           <Button
             variant="outline-secondary"
             disabled={exportWd.isPending}
@@ -86,13 +111,12 @@ export function WalletPage() {
         </div>
       </header>
 
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
       <section className="ca-wallet-balances">
         <div className="ca-wallet-balance ca-wallet-balance--main">
           <Wallet size={22} />
-          <div>
+          <div className="ca-wallet-balance__copy">
             <span>Saldo disponible</span>
             <strong>
               {summary ? formatMoney(summary.saldoCents, summary.currency) : '—'}
@@ -125,14 +149,14 @@ export function WalletPage() {
           <h3>Retiros</h3>
           <Form className="ca-wallet-withdraw" onSubmit={(e) => void onWithdraw(e)}>
             <Form.Group>
-              <Form.Label>Monto ({summary?.currency ?? 'UYU'})</Form.Label>
+              <Form.Label>Monto ({displayCurrencyLabel})</Form.Label>
               <Form.Control
                 type="number"
-                min={1}
-                step="1"
+                min={displayCurrency === 'UYU' ? 1 : 0.01}
+                step={displayCurrency === 'UYU' ? '1' : '0.01'}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="500"
+                placeholder={displayCurrency === 'UYU' ? '500' : '50.00'}
               />
             </Form.Group>
             <Form.Group>

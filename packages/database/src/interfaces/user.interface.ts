@@ -27,6 +27,9 @@ export interface UserKyc {
   rejectionReason?: string;
   notes?: string;
   reviewedBy?: Types.ObjectId;
+  /** Hash del token de revisión admin (nunca el token en claro). */
+  reviewTokenHash?: string;
+  reviewTokenExpiresAt?: Date;
 }
 
 /** Reputación agregada (compat). Preferir `rating` + `stats` para datos nuevos. */
@@ -136,6 +139,8 @@ export interface UserSchedule {
   maxActiveTransactions: number;
   weeklySlots: UserScheduleSlot[];
   exceptions: UserScheduleException[];
+  /** Sin franjas: disponible las 24 h para notificaciones de trabajo. */
+  unspecifiedSchedule?: boolean;
 }
 
 export interface UserPhoto {
@@ -149,6 +154,15 @@ export interface UserPhoto {
   isPrimary: boolean;
   uploadedAt: Date;
   verifiedAt?: Date;
+}
+
+/** Cuenta bancaria o billetera electrónica para cobros / retiros. */
+export interface UserPayoutMethod {
+  bank: string;
+  number: string;
+  type: 'CA' | 'CC' | 'FINTECH';
+  currency: 'UYU' | 'USD' | '';
+  createdAt: Date;
 }
 
 export interface UserChannelVerification {
@@ -220,9 +234,12 @@ export interface UserAgentProfile {
   workAreaCity?: string;
   workAreaCountry?: string;
   coverageRadiusKm?: number;
-  /** Tarifa horaria en centavos. */
+  /** Tarifa horaria en centavos. @deprecated La tarifa la define la plataforma. */
   hourlyRateCents?: number;
   currency: string;
+  /** Aceptación del esquema de tarifas de intermediación. */
+  ratesAccepted?: boolean;
+  ratesAcceptedAt?: Date;
   /** Paso del wizard persistido (1–5). */
   draftStep: number;
   submittedAt?: Date;
@@ -238,7 +255,10 @@ export interface IUser {
   phone?: string;
   passwordHash: string;
   fullName: string;
+  /** @deprecated Preferir fullName para mostrar; se mantiene por compatibilidad. */
   displayName?: string;
+  /** Documento de identidad (DNI / cédula / pasaporte). */
+  documentNumber?: string;
   bio?: string;
   dateOfBirth?: Date;
   /** URL rápida de avatar (también puede existir en photos). */
@@ -268,6 +288,7 @@ export interface IUser {
   location: UserLocation;
   schedule: UserSchedule;
   photos: UserPhoto[];
+  payoutMethods: UserPayoutMethod[];
   verification: UserVerification;
   /** @deprecated Preferir verification.identity */
   kyc: UserKyc;

@@ -28,7 +28,10 @@ export class TransactionsRepository {
       coordinates: [number, number];
       label?: string;
     };
-    conditions: { summary: string; checklist?: string[] };
+    conditions: {
+      summary: string;
+      checklist?: Array<{ id: string; text: string; done: boolean }>;
+    };
     amountCents: number;
     currency: string;
     inviteTokenHash: string;

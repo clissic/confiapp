@@ -3,6 +3,7 @@ export type ChatChannel = 'BUYER_AGENT' | 'SELLER_AGENT';
 export interface ChatParticipant {
   id: string;
   name: string;
+  identityVerified?: boolean;
 }
 
 export interface ChatSummary {
@@ -32,6 +33,7 @@ export interface ChatMessage {
   chatId: string;
   senderId: string;
   senderName: string;
+  senderIdentityVerified?: boolean;
   type: string;
   body: string;
   attachments: MessageAttachment[];

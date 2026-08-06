@@ -4,11 +4,13 @@ import { motion } from 'framer-motion';
 import { Handshake, Plus } from 'lucide-react';
 
 import { formatMoney } from '../api/transactions.api';
+import { usePreferencesSnapshot } from '@/shared/preferences';
 import { useTransactions } from '../hooks/useTransactions';
 import { STATUS_LABELS } from '../model/types';
 import '../styles/transactions.css';
 
 export function TransactionsListPage() {
+  usePreferencesSnapshot();
   const { data, isLoading, isError } = useTransactions();
 
   if (isLoading) {
@@ -41,9 +43,6 @@ export function TransactionsListPage() {
           </div>
         </div>
         <div className="ca-tx__meta">
-          <Badge bg="light" text="dark">
-            {data.source === 'demo' ? 'Modo demo' : 'API'}
-          </Badge>
           <Link to="/operaciones/nueva" className="btn ca-btn-cta">
             <Plus size={16} className="me-1" />
             Iniciar operación

@@ -7,6 +7,16 @@ function hasAccessToken(): boolean {
   return Boolean(localStorage.getItem('accessToken'));
 }
 
+function normalizeProfile(profile: UserProfile): UserProfile {
+  const identityVerified =
+    Boolean(profile.identityVerified) || profile.kyc?.status === 'VERIFIED';
+  return {
+    ...profile,
+    payoutMethods: profile.payoutMethods ?? [],
+    identityVerified,
+  };
+}
+
 export async function fetchMyProfile(): Promise<{ profile: UserProfile; source: 'api' | 'demo' }> {
   if (!hasAccessToken()) {
     return { profile: loadDemoProfile(), source: 'demo' };
@@ -14,7 +24,7 @@ export async function fetchMyProfile(): Promise<{ profile: UserProfile; source: 
 
   try {
     const { data } = await apiClient.get<UserProfile>('/users/me');
-    return { profile: data, source: 'api' };
+    return { profile: normalizeProfile(data), source: 'api' };
   } catch {
     return { profile: loadDemoProfile(), source: 'demo' };
   }
@@ -31,7 +41,7 @@ export async function updateMyProfile(
 
   try {
     const { data } = await apiClient.patch<UserProfile>('/users/me', payload);
-    return { profile: data, source: 'api' };
+    return { profile: normalizeProfile(data), source: 'api' };
   } catch {
     const base = current ?? loadDemoProfile();
     return { profile: applyDemoUpdate(base, payload), source: 'demo' };

@@ -32,6 +32,119 @@
   font-size: var(--text-small-size);
 }
 
+/* ——— Wallet status badge ——— */
+.ca-wallet-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 1.75rem;
+  padding: 0.35em 0.7em;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ca-wallet-status__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: currentColor;
+  box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.ca-wallet-status__dot--pulse {
+  animation: ca-wallet-status-pulse 1.6s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ca-wallet-status__dot--pulse {
+    animation: none;
+  }
+}
+
+@keyframes ca-wallet-status-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+    opacity: 1;
+  }
+  70% {
+    box-shadow: 0 0 0 0.55rem color-mix(in srgb, currentColor 0%, transparent);
+    opacity: 0.85;
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 0%, transparent);
+    opacity: 1;
+  }
+}
+
+.ca-wallet-status__label {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ACTIVE — operativa */
+.ca-wallet-status--active {
+  color: #0f7a45;
+  background: color-mix(in srgb, #16a34a 16%, var(--surface-raised, #fff));
+  border-color: color-mix(in srgb, #16a34a 35%, transparent);
+}
+
+.ca-wallet-status--active .ca-wallet-status__dot {
+  background: #22c55e;
+  box-shadow: 0 0 6px color-mix(in srgb, #22c55e 70%, transparent);
+}
+
+/* FROZEN — congelada / revisión */
+.ca-wallet-status--frozen {
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 18%, var(--surface-raised, #fff));
+  border-color: color-mix(in srgb, #f59e0b 40%, transparent);
+}
+
+.ca-wallet-status--frozen .ca-wallet-status__dot {
+  background: #f59e0b;
+}
+
+/* CLOSED — cerrada */
+.ca-wallet-status--closed {
+  color: #4b5563;
+  background: color-mix(in srgb, #6b7280 14%, var(--surface-raised, #fff));
+  border-color: color-mix(in srgb, #6b7280 30%, transparent);
+}
+
+.ca-wallet-status--closed .ca-wallet-status__dot {
+  background: #9ca3af;
+}
+
+/* Desconocido */
+.ca-wallet-status--unknown {
+  color: var(--text-muted);
+  background: var(--surface-sunken, #f3f4f6);
+  border-color: var(--border-default);
+}
+
+[data-theme='dark'] .ca-wallet-status--active {
+  color: #86efac;
+  background: color-mix(in srgb, #16a34a 22%, var(--surface-raised));
+}
+
+[data-theme='dark'] .ca-wallet-status--frozen {
+  color: #fcd34d;
+  background: color-mix(in srgb, #f59e0b 20%, var(--surface-raised));
+}
+
+[data-theme='dark'] .ca-wallet-status--closed {
+  color: #d1d5db;
+  background: color-mix(in srgb, #6b7280 22%, var(--surface-raised));
+}
+
 .ca-wallet-balances {
   display: grid;
   grid-template-columns: 1.4fr repeat(3, 1fr);
@@ -61,6 +174,17 @@
   align-items: center;
   gap: var(--space-2);
   background: color-mix(in srgb, var(--action-primary-bg) 14%, var(--surface-raised));
+}
+
+.ca-wallet-balance__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ca-wallet-balance__copy span,
+.ca-wallet-balance__copy strong {
+  display: block;
 }
 
 .ca-wallet__grid {

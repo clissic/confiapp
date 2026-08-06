@@ -35,6 +35,21 @@ export class AgentsController {
     res.status(201).json(data);
   };
 
+  suspend = async (req: Request, res: Response): Promise<void> => {
+    const data = await this.service.suspend(req.user!.id);
+    res.status(200).json(data);
+  };
+
+  resume = async (req: Request, res: Response): Promise<void> => {
+    const data = await this.service.resume(req.user!.id);
+    res.status(200).json(data);
+  };
+
+  closeAgency = async (req: Request, res: Response): Promise<void> => {
+    const data = await this.service.closeAgency(req.user!.id);
+    res.status(200).json(data);
+  };
+
   search = async (req: Request, res: Response): Promise<void> => {
     const query = req.query as unknown as AgentSearchQuery;
     const data = await this.assignments.search(query);

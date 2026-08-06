@@ -14,6 +14,18 @@ function hasAccessToken(): boolean {
   return Boolean(localStorage.getItem('accessToken'));
 }
 
+function normalizeDemoChecklist(
+  checklist: Transaction['conditions']['checklist'] | string[] | undefined,
+): Transaction['conditions']['checklist'] {
+  if (!checklist?.length) return undefined;
+  return checklist.map((item, index) => {
+    if (typeof item === 'string') {
+      return { id: `legacy-${index}`, text: item, done: false };
+    }
+    return item;
+  });
+}
+
 function loadDemoList(): Transaction[] {
   try {
     const raw = localStorage.getItem(DEMO_KEY);
@@ -22,6 +34,12 @@ function loadDemoList(): Transaction[] {
     return list.map((tx) => ({
       ...tx,
       initiatedBy: tx.initiatedBy ?? 'BUYER',
+      conditions: {
+        ...tx.conditions,
+        checklist: normalizeDemoChecklist(
+          tx.conditions?.checklist as Transaction['conditions']['checklist'] | string[],
+        ),
+      },
     }));
   } catch {
     return [];
@@ -36,6 +54,15 @@ function saveDemoList(list: Transaction[]): Transaction[] {
 function demoCode(): string {
   const hex = Math.random().toString(16).slice(2, 10).toUpperCase();
   return `CONF-${hex}`;
+}
+
+function createDemoChecklist(texts?: string[]) {
+  if (!texts?.length) return undefined;
+  return texts.map((text, index) => ({
+    id: `demo-ck-${Date.now()}-${index}`,
+    text,
+    done: false,
+  }));
 }
 
 function createDemoTransaction(payload: CreateTransactionPayload): Transaction {
@@ -56,7 +83,7 @@ function createDemoTransaction(payload: CreateTransactionPayload): Transaction {
     status: 'WAITING_PARTICIPANT',
     conditions: {
       summary: payload.conditionsSummary,
-      checklist: payload.checklist,
+      checklist: createDemoChecklist(payload.checklist),
     },
     amountCents: Math.round(payload.amount * 100),
     currency: payload.currency ?? 'UYU',
@@ -114,7 +141,7 @@ function createDemoSellerTransaction(
     status: 'WAITING_PARTICIPANT',
     conditions: {
       summary: payload.conditionsSummary,
-      checklist: payload.checklist,
+      checklist: createDemoChecklist(payload.checklist),
     },
     amountCents,
     currency,
@@ -238,6 +265,42 @@ export async function getTransactionByCode(
     if (!found) throw new Error('Operación no encontrada');
     return { data: found, source: 'demo' };
   }
+}
+
+export async function toggleChecklistItem(
+  code: string,
+  itemId: string,
+  done: boolean,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const tx = list[index]!;
+    const checklist = (tx.conditions.checklist ?? []).map((item) =>
+      item.id === itemId
+        ? {
+            ...item,
+            done,
+            doneAt: done ? new Date().toISOString() : undefined,
+          }
+        : item,
+    );
+    const updated: Transaction = {
+      ...tx,
+      conditions: { ...tx.conditions, checklist },
+      updatedAt: new Date().toISOString(),
+    };
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.patch<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/checklist/${encodeURIComponent(itemId)}`,
+    { done },
+  );
+  return { data, source: 'api' };
 }
 
 export async function refreshInviteLink(

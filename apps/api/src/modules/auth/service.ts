@@ -34,6 +34,7 @@ const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
 const RESET_TTL_MS = 60 * 60 * 1000;
 
 function toAuthUser(user: HydratedDocument<IUser> | UserDocument): AuthUserDto {
+  const identityStatus = user.kyc?.status ?? user.verification?.identity?.status;
   return {
     id: user.id as string,
     email: user.email,
@@ -43,6 +44,7 @@ function toAuthUser(user: HydratedDocument<IUser> | UserDocument): AuthUserDto {
     status: user.status,
     role: user.role,
     emailVerified: Boolean(user.emailVerifiedAt),
+    identityVerified: identityStatus === 'VERIFIED',
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -123,7 +125,7 @@ export class AuthService {
     password: string;
     fullName: string;
     phone?: string;
-  }): Promise<{ user: AuthUserDto; message: string }> {
+  }): Promise<{ user: AuthUserDto; message: string; needsVerification: true }> {
     const existing = await this.repository.findByEmail(input.email);
     if (existing) {
       throw new AppError(409, 'Email already registered', undefined, 'EMAIL_TAKEN');
@@ -155,7 +157,8 @@ export class AuthService {
 
     return {
       user: toAuthUser(user),
-      message: 'Registered successfully. Please verify your email.',
+      message: 'Cuenta creada. Revisá tu email para confirmarla.',
+      needsVerification: true as const,
     };
   }
 
@@ -219,6 +222,24 @@ export class AuthService {
         ...meta,
       });
       throw invalid();
+    }
+
+    if (!user.emailVerifiedAt) {
+      auditService.track({
+        actor: String(user._id),
+        action: AuditAction.LOGIN_FAILED,
+        entityType: 'User',
+        entityId: String(user._id),
+        outcome: AuditOutcome.FAILURE,
+        metadata: { reason: 'email_not_verified' },
+        ...meta,
+      });
+      throw new AppError(
+        403,
+        'Debés verificar tu email antes de ingresar. Revisá tu bandeja de entrada.',
+        { email: user.email },
+        'EMAIL_NOT_VERIFIED',
+      );
     }
 
     user.failedLoginAttempts = 0;
@@ -412,9 +433,16 @@ export class AuthService {
       throw new AppError(400, 'Invalid or expired verification token', undefined, 'INVALID_TOKEN');
     }
 
-    user.emailVerifiedAt = new Date();
-    user.emailVerificationTokenHash = undefined;
-    user.emailVerificationExpires = undefined;
+    const verifiedAt = new Date();
+    user.emailVerifiedAt = verifiedAt;
+    user.set('emailVerificationTokenHash', undefined);
+    user.set('emailVerificationExpires', undefined);
+    if (user.verification?.email) {
+      user.verification.email.verified = true;
+      user.verification.email.verifiedAt = verifiedAt;
+    } else {
+      user.set('verification.email', { verified: true, verifiedAt });
+    }
     await this.repository.saveUser(user);
 
     auditService.track({
@@ -456,12 +484,32 @@ export class AuthService {
   }
 
   private async sendVerificationEmail(email: string, token: string): Promise<void> {
-    const verifyUrl = `${env.APP_URL}/verify-email?token=${token}`;
+    const verifyUrl = `${env.APP_URL}/verificar-email?token=${encodeURIComponent(token)}`;
     await emailSender.send({
       to: email,
-      subject: 'ConfiApp — Verify your email',
-      text: `Verify your email: ${verifyUrl}`,
-      html: `<p>Verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p>`,
+      subject: 'ConfiApp — Confirmá tu email',
+      text: [
+        'Hola,',
+        '',
+        'Gracias por registrarte en ConfiApp. Para activar tu cuenta, confirmá tu email:',
+        verifyUrl,
+        '',
+        'El enlace vence en 24 horas. Si no creaste esta cuenta, ignorá este mensaje.',
+      ].join('\n'),
+      html: `
+        <div style="font-family:sans-serif;line-height:1.5;color:#0f172a">
+          <h2 style="color:#01285d;margin:0 0 12px">Confirmá tu email</h2>
+          <p>Gracias por registrarte en <strong>ConfiApp</strong>. Tocá el botón para activar tu cuenta:</p>
+          <p style="margin:24px 0">
+            <a href="${verifyUrl}"
+               style="display:inline-block;background:#01285d;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">
+              Confirmar email
+            </a>
+          </p>
+          <p style="font-size:14px;color:#64748b">O abrí este enlace:<br/><a href="${verifyUrl}">${verifyUrl}</a></p>
+          <p style="font-size:13px;color:#94a3b8">El enlace vence en 24 horas. Si no creaste esta cuenta, ignorá este mensaje.</p>
+        </div>
+      `,
     });
   }
 }

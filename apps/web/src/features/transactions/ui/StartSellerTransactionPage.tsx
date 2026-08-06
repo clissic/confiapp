@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
-import { ImagePlus, Package, Trash2 } from 'lucide-react';
+import { ImagePlus, Trash2 } from 'lucide-react';
 
 import { useZodForm } from '@/shared/lib/form';
+import { defaultPaymentCurrency } from '@/shared/lib/money';
+import { useUserPreferences } from '@/shared/preferences';
 
 import { useCreateSellerTransaction } from '../hooks/useTransactions';
 import {
@@ -17,6 +19,12 @@ import {
   type ProductCategory,
   type ProductCondition,
 } from '../model/types';
+import {
+  ChecklistEditor,
+  checklistDraftToPayload,
+  createEmptyChecklistItem,
+  type ChecklistDraftItem,
+} from './ChecklistEditor';
 import '../styles/transactions.css';
 
 function isHttpUrl(value: string): boolean {
@@ -26,22 +34,25 @@ function isHttpUrl(value: string): boolean {
 export function StartSellerTransactionPage() {
   const navigate = useNavigate();
   const create = useCreateSellerTransaction();
+  const { currency: preferredCurrency } = useUserPreferences();
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<Array<{ url: string; alt?: string }>>([]);
+  const [checklistItems, setChecklistItems] = useState<ChecklistDraftItem[]>([
+    createEmptyChecklistItem(),
+  ]);
 
   const form = useZodForm(createSellerTransactionSchema, {
     defaultValues: {
       title: '',
       description: '',
       conditionsSummary: '',
-      checklistText: '',
       inviteExpiresInDays: 7,
       productTitle: '',
       productDescription: '',
       condition: 'GOOD',
       category: 'OTHER',
       price: undefined as unknown as number,
-      currency: 'UYU',
+      currency: defaultPaymentCurrency(preferredCurrency),
       imageUrl: '',
     },
   });
@@ -83,9 +94,7 @@ export function StartSellerTransactionPage() {
         return;
       }
       if (result.length > 2048 && localStorage.getItem('accessToken')) {
-        setError(
-          'Con sesión API usá una URL pública (las fotos locales grandes solo funcionan en demo).',
-        );
+        setError('Para fotos grandes usá una URL pública de la imagen.');
         return;
       }
       setImages((prev) => [...prev, { url: result, alt: file.name }]);
@@ -101,12 +110,7 @@ export function StartSellerTransactionPage() {
       return;
     }
 
-    const checklist = values.checklistText
-      ? values.checklistText
-          .split('\n')
-          .map((line) => line.trim())
-          .filter(Boolean)
-      : undefined;
+    const checklist = checklistDraftToPayload(checklistItems);
 
     try {
       const result = await create.mutateAsync({
@@ -138,22 +142,28 @@ export function StartSellerTransactionPage() {
   });
 
   return (
-    <div className="ca-tx">
-      <header className="ca-tx__header">
-        <div className="ca-tx__brand">
-          <Package size={22} strokeWidth={1.75} />
-          <div>
-            <p className="ca-tx__kicker">Nueva operación</p>
-            <h2 className="ca-tx__title">Iniciar como vendedor</h2>
-            <p className="ca-tx__lead">
-              Cargá el producto y generamos un enlace para que el comprador acepte la
-              operación.
-            </p>
-          </div>
+    <div className="ca-tx ca-tx--seller">
+      <header className="ca-tx-flow-hero">
+        <div className="ca-tx-flow-hero__visual">
+          <img
+            src="/landing/Sale.png"
+            alt=""
+            width={480}
+            height={480}
+            decoding="async"
+          />
         </div>
-        <Link to="/operaciones/nueva" className="btn btn-outline-secondary">
-          Cambiar rol
-        </Link>
+        <div className="ca-tx-flow-hero__copy">
+          <p className="ca-tx__kicker">Nueva operación</p>
+          <h2 className="ca-tx__title">Iniciar como vendedor</h2>
+          <p className="ca-tx__lead">
+            Cargá el producto y generamos un enlace para que el comprador acepte la
+            operación.
+          </p>
+          <Link to="/operaciones/nueva" className="btn btn-outline-secondary ca-tx-flow-hero__action">
+            Cambiar rol
+          </Link>
+        </div>
       </header>
 
       <motion.div
@@ -161,130 +171,150 @@ export function StartSellerTransactionPage() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
       >
+        <header className="ca-tx-panel__head">
+          <h3 className="ca-section-title">Datos de la operación</h3>
+          <p className="ca-section-lead ca-section-lead--soft-emphasis">
+            Completá el producto y el acuerdo. Al crear la operación te damos un enlace para
+            compartirlo con el comprador.
+          </p>
+        </header>
+
         {error ? <Alert variant="danger">{error}</Alert> : null}
 
-        <Form onSubmit={onSubmit} className="ca-form-grid" noValidate>
-          <h3 className="ca-section-title ca-form-grid__full">Acuerdo</h3>
+        <Form onSubmit={onSubmit} className="ca-tx-edit" noValidate>
+          <fieldset className="ca-tx-fieldset">
+            <legend>Acuerdo</legend>
+            <div className="row g-3">
+              <Form.Group className="col-12" controlId="seller-tx-title">
+                <Form.Label>Título de la operación</Form.Label>
+                <Form.Control
+                  {...form.register('title')}
+                  placeholder="Ej. Venta de notebook usada"
+                  isInvalid={Boolean(form.formState.errors.title)}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {form.formState.errors.title?.message}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-          <Form.Group className="ca-form-grid__full" controlId="seller-tx-title">
-            <Form.Label>Título de la operación</Form.Label>
-            <Form.Control
-              {...form.register('title')}
-              placeholder="Ej. Venta de notebook usada"
-              isInvalid={Boolean(form.formState.errors.title)}
-            />
-            <Form.Control.Feedback type="invalid">
-              {form.formState.errors.title?.message}
-            </Form.Control.Feedback>
-          </Form.Group>
+              <Form.Group className="col-12" controlId="seller-tx-desc">
+                <Form.Label>Descripción (opcional)</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={2}
+                  {...form.register('description')}
+                  placeholder="Contexto breve del acuerdo"
+                />
+              </Form.Group>
 
-          <Form.Group className="ca-form-grid__full" controlId="seller-tx-desc">
-            <Form.Label>Descripción (opcional)</Form.Label>
-            <Form.Control as="textarea" rows={2} {...form.register('description')} />
-          </Form.Group>
+              <Form.Group className="col-12 col-md-8" controlId="seller-tx-conditions">
+                <Form.Label>Condiciones del acuerdo</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  {...form.register('conditionsSummary')}
+                  placeholder="Entrega en persona, inspección previa, pago retenido hasta confirmación…"
+                  isInvalid={Boolean(form.formState.errors.conditionsSummary)}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {form.formState.errors.conditionsSummary?.message}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-          <Form.Group className="ca-form-grid__full" controlId="seller-tx-conditions">
-            <Form.Label>Condiciones del acuerdo</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              {...form.register('conditionsSummary')}
-              isInvalid={Boolean(form.formState.errors.conditionsSummary)}
-            />
-            <Form.Control.Feedback type="invalid">
-              {form.formState.errors.conditionsSummary?.message}
-            </Form.Control.Feedback>
-          </Form.Group>
+              <Form.Group className="col-12 col-md-4" controlId="seller-tx-expires">
+                <Form.Label>Validez del enlace (días)</Form.Label>
+                <Form.Control
+                  type="number"
+                  min={1}
+                  max={30}
+                  {...form.register('inviteExpiresInDays')}
+                />
+              </Form.Group>
 
-          <Form.Group className="ca-form-grid__full" controlId="seller-tx-checklist">
-            <Form.Label>Checklist (una línea por ítem)</Form.Label>
-            <Form.Control as="textarea" rows={2} {...form.register('checklistText')} />
-          </Form.Group>
+              <div className="col-12">
+                <ChecklistEditor items={checklistItems} onChange={setChecklistItems} />
+              </div>
+            </div>
+          </fieldset>
 
-          <Form.Group controlId="seller-tx-expires">
-            <Form.Label>Validez del enlace (días)</Form.Label>
-            <Form.Control
-              type="number"
-              min={1}
-              max={30}
-              {...form.register('inviteExpiresInDays')}
-            />
-          </Form.Group>
+          <fieldset className="ca-tx-fieldset">
+            <legend>Producto</legend>
+            <div className="row g-3">
+              <Form.Group className="col-12" controlId="seller-product-title">
+                <Form.Label>Título del producto</Form.Label>
+                <Form.Control
+                  {...form.register('productTitle')}
+                  placeholder="Ej. Notebook Lenovo ThinkPad"
+                  isInvalid={Boolean(form.formState.errors.productTitle)}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {form.formState.errors.productTitle?.message}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-          <h3 className="ca-section-title ca-form-grid__full">Producto</h3>
+              <Form.Group className="col-12" controlId="seller-product-desc">
+                <Form.Label>Descripción del producto</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  {...form.register('productDescription')}
+                  placeholder="Estado, accesorios, detalles relevantes…"
+                  isInvalid={Boolean(form.formState.errors.productDescription)}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {form.formState.errors.productDescription?.message}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-          <Form.Group className="ca-form-grid__full" controlId="seller-product-title">
-            <Form.Label>Título del producto</Form.Label>
-            <Form.Control
-              {...form.register('productTitle')}
-              isInvalid={Boolean(form.formState.errors.productTitle)}
-            />
-            <Form.Control.Feedback type="invalid">
-              {form.formState.errors.productTitle?.message}
-            </Form.Control.Feedback>
-          </Form.Group>
+              <Form.Group className="col-6 col-md-3" controlId="seller-condition">
+                <Form.Label>Condición</Form.Label>
+                <Form.Select {...form.register('condition')}>
+                  {(Object.keys(CONDITION_LABELS) as ProductCondition[]).map((key) => (
+                    <option key={key} value={key}>
+                      {CONDITION_LABELS[key]}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
 
-          <Form.Group className="ca-form-grid__full" controlId="seller-product-desc">
-            <Form.Label>Descripción del producto</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              {...form.register('productDescription')}
-              isInvalid={Boolean(form.formState.errors.productDescription)}
-            />
-            <Form.Control.Feedback type="invalid">
-              {form.formState.errors.productDescription?.message}
-            </Form.Control.Feedback>
-          </Form.Group>
+              <Form.Group className="col-6 col-md-3" controlId="seller-category">
+                <Form.Label>Categoría</Form.Label>
+                <Form.Select {...form.register('category')}>
+                  {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((key) => (
+                    <option key={key} value={key}>
+                      {CATEGORY_LABELS[key]}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
 
-          <Form.Group controlId="seller-condition">
-            <Form.Label>Condición</Form.Label>
-            <Form.Select {...form.register('condition')}>
-              {(Object.keys(CONDITION_LABELS) as ProductCondition[]).map((key) => (
-                <option key={key} value={key}>
-                  {CONDITION_LABELS[key]}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+              <Form.Group className="col-6 col-md-3" controlId="seller-price">
+                <Form.Label>Precio</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  {...form.register('price')}
+                  isInvalid={Boolean(form.formState.errors.price)}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {form.formState.errors.price?.message}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-          <Form.Group controlId="seller-category">
-            <Form.Label>Categoría</Form.Label>
-            <Form.Select {...form.register('category')}>
-              {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((key) => (
-                <option key={key} value={key}>
-                  {CATEGORY_LABELS[key]}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+              <Form.Group className="col-6 col-md-3" controlId="seller-currency">
+                <Form.Label>Moneda</Form.Label>
+                <Form.Select {...form.register('currency')}>
+                  <option value="UYU">UYU $</option>
+                  <option value="USD">USD $</option>
+                </Form.Select>
+              </Form.Group>
+            </div>
+          </fieldset>
 
-          <Form.Group controlId="seller-price">
-            <Form.Label>Precio</Form.Label>
-            <Form.Control
-              type="number"
-              step="0.01"
-              min="1"
-              {...form.register('price')}
-              isInvalid={Boolean(form.formState.errors.price)}
-            />
-            <Form.Control.Feedback type="invalid">
-              {form.formState.errors.price?.message}
-            </Form.Control.Feedback>
-          </Form.Group>
-
-          <Form.Group controlId="seller-currency">
-            <Form.Label>Moneda</Form.Label>
-            <Form.Select {...form.register('currency')}>
-              <option value="UYU">UYU · Peso uruguayo</option>
-              <option value="USD">USD · Dólar</option>
-              <option value="USD">USD</option>
-              <option value="EUR">EUR</option>
-            </Form.Select>
-          </Form.Group>
-
-          <div className="ca-form-grid__full ca-tx-photos">
-            <h4 className="ca-section-title">Fotos</h4>
+          <fieldset className="ca-tx-fieldset ca-tx-photos">
+            <legend>Fotos</legend>
+            <p className="ca-tx-fieldset__hint">Agregá al menos una foto por URL o desde tu dispositivo.</p>
             <div className="ca-tx-photos__add">
               <Form.Control
                 {...form.register('imageUrl')}
@@ -323,9 +353,9 @@ export function StartSellerTransactionPage() {
                 ))}
               </ul>
             ) : null}
-          </div>
+          </fieldset>
 
-          <div className="ca-form-grid__full ca-form-actions">
+          <div className="ca-form-actions">
             <Button type="submit" className="ca-btn-cta" disabled={create.isPending}>
               {create.isPending ? (
                 <>

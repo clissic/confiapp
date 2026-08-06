@@ -73,7 +73,12 @@ export function AppBreadcrumbs() {
                       { label: 'Inicio', to: '/inicio' },
                       { label: 'Reputación', current: true as const },
                     ]
-                : [{ label: 'Inicio', current: true as const }];
+                  : pathname.startsWith('/notificaciones')
+                    ? [
+                        { label: 'Inicio', to: '/inicio' },
+                        { label: 'Notificaciones', current: true as const },
+                      ]
+                    : [{ label: 'Inicio', current: true as const }];
   return (
     <nav className="ca-breadcrumbs" aria-label="Miga de pan">
       <ol className="ca-breadcrumbs__list">

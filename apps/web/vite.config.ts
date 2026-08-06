@@ -18,9 +18,9 @@ const API_PROXY_PATHS = [
   '/payments',
   '/wallet',
   '/reviews',
-  '/audit',
   '/evidence',
   '/disputes',
+  '/notifications',
   '/health',
   '/docs',
   '/socket.io',
@@ -59,6 +59,16 @@ export default defineConfig({
     allowedHosts: ['.trycloudflare.com'],
     proxy: {
       ...Object.fromEntries(API_PROXY_PATHS.map((p) => [p, apiProxy])),
+      // Prefijo `/audit` también matchea `/auditoria` (SPA): bypassear esa ruta.
+      '/audit': {
+        ...apiProxy,
+        bypass(req) {
+          const pathOnly = (req.url ?? '').split('?')[0] ?? '';
+          if (pathOnly === '/auditoria' || pathOnly.startsWith('/auditoria/')) {
+            return req.url;
+          }
+        },
+      },
       '/api': {
         ...apiProxy,
         rewrite: (p) => p.replace(/^\/api/, ''),

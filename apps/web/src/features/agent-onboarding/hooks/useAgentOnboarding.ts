@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  closeAgentAgency,
   fetchAgentOnboarding,
+  resumeAgentActivity,
   saveAgentOnboardingDraft,
   submitAgentOnboarding,
+  suspendAgentActivity,
 } from '../api/agent-onboarding.api';
 import type {
   AgentOnboarding,
@@ -41,6 +44,45 @@ export function useSubmitAgentOnboarding() {
     mutationFn: async (payload: AgentOnboardingSubmitPayload) => {
       const cached = queryClient.getQueryData<QueryData>(agentOnboardingQueryKey);
       return submitAgentOnboarding(payload, cached?.data);
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(agentOnboardingQueryKey, result);
+    },
+  });
+}
+
+export function useSuspendAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const cached = queryClient.getQueryData<QueryData>(agentOnboardingQueryKey);
+      return suspendAgentActivity(cached?.data);
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(agentOnboardingQueryKey, result);
+    },
+  });
+}
+
+export function useResumeAgent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const cached = queryClient.getQueryData<QueryData>(agentOnboardingQueryKey);
+      return resumeAgentActivity(cached?.data);
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(agentOnboardingQueryKey, result);
+    },
+  });
+}
+
+export function useCloseAgency() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const cached = queryClient.getQueryData<QueryData>(agentOnboardingQueryKey);
+      return closeAgentAgency(cached?.data);
     },
     onSuccess: (result) => {
       queryClient.setQueryData(agentOnboardingQueryKey, result);

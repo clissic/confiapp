@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAuth } from '@/features/auth/ui/AuthProvider';
+
 import { fetchMyProfile, updateMyProfile } from '../api/profile.api';
 import type { ProfileUpdatePayload, UserProfile } from '../model/types';
 
@@ -19,6 +21,7 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
+  const { patchUser } = useAuth();
 
   return useMutation({
     mutationFn: async (payload: ProfileUpdatePayload) => {
@@ -27,6 +30,12 @@ export function useUpdateProfile() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(profileQueryKey, data);
+      patchUser({
+        fullName: data.profile.fullName,
+        avatar: data.profile.avatar,
+        identityVerified:
+          Boolean(data.profile.identityVerified) || data.profile.kyc?.status === 'VERIFIED',
+      });
     },
   });
 }

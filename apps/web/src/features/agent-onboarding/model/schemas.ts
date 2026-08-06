@@ -39,10 +39,21 @@ export const scheduleSlotSchema = z
     path: ['endTime'],
   });
 
-export const scheduleStepSchema = z.object({
-  timezone: z.string().min(2).max(64),
-  weeklySlots: z.array(scheduleSlotSchema).min(1, 'Agregá al menos una franja horaria'),
-});
+export const scheduleStepSchema = z
+  .object({
+    timezone: z.string().min(2).max(64),
+    unspecifiedSchedule: z.boolean().default(false),
+    weeklySlots: z.array(scheduleSlotSchema).max(70),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.unspecifiedSchedule && value.weeklySlots.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Agregá al menos una franja horaria',
+        path: ['weeklySlots'],
+      });
+    }
+  });
 
 export const areaStepSchema = z.object({
   workAreaLabel: z.string().trim().min(2, 'Indicá el área').max(200),
@@ -56,15 +67,9 @@ export const areaStepSchema = z.object({
 });
 
 export const rateStepSchema = z.object({
-  hourlyRate: z.coerce
-    .number()
-    .min(1, 'Tarifa mínima 1')
-    .max(100_000, 'Tarifa demasiado alta'),
-  currency: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{3}$/, 'Moneda ISO 4217'),
+  ratesAccepted: z.boolean().refine((value) => value === true, {
+    message: 'Debés aceptar el esquema de tarifas para continuar',
+  }),
 });
 
 export type TermsStepValues = z.infer<typeof termsStepSchema>;

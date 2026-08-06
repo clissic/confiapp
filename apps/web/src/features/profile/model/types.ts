@@ -26,6 +26,15 @@ export interface ProfilePhoto {
   uploadedAt: string;
 }
 
+export interface ProfilePayoutMethod {
+  id: string;
+  bank: string;
+  number: string;
+  type: 'CA' | 'CC' | 'FINTECH';
+  currency: 'UYU' | 'USD' | '';
+  createdAt: string;
+}
+
 export interface ProfilePreferences {
   language: string;
   locale: string;
@@ -68,6 +77,7 @@ export interface UserProfile {
   phoneVerified: boolean;
   fullName: string;
   displayName?: string;
+  documentNumber?: string;
   bio?: string;
   avatar?: string;
   status: string;
@@ -77,6 +87,7 @@ export interface UserProfile {
   address: ProfileAddress;
   locationLabel?: string;
   photos: ProfilePhoto[];
+  payoutMethods: ProfilePayoutMethod[];
   wallet: {
     status: string;
     currency: string;
@@ -121,7 +132,8 @@ export interface UserProfile {
   };
   history: ProfileHistoryItem[];
   preferences: ProfilePreferences;
-  kyc: { status: string; verifiedAt?: string };
+  kyc: { status: string; verifiedAt?: string; rejectionReason?: string };
+  identityVerified?: boolean;
   verification: {
     email: boolean;
     phone: boolean;
@@ -142,6 +154,7 @@ export interface UserProfile {
 export type ProfileUpdatePayload = {
   fullName?: string;
   displayName?: string | null;
+  documentNumber?: string | null;
   bio?: string | null;
   phone?: string | null;
   avatar?: string | null;
@@ -151,6 +164,16 @@ export type ProfileUpdatePayload = {
     url: string;
     kind?: UserPhotoKind;
     isPrimary?: boolean;
+  }>;
+  /** Al enviar documentos KYC (frente, dorso, selfie), marca identidad en revisión. */
+  submitKyc?: boolean;
+  payoutMethods?: Array<{
+    id?: string;
+    bank: string;
+    number: string;
+    type: 'CA' | 'CC' | 'FINTECH';
+    currency: 'UYU' | 'USD' | '';
+    createdAt?: string;
   }>;
   preferences?: Partial<{
     language: string;

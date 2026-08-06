@@ -4,6 +4,8 @@ import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
 import { CheckCheck, ImagePlus, MessageSquare, Send } from 'lucide-react';
 
+import { formatTime } from '@/shared/lib/money';
+import { VerifiedName } from '@/shared/ui/VerifiedName';
 import {
   useChatMessages,
   useChats,
@@ -14,16 +16,6 @@ import { markChatRead } from '../api/chat.api';
 import type { ChatMessage } from '../model/types';
 import '../styles/chat.css';
 
-function formatTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('es-AR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return '';
-  }
-}
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -156,7 +148,7 @@ export function MessagesPage() {
         ? 'Reconectando…'
         : connectionState === 'connecting'
           ? 'Conectando…'
-          : 'Modo demo / sin socket';
+          : 'Sin conexión';
 
   return (
     <div className="ca-chat">
@@ -170,7 +162,6 @@ export function MessagesPage() {
         </div>
         <Badge bg={connectionState === 'online' ? 'success' : 'secondary'}>
           {connectionLabel}
-          {chatsData?.source === 'demo' ? ' · demo' : ''}
         </Badge>
       </header>
 
@@ -232,9 +223,12 @@ export function MessagesPage() {
                 <div>
                   <strong>{selected.label}</strong>
                   <div className="ca-chat-thread__meta">
-                    {selected.participants
-                      .map((p) => p.name)
-                      .join(' · ')}
+                    {selected.participants.map((p, index) => (
+                      <span key={p.id}>
+                        {index > 0 ? ' · ' : null}
+                        <VerifiedName name={p.name} verified={Boolean(p.identityVerified)} />
+                      </span>
+                    ))}
                   </div>
                 </div>
                 {loadingMessages ? <Spinner size="sm" animation="border" /> : null}
@@ -330,7 +324,13 @@ function MessageBubble({ message, mine }: { message: ChatMessage; mine: boolean 
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      {!mine ? <span className="ca-chat-bubble__name">{message.senderName}</span> : null}
+      {!mine ? (
+        <VerifiedName
+          className="ca-chat-bubble__name"
+          name={message.senderName}
+          verified={Boolean(message.senderIdentityVerified)}
+        />
+      ) : null}
       {message.attachments?.map((att, index) => (
         <a
           key={`${message.id}-att-${index}`}

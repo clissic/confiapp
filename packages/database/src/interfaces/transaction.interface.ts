@@ -15,10 +15,22 @@ export interface TransactionParticipant {
   respondedAt?: Date;
 }
 
+export interface TransactionChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  doneAt?: Date;
+  doneBy?: Types.ObjectId;
+}
+
 export interface TransactionConditions {
   /** Condiciones acordadas en texto libre. */
   summary: string;
-  checklist?: string[];
+  /**
+   * Pasos para el Agente.
+   * Compat: docs antiguos pueden tener `string[]`; normalizar en capa de servicio.
+   */
+  checklist?: TransactionChecklistItem[] | string[];
 }
 
 export interface TransactionStatusEvent {

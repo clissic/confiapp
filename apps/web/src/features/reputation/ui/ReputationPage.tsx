@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Award, Star } from 'lucide-react';
 
 import { useMyReputation, useMyReviews } from '../hooks/useReputation';
+import { formatDateTime, formatMoney } from '@/shared/lib/money';
+import { usePreferencesSnapshot } from '@/shared/preferences';
 import '../styles/reputation.css';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -17,6 +19,7 @@ function stars(n: number): string {
 
 /** Dashboard de reputación: score, roles, ops y reseñas. */
 export function ReputationPage() {
+  usePreferencesSnapshot();
   const rep = useMyReputation();
   const reviews = useMyReviews();
 
@@ -115,7 +118,7 @@ export function ReputationPage() {
           <strong>{data.operations.successRate.toFixed(1)}%</strong>
           <span>
             Agente {data.operations.asAgent} · Volume{' '}
-            {(data.operations.totalVolumeCents / 100).toLocaleString('es-UY')}
+            {formatMoney(data.operations.totalVolumeCents, 'USD')}
           </span>
         </div>
       </section>
@@ -160,7 +163,7 @@ export function ReputationPage() {
                     </Badge>
                   ) : null}
                   <span className="ca-rep__hint ms-auto">
-                    {new Date(item.createdAt).toLocaleString('es-UY')}
+                    {formatDateTime(item.createdAt)}
                   </span>
                 </div>
                 {item.comment ? <p className="mb-0 mt-1">{item.comment}</p> : null}

@@ -166,6 +166,7 @@ export class AgentSearchRepository {
       }
 
       if (
+        !schedule?.unspecifiedSchedule &&
         schedule?.weeklySlots?.length &&
         !isWithinWeeklySlots(schedule.weeklySlots, zoned.dayOfWeek, zoned.minutes)
       ) {

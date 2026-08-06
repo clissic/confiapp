@@ -14,14 +14,14 @@ import {
 } from '@confiapp/database';
 import { Types, type HydratedDocument } from 'mongoose';
 
-import { ChatModel, MessageModel, NotificationModel, TransactionModel, UserModel } from '../../database/models';
+import { ChatModel, MessageModel, TransactionModel, UserModel } from '../../database/models';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
-import { pushProvider } from '../../infrastructure/notifications/push.provider';
 import {
   publishRealtime,
   publishRealtimeToUser,
 } from '../../infrastructure/realtime/realtime-bus';
 import { chatRoom } from '../../infrastructure/realtime/rooms';
+import { notificationsService } from '../notifications/service';
 
 export type ChatDocument = HydratedDocument<IChat>;
 export type MessageDocument = HydratedDocument<IMessage>;
@@ -52,6 +52,7 @@ export interface MessageDto {
   chatId: string;
   senderId: string;
   senderName: string;
+  senderIdentityVerified?: boolean;
   type: string;
   body: string;
   attachments: MessageAttachment[];
@@ -205,7 +206,7 @@ export class ChatsService {
 
     const [users, transactions, unreadAgg] = await Promise.all([
       UserModel.find({ _id: { $in: userIds } })
-        .select('fullName displayName')
+        .select('fullName displayName kyc.status verification.identity.status')
         .lean()
         .exec(),
       TransactionModel.find({ _id: { $in: txIds } })
@@ -226,7 +227,16 @@ export class ChatsService {
     ]);
 
     const userMap = new Map(
-      users.map((u) => [String(u._id), u.displayName || u.fullName || 'Usuario']),
+      users.map((u) => {
+        const status = u.kyc?.status ?? u.verification?.identity?.status;
+        return [
+          String(u._id),
+          {
+            name: u.displayName || u.fullName || 'Usuario',
+            identityVerified: status === 'VERIFIED',
+          },
+        ] as const;
+      }),
     );
     const txMap = new Map(
       transactions.map((t) => [String(t._id), { code: t.code, title: t.title }]),
@@ -243,10 +253,14 @@ export class ChatsService {
         transactionCode: tx?.code,
         transactionTitle: tx?.title,
         label: channelLabel(chat.channel),
-        participants: chat.participants.map((p) => ({
-          id: String(p),
-          name: userMap.get(String(p)) || 'Usuario',
-        })),
+        participants: chat.participants.map((p) => {
+          const info = userMap.get(String(p));
+          return {
+            id: String(p),
+            name: info?.name || 'Usuario',
+            identityVerified: Boolean(info?.identityVerified),
+          };
+        }),
         lastMessageAt: chat.lastMessageAt?.toISOString(),
         lastMessagePreview: chat.lastMessagePreview,
         unreadCount: unreadMap.get(String(chat._id)) ?? 0,
@@ -291,15 +305,31 @@ export class ChatsService {
 
     const senderIds = [...new Set(messages.map((m) => String(m.sender)))];
     const senders = await UserModel.find({ _id: { $in: senderIds } })
-      .select('fullName displayName')
+      .select('fullName displayName kyc.status verification.identity.status')
       .lean()
       .exec();
-    const nameMap = new Map(
-      senders.map((u) => [String(u._id), u.displayName || u.fullName || 'Usuario']),
+    const senderMap = new Map(
+      senders.map((u) => {
+        const status = u.kyc?.status ?? u.verification?.identity?.status;
+        return [
+          String(u._id),
+          {
+            name: u.displayName || u.fullName || 'Usuario',
+            identityVerified: status === 'VERIFIED',
+          },
+        ] as const;
+      }),
     );
 
     return messages
-      .map((m) => this.toMessageDto(m, nameMap.get(String(m.sender)) || 'Usuario'))
+      .map((m) => {
+        const info = senderMap.get(String(m.sender));
+        return this.toMessageDto(
+          m,
+          info?.name || 'Usuario',
+          Boolean(info?.identityVerified),
+        );
+      })
       .reverse();
   }
 
@@ -348,9 +378,14 @@ export class ChatsService {
     chat.lastMessagePreview = preview.slice(0, 280);
     await chat.save();
 
-    const sender = await UserModel.findById(userId).select('fullName displayName').lean().exec();
+    const sender = await UserModel.findById(userId)
+      .select('fullName displayName kyc.status verification.identity.status')
+      .lean()
+      .exec();
     const senderName = sender?.displayName || sender?.fullName || 'Usuario';
-    const dto = this.toMessageDto(message.toObject(), senderName);
+    const senderIdentityVerified =
+      (sender?.kyc?.status ?? sender?.verification?.identity?.status) === 'VERIFIED';
+    const dto = this.toMessageDto(message.toObject(), senderName, senderIdentityVerified);
 
     publishRealtime(chatRoom(String(chat._id)), 'message:new', dto);
 
@@ -444,28 +479,12 @@ export class ChatsService {
     messageId: string;
     transactionId?: string;
   }): Promise<void> {
-    const user = await UserModel.findById(input.recipientId)
-      .select('preferences.notifications')
-      .lean()
-      .exec();
-    const prefs = user?.preferences?.notifications;
-    if (prefs?.messageAlerts === false && prefs?.inApp === false) {
-      return;
-    }
-
-    const channels: NotificationChannel[] = [NotificationChannel.IN_APP];
-    if (prefs?.push !== false) {
-      channels.push(NotificationChannel.PUSH);
-    }
-
     const title = `Nuevo mensaje · ${channelLabel(input.channel)}`;
     const body = `${input.senderName}: ${input.preview}`;
 
-    const doc = await NotificationModel.create({
-      user: input.recipientId,
+    const doc = await notificationsService.notify({
+      userId: input.recipientId,
       type: NotificationType.MESSAGE,
-      channel: NotificationChannel.IN_APP,
-      channelsDelivered: channels,
       title,
       body,
       data: {
@@ -473,40 +492,26 @@ export class ChatsService {
         messageId: input.messageId,
         channel: input.channel,
         transactionId: input.transactionId,
+        href: `/mensajes?chat=${input.chatId}`,
       },
       entityType: 'Chat',
-      entityId: new Types.ObjectId(input.chatId),
+      entityId: input.chatId,
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
     });
 
-    const payload = {
+    if (!doc) return;
+
+    publishRealtimeToUser(input.recipientId, 'chat:notify', {
       id: String(doc._id),
       type: doc.type,
       title: doc.title,
       body: doc.body,
       data: doc.data,
       entityType: doc.entityType,
-      entityId: String(doc.entityId),
+      entityId: doc.entityId ? String(doc.entityId) : undefined,
       createdAt: doc.createdAt.toISOString(),
-    };
-
-    publishRealtimeToUser(input.recipientId, 'notification:new', payload);
-    publishRealtimeToUser(input.recipientId, 'chat:notify', {
-      ...payload,
       chatId: input.chatId,
     });
-
-    if (channels.includes(NotificationChannel.PUSH)) {
-      await pushProvider.send({
-        userId: input.recipientId,
-        title,
-        body,
-        data: {
-          notificationId: String(doc._id),
-          chatId: input.chatId,
-          type: NotificationType.MESSAGE,
-        },
-      });
-    }
   }
 
   private toMessageDto(
@@ -521,12 +526,14 @@ export class ChatsService {
       createdAt: Date;
     },
     senderName: string,
+    senderIdentityVerified = false,
   ): MessageDto {
     return {
       id: String(m._id),
       chatId: String(m.chat),
       senderId: String(m.sender),
       senderName,
+      senderIdentityVerified,
       type: m.type,
       body: m.body,
       attachments: m.attachments ?? [],

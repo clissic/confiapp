@@ -63,6 +63,20 @@ Chat 1──* Message
 
 **AuditLog y RefreshToken (TTL)** no usan soft delete de negocio.
 
+## Estados de Transaction (resumen)
+
+Flujo típico post-creación:
+
+`CREATED` → `WAITING_PARTICIPANT` (invite pendiente) → `ACCEPTED` → … → fondeo / progreso / cierre.
+
+Documentación de producto/UI (sin exponer códigos al usuario): `docs/WEB_APP.md`.  
+Diseño a escala: `docs/SYSTEM_ARCHITECTURE.md` §9.2.
+
+## Teléfono del usuario
+
+`phone` + `phoneVerifiedAt` / `verification.phone.verified`.  
+Si el usuario cambia el número al actualizar perfil, la API limpia la verificación (`phoneVerifiedAt` unset, `verification.phone.verified = false`).
+
 ## Dinero
 
 Montos siempre en **centavos enteros** (`amountCents`) + `currency` ISO 4217.

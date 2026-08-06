@@ -1,7 +1,8 @@
-import { Alert, Button, Form } from 'react-bootstrap';
-import { useEffect, useState } from 'react';
+import { Button, Form } from 'react-bootstrap';
+import { useEffect } from 'react';
 
 import { useZodForm } from '@/shared/lib/form';
+import { useAppToast } from '@/shared/ui';
 
 import { useUpdateProfile } from '../../hooks/useProfile';
 import { addressFormSchema, type AddressFormValues } from '../../model/schemas';
@@ -9,7 +10,7 @@ import type { UserProfile } from '../../model/types';
 
 export function AddressSection({ profile }: { profile: UserProfile }) {
   const update = useUpdateProfile();
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const toast = useAppToast();
 
   const form = useZodForm(addressFormSchema, {
     defaultValues: {
@@ -36,7 +37,6 @@ export function AddressSection({ profile }: { profile: UserProfile }) {
   }, [profile, form]);
 
   const onSubmit = form.handleSubmit(async (values: AddressFormValues) => {
-    setFeedback(null);
     await update.mutateAsync({
       locationLabel: values.locationLabel || null,
       address: {
@@ -48,7 +48,7 @@ export function AddressSection({ profile }: { profile: UserProfile }) {
         postalCode: values.postalCode || undefined,
       },
     });
-    setFeedback('Dirección actualizada.');
+    toast.success('Dirección actualizada.');
   });
 
   return (
@@ -57,8 +57,6 @@ export function AddressSection({ profile }: { profile: UserProfile }) {
       <p className="ca-section-lead">
         Datos de ubicación para encuentros y cobertura. País en código ISO (AR, UY…).
       </p>
-
-      {feedback ? <Alert variant="success">{feedback}</Alert> : null}
 
       <Form onSubmit={onSubmit} className="ca-form-grid">
         <Form.Group controlId="line1" className="ca-form-grid__full">
@@ -103,7 +101,7 @@ export function AddressSection({ profile }: { profile: UserProfile }) {
         </Form.Group>
 
         <div className="ca-form-actions ca-form-grid__full">
-          <Button type="submit" className="ca-btn-primary" disabled={update.isPending}>
+          <Button type="submit" className="ca-btn-cta" disabled={update.isPending}>
             Guardar dirección
           </Button>
         </div>

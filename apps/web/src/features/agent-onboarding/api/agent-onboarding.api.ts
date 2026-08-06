@@ -1,5 +1,6 @@
 import { apiClient } from '@/shared/api/client';
-import { formatMoney } from '@/shared/lib/money';
+import { formatDistance } from '@/shared/lib/distance';
+import { getPreferencesSnapshot } from '@/shared/preferences';
 
 import type {
   AgentOnboarding,
@@ -14,7 +15,7 @@ const TERMS_TEXT = `Términos y condiciones del Agente Intermediario — ConfiAp
 1. Actuás como intermediario imparcial entre comprador y vendedor.
 2. Protegés la confidencialidad de las partes y la evidencia de la operación.
 3. Declarás disponibilidad real según los horarios configurados.
-4. Tu tarifa se comunica con transparencia antes de aceptar una asignación.
+4. Las tarifas de intermediación las define ConfiApp según el valor del producto; el Agente no las fija.
 5. ConfiApp puede suspender el rol ante incumplimiento o disputas graves.
 6. Aceptás que los fondos de escrow no son de tu propiedad.`;
 
@@ -26,8 +27,10 @@ function createDemoOnboarding(): AgentOnboarding {
     termsAccepted: false,
     timezone: 'America/Montevideo',
     weeklySlots: [],
+    unspecifiedSchedule: false,
     workAreaCountry: 'UY',
-    currency: 'UYU',
+    currency: 'USD',
+    ratesAccepted: false,
     draftStep: 1,
     isAgent: false,
     preview: {
@@ -46,7 +49,15 @@ function loadDemo(): AgentOnboarding {
   try {
     const raw = localStorage.getItem(DEMO_KEY);
     if (!raw) return createDemoOnboarding();
-    return { ...createDemoOnboarding(), ...JSON.parse(raw) } as AgentOnboarding;
+    const parsed = JSON.parse(raw) as Partial<AgentOnboarding>;
+    return {
+      ...createDemoOnboarding(),
+      ...parsed,
+      ratesAccepted: Boolean(parsed.ratesAccepted),
+      termsAccepted: Boolean(parsed.termsAccepted),
+      unspecifiedSchedule: Boolean(parsed.unspecifiedSchedule),
+      isAgent: parsed.status === 'ACTIVE' || parsed.status === 'INACTIVE',
+    };
   } catch {
     return createDemoOnboarding();
   }
@@ -58,31 +69,69 @@ function saveDemo(data: AgentOnboarding): AgentOnboarding {
 }
 
 function applyDraft(current: AgentOnboarding, payload: AgentOnboardingDraftPayload): AgentOnboarding {
+  const registered = current.status === 'ACTIVE' || current.status === 'INACTIVE';
+  const unspecifiedSchedule = payload.unspecifiedSchedule ?? current.unspecifiedSchedule;
   const next: AgentOnboarding = {
     ...current,
     ...payload,
-    weeklySlots: payload.weeklySlots ?? current.weeklySlots,
+    unspecifiedSchedule: Boolean(unspecifiedSchedule),
+    weeklySlots: unspecifiedSchedule
+      ? []
+      : (payload.weeklySlots ?? current.weeklySlots),
     termsAccepted: payload.termsAccepted ?? current.termsAccepted,
-    status: current.status === 'ACTIVE' ? 'ACTIVE' : 'DRAFT',
+    ratesAccepted: payload.ratesAccepted ?? current.ratesAccepted,
+    status: registered ? current.status : current.status === 'ACTIVE' ? 'ACTIVE' : 'DRAFT',
     draftStep: payload.draftStep ?? current.draftStep,
+    isAgent: registered,
     preview: {
       ...current.preview,
-      summary: buildSummary({ ...current, ...payload }),
+      summary: buildSummary({
+        ...current,
+        ...payload,
+        unspecifiedSchedule: Boolean(unspecifiedSchedule),
+        weeklySlots: unspecifiedSchedule ? [] : (payload.weeklySlots ?? current.weeklySlots),
+      }),
     },
   };
   if (payload.termsAccepted) {
     next.termsAcceptedAt = new Date().toISOString();
+  }
+  if (payload.ratesAccepted) {
+    next.ratesAcceptedAt = new Date().toISOString();
   }
   return saveDemo(next);
 }
 
 function buildSummary(data: Partial<AgentOnboarding>): string {
   const slots = data.weeklySlots?.length ?? 0;
-  const rate =
-    data.hourlyRateCents != null
-      ? `${(data.hourlyRateCents / 100).toFixed(2)} ${data.currency ?? 'UYU'}/h`
-      : 'Tarifa pendiente';
-  return `${data.workAreaLabel ?? 'Sin área'} · ${data.coverageRadiusKm ?? '?'} km · ${slots} franjas · ${rate}`;
+  const rate = data.ratesAccepted ? 'Tarifa de plataforma aceptada' : 'Tarifa pendiente';
+  const unit = getPreferencesSnapshot().distanceUnit;
+  const radius =
+    data.coverageRadiusKm != null ? formatDistance(data.coverageRadiusKm, unit, 0) : '?';
+  const franjaLabel = data.unspecifiedSchedule
+    ? 'Disponible 24 h'
+    : slots === 1
+      ? '1 franja'
+      : `${slots} franjas`;
+  return `${data.workAreaLabel ?? 'Sin área'} · ${radius} · ${franjaLabel} · ${rate}`;
+}
+
+async function postOnboardingAction(
+  path: string,
+  current?: AgentOnboarding,
+  demoTransform?: (base: AgentOnboarding) => AgentOnboarding,
+): Promise<{ data: AgentOnboarding; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const base = current ?? loadDemo();
+    return { data: saveDemo(demoTransform ? demoTransform(base) : base), source: 'demo' };
+  }
+  try {
+    const { data } = await apiClient.post<AgentOnboarding>(path);
+    return { data, source: 'api' };
+  } catch {
+    const base = current ?? loadDemo();
+    return { data: saveDemo(demoTransform ? demoTransform(base) : base), source: 'demo' };
+  }
 }
 
 export async function fetchAgentOnboarding(): Promise<{
@@ -139,10 +188,44 @@ export async function submitAgentOnboarding(
     next.isAgent = true;
     next.submittedAt = new Date().toISOString();
     next.activatedAt = next.submittedAt;
+    next.preview.summary = buildSummary(next);
     return { data: saveDemo(next), source: 'demo' };
   }
 }
 
-export function formatRate(cents: number, currency: string): string {
-  return formatMoney(cents, currency);
+export async function suspendAgentActivity(
+  current?: AgentOnboarding,
+): Promise<{ data: AgentOnboarding; source: 'api' | 'demo' }> {
+  return postOnboardingAction('/agents/onboarding/suspend', current, (base) => ({
+    ...base,
+    status: 'INACTIVE',
+    isAgent: true,
+    preview: { ...base.preview, summary: buildSummary({ ...base, status: 'INACTIVE' }) },
+  }));
+}
+
+export async function resumeAgentActivity(
+  current?: AgentOnboarding,
+): Promise<{ data: AgentOnboarding; source: 'api' | 'demo' }> {
+  return postOnboardingAction('/agents/onboarding/resume', current, (base) => ({
+    ...base,
+    status: 'ACTIVE',
+    isAgent: true,
+    preview: { ...base.preview, summary: buildSummary({ ...base, status: 'ACTIVE' }) },
+  }));
+}
+
+export async function closeAgentAgency(
+  current?: AgentOnboarding,
+): Promise<{ data: AgentOnboarding; source: 'api' | 'demo' }> {
+  return postOnboardingAction('/agents/onboarding/close', current, (base) => {
+    const reset = createDemoOnboarding();
+    return saveDemo({
+      ...reset,
+      preview: {
+        ...base.preview,
+        summary: 'Completá el flujo para ver la vista previa',
+      },
+    });
+  });
 }

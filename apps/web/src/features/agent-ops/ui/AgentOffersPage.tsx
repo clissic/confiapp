@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Alert, Badge, Button, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
 import { BellRing, Check, X } from 'lucide-react';
@@ -6,10 +6,12 @@ import { BellRing, Check, X } from 'lucide-react';
 import { useAcceptOffer, useAgentOffers, useRejectOffer } from '../hooks/useAgentOps';
 import { useAgentRealtime } from '../hooks/useAgentRealtime';
 import { OFFER_STATUS_LABELS, type OfferActionStatus } from '../model/types';
+import { formatDateTime } from '@/shared/lib/money';
 import '../styles/agent-ops.css';
 
 export function AgentOffersPage() {
   useAgentRealtime();
+  const navigate = useNavigate();
   const { data, isLoading, isError } = useAgentOffers();
   const accept = useAcceptOffer();
   const reject = useRejectOffer();
@@ -40,9 +42,6 @@ export function AgentOffersPage() {
           </p>
         </div>
         <div className="d-flex gap-2 align-items-center">
-          <Badge bg="light" text="dark">
-            {data.source === 'demo' ? 'Modo demo' : 'API · live'}
-          </Badge>
           <Link to="/agente/buscar" className="btn btn-outline-secondary">
             Buscar agentes
           </Link>
@@ -79,7 +78,7 @@ export function AgentOffersPage() {
                     ? `Operación ${String(offer.data.transactionCode)} · `
                     : null}
                   {offer.expiresAt
-                    ? `Expira ${new Date(offer.expiresAt).toLocaleString('es-AR')}`
+                    ? `Expira ${formatDateTime(offer.expiresAt)}`
                     : 'Sin expiración'}
                 </div>
                 {pending ? (
@@ -87,7 +86,16 @@ export function AgentOffersPage() {
                     <Button
                       className="ca-btn-cta"
                       disabled={accept.isPending}
-                      onClick={() => void accept.mutateAsync(offer.id)}
+                      onClick={() => {
+                        void accept.mutateAsync(offer.id).then(() => {
+                          const code = offer.data?.transactionCode;
+                          if (typeof code === 'string' && code.trim()) {
+                            navigate(`/operaciones/${code}`, {
+                              state: { agentAccepted: true },
+                            });
+                          }
+                        });
+                      }}
                     >
                       <Check size={16} className="me-1" />
                       Aceptar

@@ -29,7 +29,8 @@ const participantSchema = new Schema(
 const conditionsSchema = new Schema(
   {
     summary: { type: String, required: true, trim: true, maxlength: 5000 },
-    checklist: [{ type: String, trim: true, maxlength: 500 }],
+    /** Items { id, text, done } — Mixed por compat con string[] legacy. */
+    checklist: { type: [Schema.Types.Mixed], default: undefined },
   },
   { _id: false },
 );

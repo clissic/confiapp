@@ -14,6 +14,7 @@ export class AuditController {
       entityId: query.entityId,
       action: query.action,
       limit: query.limit,
+      page: query.page,
       before: query.before,
     });
     res.status(200).json(data);

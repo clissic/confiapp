@@ -49,6 +49,18 @@ const envSchema = z.object({
   PAYMENTS_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
   /** Pago al agente en basis points sobre el bruto (500 = 5% ejemplo). */
   PAYMENTS_AGENT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(500),
+  /** SMTP — si SMTP_HOST está vacío, se usa el mailer de consola (dev). */
+  SMTP_HOST: z.string().optional().default(''),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  SMTP_USER: z.string().optional().default(''),
+  SMTP_PASS: z.string().optional().default(''),
+  MAIL_FROM: z.string().default('ConfiApp <noreply@confiapp.local>'),
+  /** Destinatario de notificaciones internas (KYC). Vacío = email parseado de MAIL_FROM. */
+  PLATFORM_NOTIFY_EMAIL: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

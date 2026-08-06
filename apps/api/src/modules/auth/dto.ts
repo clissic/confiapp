@@ -9,6 +9,7 @@ export interface AuthUserDto {
   status: UserStatus;
   role: PlatformRole;
   emailVerified: boolean;
+  identityVerified: boolean;
   createdAt: string;
   updatedAt: string;
 }

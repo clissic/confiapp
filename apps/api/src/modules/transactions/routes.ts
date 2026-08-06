@@ -7,6 +7,8 @@ import {
   createSellerTransactionBodySchema,
   createTransactionBodySchema,
   inviteTokenParamsSchema,
+  toggleChecklistBodySchema,
+  transactionChecklistParamsSchema,
   transactionCodeParamsSchema,
 } from './validation';
 
@@ -37,6 +39,16 @@ transactionsRoutes.get(
   authenticate,
   validateRequest({ params: transactionCodeParamsSchema }),
   asyncHandler(controller.getByCode),
+);
+
+transactionsRoutes.patch(
+  '/by-code/:code/checklist/:itemId',
+  authenticate,
+  validateRequest({
+    params: transactionChecklistParamsSchema,
+    body: toggleChecklistBodySchema,
+  }),
+  asyncHandler(controller.toggleChecklistItem),
 );
 
 transactionsRoutes.post(

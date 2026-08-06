@@ -13,6 +13,8 @@ export enum AgentOnboardingStatus {
   NONE = 'NONE',
   DRAFT = 'DRAFT',
   ACTIVE = 'ACTIVE',
+  /** Agente con alta completa pero sin aceptar trabajos. */
+  INACTIVE = 'INACTIVE',
   SUSPENDED = 'SUSPENDED',
 }
 

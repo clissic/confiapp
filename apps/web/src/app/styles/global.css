@@ -1,4 +1,5 @@
 @import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
 @import '../../../../../docs/design-system/tokens.css';
 
 @tailwind base;
@@ -41,6 +42,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.ca-verified-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+}
+
+.ca-verified-name__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ca-verified-name__badge {
+  flex: 0 0 auto;
+  color: var(--color-secondary-500, #2dd4bf);
+  fill: currentColor;
+  stroke: var(--surface-raised, #fff);
+}
+
 button,
 input,
 select,
@@ -59,6 +80,12 @@ textarea {
 [data-theme='dark'] .form-select:focus {
   background-color: var(--surface-sunken);
   color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme='dark'] .input-group-text {
+  background-color: var(--surface-sunken);
+  color: var(--text-secondary);
   border-color: var(--border-default);
 }
 
@@ -152,6 +179,42 @@ textarea {
   color: var(--text-on-primary);
 }
 
+[data-theme='dark'] .popover {
+  --bs-popover-bg: var(--surface-overlay);
+  --bs-popover-border-color: var(--border-default);
+  --bs-popover-header-bg: var(--surface-raised);
+  --bs-popover-header-color: var(--text-primary);
+  --bs-popover-body-color: var(--text-primary);
+  --bs-popover-arrow-border: var(--border-default);
+  background-color: var(--surface-overlay);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+[data-theme='dark'] .popover .popover-header {
+  background-color: var(--surface-raised);
+  color: var(--text-primary);
+  border-bottom-color: var(--border-default);
+}
+
+[data-theme='dark'] .popover .popover-body {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .popover .popover-arrow::before {
+  border-top-color: var(--border-default);
+  border-bottom-color: var(--border-default);
+  border-left-color: var(--border-default);
+  border-right-color: var(--border-default);
+}
+
+[data-theme='dark'] .popover .popover-arrow::after {
+  border-top-color: var(--surface-overlay);
+  border-bottom-color: var(--surface-overlay);
+  border-left-color: var(--surface-overlay);
+  border-right-color: var(--surface-overlay);
+}
+
 [data-theme='dark'] .btn-outline-secondary {
   color: var(--text-secondary);
   border-color: var(--border-strong);
@@ -165,4 +228,177 @@ textarea {
 
 [data-theme='dark'] .spinner-border {
   color: var(--color-secondary-400);
+}
+
+/* ——— App toasts (contraste claro / oscuro vía tokens) ——— */
+.ca-toast-container {
+  z-index: 1090;
+}
+
+.ca-toast {
+  --bs-toast-max-width: 22rem;
+  --bs-toast-bg: var(--surface-overlay);
+  --bs-toast-color: var(--text-primary);
+  --bs-toast-border-width: 1px;
+  --bs-toast-border-color: var(--border-default);
+  --bs-toast-border-radius: var(--radius-md, 0.5rem);
+  --bs-toast-box-shadow: var(--shadow-4, 0 8px 24px rgba(0, 0, 0, 0.18));
+  --bs-toast-header-color: var(--text-secondary);
+  --bs-toast-header-bg: var(--surface-raised);
+  --bs-toast-header-border-color: var(--border-default);
+  background: var(--surface-overlay);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+}
+
+.ca-toast .ca-toast__header {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.ca-toast .ca-toast__title {
+  color: inherit;
+  font-weight: 650;
+}
+
+.ca-toast .ca-toast__body {
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.ca-toast .btn-close {
+  opacity: 0.65;
+  filter: none;
+}
+
+.ca-toast .btn-close:hover {
+  opacity: 1;
+}
+
+.ca-toast--success {
+  border-color: var(--success-border);
+  border-left: 4px solid var(--success-solid);
+}
+
+.ca-toast--success .ca-toast__header {
+  background: var(--success-bg);
+  color: var(--success-fg);
+  border-bottom-color: var(--success-border);
+}
+
+.ca-toast--success .ca-toast__body {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+
+.ca-toast--danger {
+  border-color: var(--danger-border);
+  border-left: 4px solid var(--danger-solid);
+}
+
+.ca-toast--danger .ca-toast__header {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  border-bottom-color: var(--danger-border);
+}
+
+.ca-toast--danger .ca-toast__body {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}
+
+.ca-toast--warning {
+  border-color: var(--warning-border);
+  border-left: 4px solid var(--warning-solid);
+}
+
+.ca-toast--warning .ca-toast__header {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  border-bottom-color: var(--warning-border);
+}
+
+.ca-toast--warning .ca-toast__body {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+
+.ca-toast--info {
+  border-color: var(--info-border);
+  border-left: 4px solid var(--info-solid);
+}
+
+.ca-toast--info .ca-toast__header {
+  background: var(--info-bg);
+  color: var(--info-fg);
+  border-bottom-color: var(--info-border);
+}
+
+.ca-toast--info .ca-toast__body {
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
+/* En oscuro el ícono de cerrar es oscuro por defecto: invertirlo para contraste. */
+[data-theme='dark'] .ca-toast .btn-close {
+  filter: invert(1) grayscale(100%);
+  opacity: 0.75;
+}
+
+[data-theme='dark'] .ca-toast .btn-close:hover {
+  opacity: 1;
+}
+
+/* ——— Formularios: botones a ancho completo en mobile ——— */
+@media (max-width: 767.98px) {
+  .ca-form-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: var(--space-1, 0.5rem);
+  }
+
+  .ca-form-actions > .btn,
+  .ca-form-actions > button,
+  .ca-form-actions > a.btn {
+    width: 100%;
+  }
+
+  /* Submit / CTA directos del form (excluye composer de chat) */
+  form:not(.ca-chat-composer) > .btn,
+  form:not(.ca-chat-composer) > button.btn,
+  form:not(.ca-chat-composer) > .ca-btn-primary,
+  form:not(.ca-chat-composer) > .ca-btn-cta {
+    width: 100%;
+  }
+
+  form:not(.ca-chat-composer) .ca-form-grid__full > .btn,
+  form:not(.ca-chat-composer) .ca-form-grid__full > button.btn {
+    width: 100%;
+  }
+
+  /* Grillas de lookup / filtros: una columna en mobile */
+  .ca-payments__lookup,
+  .ca-open-jobs__filters,
+  .ca-audit__filters {
+    grid-template-columns: 1fr !important;
+  }
+
+  .ca-audit__filters {
+    display: grid;
+    width: 100%;
+  }
+
+  .ca-payments__lookup > .btn,
+  .ca-open-jobs__filters > .btn,
+  .ca-open-jobs__filters .ca-form-actions,
+  .ca-audit__filters > .btn,
+  .ca-audit__filters > button,
+  .ca-wallet-card > .btn,
+  .ca-wallet-card > a.btn {
+    width: 100%;
+  }
 }

@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 
-import { loginRequest, registerRequest } from '../api/auth.api';
+import { registerRequest } from '../api/auth.api';
 import { isStrongPassword, PASSWORD_HINT } from '../lib/password';
+import { AuthBrand } from './AuthBrand';
 import { useAuth } from './AuthProvider';
+import { PasswordInput } from './PasswordInput';
 import '../styles/auth.css';
 
 function safeNextPath(raw: string | null): string {
@@ -12,12 +14,12 @@ function safeNextPath(raw: string | null): string {
   return raw;
 }
 
-/** Alta de cuenta y acceso a la plataforma. */
+/** Alta de cuenta — requiere confirmación de email antes de ingresar. */
 export function RegisterPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNextPath(params.get('next'));
-  const { setSession, isAuthenticated, isBootstrapping } = useAuth();
+  const { isAuthenticated, isBootstrapping } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -48,9 +50,10 @@ export function RegisterPage() {
         password,
         fullName: name,
       });
-      const session = await loginRequest(mail, password);
-      setSession(session);
-      navigate(next, { replace: true });
+      navigate(
+        `/verificar-email?email=${encodeURIComponent(mail)}&next=${encodeURIComponent(next)}`,
+        { replace: true },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la cuenta');
     } finally {
@@ -65,15 +68,7 @@ export function RegisterPage() {
   return (
     <div className="ca-auth">
       <div className="ca-auth__card">
-        <Link to="/" className="ca-auth__brand">
-          <span className="ca-auth__brand-mark" aria-hidden>
-            <img src="/landing/ConfiApp-logo-blanco.png" alt="" width={29} height={29} />
-          </span>
-          <span className="ca-auth__brand-name">
-            <span className="ca-auth__brand-name--dark">Confi</span>
-            <span className="ca-auth__brand-name--light">App</span>
-          </span>
-        </Link>
+        <AuthBrand />
         <h1 className="ca-auth__title">Crear cuenta</h1>
         <p className="ca-auth__lead">
           Empezá a comprar, vender o llevar productos como Agente, con pago protegido.
@@ -109,9 +104,7 @@ export function RegisterPage() {
 
           <label className="ca-auth__label">
             Contraseña
-            <input
-              className="ca-auth__input"
-              type="password"
+            <PasswordInput
               autoComplete="new-password"
               required
               minLength={8}

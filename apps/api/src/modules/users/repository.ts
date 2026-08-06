@@ -7,6 +7,7 @@ import type {
   UserPhotoKind,
   UserStatus,
 } from '@confiapp/database';
+import { IdentityVerificationStatus, UserPhotoKind as PhotoKind } from '@confiapp/database';
 
 import { UserModel } from '../../database/models';
 
@@ -23,6 +24,7 @@ export interface CreateUserData {
 export interface UpdateUserData {
   fullName?: string;
   displayName?: string | null;
+  documentNumber?: string | null;
   bio?: string | null;
   phone?: string | null;
   avatar?: string | null;
@@ -46,6 +48,18 @@ export interface UpdateUserData {
     width?: number;
     height?: number;
     isPrimary?: boolean;
+  }>;
+  /** Si true y hay ID_FRONT + SELFIE, pasa KYC a PENDING. */
+  submitKyc?: boolean;
+  kycReviewTokenHash?: string;
+  kycReviewTokenExpiresAt?: Date;
+  payoutMethods?: Array<{
+    id?: string;
+    bank: string;
+    number: string;
+    type: 'CA' | 'CC' | 'FINTECH';
+    currency: 'UYU' | 'USD' | '';
+    createdAt?: string;
   }>;
   preferences?: {
     language?: string;
@@ -85,6 +99,25 @@ export class UsersRepository {
       .exec();
   }
 
+  async findByKycReviewTokenHash(tokenHash: string): Promise<UserDocument | null> {
+    const now = new Date();
+    return UserModel.findOne({
+      deletedAt: null,
+      $or: [
+        {
+          'kyc.reviewTokenHash': tokenHash,
+          'kyc.reviewTokenExpiresAt': { $gt: now },
+        },
+        {
+          'verification.identity.reviewTokenHash': tokenHash,
+          'verification.identity.reviewTokenExpiresAt': { $gt: now },
+        },
+      ],
+    })
+      .select('+kyc.reviewTokenHash +kyc.reviewTokenExpiresAt')
+      .exec();
+  }
+
   async updateById(id: string, data: UpdateUserData): Promise<UserDocument | null> {
     const $set: Record<string, unknown> = {};
     const $unset: Record<string, 1> = {};
@@ -95,13 +128,29 @@ export class UsersRepository {
       if (data.displayName === null) $unset.displayName = 1;
       else $set.displayName = data.displayName;
     }
+    if (data.documentNumber !== undefined) {
+      if (data.documentNumber === null) $unset.documentNumber = 1;
+      else $set.documentNumber = data.documentNumber;
+    }
     if (data.bio !== undefined) {
       if (data.bio === null) $unset.bio = 1;
       else $set.bio = data.bio;
     }
     if (data.phone !== undefined) {
-      if (data.phone === null) $unset.phone = 1;
-      else $set.phone = data.phone;
+      if (data.phone === null) {
+        $unset.phone = 1;
+        $unset.phoneVerifiedAt = 1;
+        $set['verification.phone.verified'] = false;
+      } else {
+        const existing = await UserModel.findById(id).select('phone').lean().exec();
+        const prevDigits = String(existing?.phone ?? '').replace(/\D/g, '');
+        const nextDigits = String(data.phone).replace(/\D/g, '');
+        $set.phone = data.phone;
+        if (prevDigits !== nextDigits) {
+          $unset.phoneVerifiedAt = 1;
+          $set['verification.phone.verified'] = false;
+        }
+      }
     }
     if (data.avatar !== undefined) {
       if (data.avatar === null) $unset.avatar = 1;
@@ -140,8 +189,60 @@ export class UsersRepository {
         isPrimary: Boolean(photo.isPrimary),
         uploadedAt: new Date(),
       }));
-      const primary = data.photos.find((p) => p.isPrimary) ?? data.photos[0];
+      const primary =
+        data.photos.find(
+          (p) =>
+            p.isPrimary &&
+            (p.kind === PhotoKind.AVATAR ||
+              p.kind === PhotoKind.PROFILE ||
+              p.kind === undefined),
+        ) ??
+        data.photos.find(
+          (p) => p.kind === PhotoKind.AVATAR || p.kind === PhotoKind.PROFILE,
+        );
       if (primary?.url) $set.avatar = primary.url;
+
+      const kinds = new Set(data.photos.map((p) => p.kind));
+      const hasKycDocs = kinds.has(PhotoKind.ID_FRONT) && kinds.has(PhotoKind.SELFIE);
+      if (data.submitKyc && hasKycDocs) {
+        const existing = await UserModel.findById(id)
+          .select('kyc.status verification.identity.status')
+          .lean()
+          .exec();
+        const currentStatus =
+          existing?.kyc?.status ?? existing?.verification?.identity?.status;
+        if (currentStatus !== IdentityVerificationStatus.VERIFIED) {
+          $set['kyc.status'] = IdentityVerificationStatus.PENDING;
+          $set['verification.identity.status'] = IdentityVerificationStatus.PENDING;
+          if (data.kycReviewTokenHash) {
+            $set['kyc.reviewTokenHash'] = data.kycReviewTokenHash;
+            $set['verification.identity.reviewTokenHash'] = data.kycReviewTokenHash;
+          }
+          if (data.kycReviewTokenExpiresAt) {
+            $set['kyc.reviewTokenExpiresAt'] = data.kycReviewTokenExpiresAt;
+            $set['verification.identity.reviewTokenExpiresAt'] = data.kycReviewTokenExpiresAt;
+          }
+          $unset['kyc.rejectionReason'] = 1;
+          $unset['kyc.rejectedAt'] = 1;
+          $unset['verification.identity.rejectionReason'] = 1;
+          $unset['verification.identity.rejectedAt'] = 1;
+        }
+      }
+    }
+    if (data.payoutMethods !== undefined) {
+      $set.payoutMethods = data.payoutMethods.map((method) => {
+        const doc: Record<string, unknown> = {
+          bank: method.bank,
+          number: method.number,
+          type: method.type,
+          currency: method.type === 'FINTECH' ? '' : method.currency,
+          createdAt: method.createdAt ? new Date(method.createdAt) : new Date(),
+        };
+        if (method.id && /^[a-fA-F0-9]{24}$/.test(method.id)) {
+          doc._id = method.id;
+        }
+        return doc;
+      });
     }
     if (data.preferences !== undefined) {
       const prefs = data.preferences;

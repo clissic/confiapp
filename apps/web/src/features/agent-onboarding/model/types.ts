@@ -7,7 +7,7 @@ export type DayOfWeek =
   | 'SATURDAY'
   | 'SUNDAY';
 
-export type AgentOnboardingStatus = 'NONE' | 'DRAFT' | 'ACTIVE' | 'SUSPENDED';
+export type AgentOnboardingStatus = 'NONE' | 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
 export interface AgentScheduleSlot {
   dayOfWeek: DayOfWeek;
@@ -23,12 +23,17 @@ export interface AgentOnboarding {
   termsAcceptedAt?: string;
   timezone: string;
   weeklySlots: AgentScheduleSlot[];
+  /** Disponible 24 h sin franjas horarias. */
+  unspecifiedSchedule: boolean;
   workAreaLabel?: string;
   workAreaCity?: string;
   workAreaCountry?: string;
   coverageRadiusKm?: number;
+  /** @deprecated La tarifa la define la app; se conserva por compatibilidad. */
   hourlyRateCents?: number;
   currency: string;
+  ratesAccepted: boolean;
+  ratesAcceptedAt?: string;
   draftStep: number;
   isAgent: boolean;
   submittedAt?: string;
@@ -44,23 +49,26 @@ export interface AgentOnboardingDraftPayload {
   termsAccepted?: boolean;
   timezone?: string;
   weeklySlots?: AgentScheduleSlot[];
+  unspecifiedSchedule?: boolean;
   workAreaLabel?: string;
   workAreaCity?: string;
   workAreaCountry?: string;
   coverageRadiusKm?: number;
   hourlyRateCents?: number;
   currency?: string;
+  ratesAccepted?: boolean;
   draftStep?: number;
 }
 
 export interface AgentOnboardingSubmitPayload {
   termsAccepted: true;
+  ratesAccepted: true;
   timezone: string;
   weeklySlots: AgentScheduleSlot[];
+  unspecifiedSchedule: boolean;
   workAreaLabel: string;
   workAreaCity: string;
   workAreaCountry: string;
   coverageRadiusKm: number;
-  hourlyRateCents: number;
-  currency: string;
+  currency?: string;
 }

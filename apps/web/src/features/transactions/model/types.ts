@@ -50,6 +50,13 @@ export interface TransactionProduct {
   images: Array<{ url: string; alt?: string; sortOrder: number }>;
 }
 
+export interface TransactionChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  doneAt?: string;
+}
+
 export interface Transaction {
   id: string;
   code: string;
@@ -60,7 +67,7 @@ export interface Transaction {
   status: TransactionStatus;
   conditions: {
     summary: string;
-    checklist?: string[];
+    checklist?: TransactionChecklistItem[];
   };
   amountCents?: number;
   currency?: string;

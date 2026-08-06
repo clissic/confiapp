@@ -5,6 +5,7 @@ import type {
   ConfirmSaleBody,
   CreateSellerTransactionBody,
   CreateTransactionBody,
+  ToggleChecklistBody,
 } from './validation';
 
 export class TransactionsController {
@@ -35,6 +36,19 @@ export class TransactionsController {
   getByCode = async (req: Request, res: Response): Promise<void> => {
     const code = String(req.params.code);
     const data = await this.service.getByCode(req.user!.id, code);
+    res.status(200).json(data);
+  };
+
+  toggleChecklistItem = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const itemId = String(req.params.itemId);
+    const body = req.body as ToggleChecklistBody;
+    const data = await this.service.toggleChecklistItem(
+      req.user!.id,
+      code,
+      itemId,
+      body.done,
+    );
     res.status(200).json(data);
   };
 

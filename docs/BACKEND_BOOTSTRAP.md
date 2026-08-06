@@ -1,6 +1,11 @@
 # Bootstrap del backend ConfiApp (`apps/api`)
 
-Stack de plataforma inicializado. **No incluye diseño de endpoints nuevos** en este documento.
+> **Snapshot histórico** del scaffold Express inicial.  
+> El estado actual del API (módulos, auth, transacciones, etc.) está en  
+> [`ARCHITECTURE.md`](./ARCHITECTURE.md) y [`WEB_APP.md`](./WEB_APP.md).  
+> Conservar este archivo como referencia de decisiones de middleware/tooling.
+
+Stack de plataforma inicializado en el bootstrap. **No describe el inventario actual de endpoints.**
 
 ## Qué quedó configurado
 
@@ -17,7 +22,7 @@ Stack de plataforma inicializado. **No incluye diseño de endpoints nuevos** en 
 | **CORS** | `app.ts` | Origen explícito (`CORS_ORIGIN`) + credentials para cookies futuras |
 | **Compression** | `app.ts` | gzip/deflate; menos bytes en JSON/Swagger |
 | **Rate limiter** | `middleware/rate-limit.ts` | Mitiga brute-force/DoS básico; límites por env |
-| **JWT** | `infrastructure/security/jwt.ts` | `jsonwebtoken`; sign/verify listos **sin** exponer rutas aún |
+| **JWT** | `infrastructure/security/jwt.ts` | `jsonwebtoken`; sign/verify |
 | **Bcrypt** | `utils/password.ts` (`bcryptjs`) | 12 rounds; portable (sin binding nativo en Windows CI) |
 | **Mongoose** | `database/` + `DatabaseModule` | ODM tipado; conexión con reconexión y shutdown limpio |
 | **Logger** | `utils/logger.ts` | JSON estructurado + niveles (`LOG_LEVEL`) |
@@ -38,19 +43,12 @@ Justificación: seguridad y CORS antes de parsear cuerpos; compresión antes de 
 
 ## Variables de entorno
 
-Ver `apps/api/.env.example`:
+Ver `apps/api/.env.example` (incluye JWT, DB, CORS, rate limit, providers de pago, etc.).
 
-- `DATABASE_URL` — MongoDB  
-- `JWT_SECRET` / `JWT_EXPIRES_IN` — tokens (aún sin endpoints de login)  
-- `CORS_ORIGIN` — frontend Vite (`3001`)  
-- `RATE_LIMIT_*` — ventana y máximo  
-- `LOG_LEVEL` — filtrado del logger  
+## Notas posteriores al bootstrap
 
-## Qué no se hizo a propósito
-
-- No se agregaron endpoints nuevos (pedido explícito).
-- No se montó middleware `authenticate` en rutas (se hará con el módulo Auth).
-- Redis para rate-limit distribuido queda para la fase de escala (hoy in-memory por proceso).
+- Auth, users, transactions, payments, wallet, notifications, chats, agents, reviews y audit **ya están montados** como módulos.
+- Redis para rate-limit distribuido sigue siendo fase de escala (hoy in-memory por instancia en muchos entornos).
 
 ## Arranque
 

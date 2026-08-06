@@ -10,6 +10,7 @@ import {
   listTransactions,
   previewInvite,
   refreshInviteLink,
+  toggleChecklistItem,
 } from '../api/transactions.api';
 import type {
   ConfirmSalePayload,
@@ -98,6 +99,20 @@ export function useAcceptPurchase() {
         result,
       );
       void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useToggleChecklistItem(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ itemId, done }: { itemId: string; done: boolean }) =>
+      toggleChecklistItem(code!, itemId, done),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
     },
   });
 }

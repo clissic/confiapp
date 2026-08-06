@@ -16,7 +16,6 @@ export const createTransactionSchema = z.object({
     .trim()
     .min(10, 'Describí las condiciones (mín. 10 caracteres)')
     .max(5000),
-  checklistText: z.string().trim().max(2000).optional().or(z.literal('')),
   amount: z.coerce
     .number({ invalid_type_error: 'Ingresá un monto válido' })
     .positive('El monto debe ser mayor a 0')
@@ -67,7 +66,6 @@ export const createSellerTransactionSchema = z.object({
     .trim()
     .min(10, 'Describí las condiciones (mín. 10 caracteres)')
     .max(5000),
-  checklistText: z.string().trim().max(2000).optional().or(z.literal('')),
   inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
   productTitle: z.string().trim().min(3).max(200),
   productDescription: z.string().trim().min(10).max(10_000),

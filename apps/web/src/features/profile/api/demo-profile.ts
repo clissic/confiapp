@@ -2,6 +2,10 @@ import type { ProfileUpdatePayload, UserProfile } from '../model/types';
 
 const DEMO_KEY = 'confiapp.profile.demo';
 
+function normalizePhoneDigits(value: string | null | undefined): string {
+  return (value ?? '').replace(/\D/g, '');
+}
+
 export function createDemoProfile(): UserProfile {
   const now = new Date().toISOString();
   return {
@@ -10,7 +14,7 @@ export function createDemoProfile(): UserProfile {
     phone: '+5491100000001',
     phoneVerified: true,
     fullName: 'Joaquín Creator',
-    displayName: 'Joaquín C.',
+    documentNumber: '12345678',
     bio: 'Comprador y vendedor en operaciones de escrow físico con ConfiApp.',
     avatar: undefined,
     status: 'ACTIVE',
@@ -26,9 +30,10 @@ export function createDemoProfile(): UserProfile {
     },
     locationLabel: 'Palermo, CABA',
     photos: [],
+    payoutMethods: [],
     wallet: {
       status: 'ACTIVE',
-      currency: 'UYU',
+      currency: 'USD',
       availableCents: 1250000,
       pendingCents: 150000,
       heldCents: 420000,
@@ -89,7 +94,7 @@ export function createDemoProfile(): UserProfile {
       language: 'es',
       locale: 'es-UY',
       timezone: 'America/Argentina/Buenos_Aires',
-      currency: 'UYU',
+      currency: 'USD',
       theme: 'SYSTEM',
       distanceUnit: 'KM',
       notifications: {
@@ -111,11 +116,12 @@ export function createDemoProfile(): UserProfile {
         profileVisibility: 'PUBLIC',
       },
     },
-    kyc: { status: 'VERIFIED', verifiedAt: now },
+    kyc: { status: 'UNVERIFIED' },
+    identityVerified: false,
     verification: {
       email: true,
       phone: true,
-      identityStatus: 'VERIFIED',
+      identityStatus: 'UNVERIFIED',
       addressStatus: 'PENDING',
       photoStatus: 'UNVERIFIED',
     },
@@ -134,7 +140,12 @@ export function loadDemoProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(DEMO_KEY);
     if (!raw) return createDemoProfile();
-    return { ...createDemoProfile(), ...JSON.parse(raw) } as UserProfile;
+    const parsed = JSON.parse(raw) as Partial<UserProfile>;
+    return {
+      ...createDemoProfile(),
+      ...parsed,
+      payoutMethods: parsed.payoutMethods ?? [],
+    };
   } catch {
     return createDemoProfile();
   }
@@ -153,12 +164,17 @@ export function applyDemoUpdate(
   const next: UserProfile = {
     ...current,
     fullName: payload.fullName ?? current.fullName,
-    displayName:
-      payload.displayName === null
+    documentNumber:
+      payload.documentNumber === null
         ? undefined
-        : (payload.displayName ?? current.displayName),
+        : (payload.documentNumber ?? current.documentNumber),
     bio: payload.bio === null ? undefined : (payload.bio ?? current.bio),
     phone: payload.phone === null ? undefined : (payload.phone ?? current.phone),
+    phoneVerified:
+      payload.phone !== undefined &&
+      normalizePhoneDigits(payload.phone) !== normalizePhoneDigits(current.phone)
+        ? false
+        : current.phoneVerified,
     avatar: payload.avatar === null ? undefined : (payload.avatar ?? current.avatar),
     address: payload.address === null ? {} : (payload.address ?? current.address),
     locationLabel:
@@ -166,13 +182,25 @@ export function applyDemoUpdate(
         ? undefined
         : (payload.locationLabel ?? current.locationLabel),
     photos: payload.photos
-      ? payload.photos.map((photo, index) => ({
+      ? payload.photos.map((photo) => ({
           url: photo.url,
           kind: photo.kind ?? 'PROFILE',
-          isPrimary: Boolean(photo.isPrimary) || index === 0,
+          isPrimary:
+            Boolean(photo.isPrimary) ||
+            (photo.kind === 'AVATAR' && !payload.photos!.some((p) => p.isPrimary)),
           uploadedAt: new Date().toISOString(),
         }))
       : current.photos,
+    payoutMethods: payload.payoutMethods
+      ? payload.payoutMethods.map((method, index) => ({
+          id: method.id ?? `demo-payout-${index}-${Date.now()}`,
+          bank: method.bank,
+          number: method.number,
+          type: method.type,
+          currency: method.type === 'FINTECH' ? '' : method.currency,
+          createdAt: method.createdAt ?? new Date().toISOString(),
+        }))
+      : current.payoutMethods,
     preferences: payload.preferences
       ? {
           ...current.preferences,
@@ -187,10 +215,33 @@ export function applyDemoUpdate(
           },
         }
       : current.preferences,
+    kyc:
+      payload.submitKyc &&
+      payload.photos &&
+      ['ID_FRONT', 'SELFIE'].every((kind) =>
+        payload.photos!.some((photo) => photo.kind === kind),
+      ) &&
+      current.kyc.status !== 'VERIFIED'
+        ? { status: 'PENDING' }
+        : current.kyc,
+    verification:
+      payload.submitKyc &&
+      payload.photos &&
+      ['ID_FRONT', 'SELFIE'].every((kind) =>
+        payload.photos!.some((photo) => photo.kind === kind),
+      ) &&
+      current.kyc.status !== 'VERIFIED'
+        ? { ...current.verification, identityStatus: 'PENDING' }
+        : current.verification,
+    identityVerified:
+      (payload.submitKyc ? false : current.identityVerified) ||
+      current.kyc.status === 'VERIFIED',
   };
 
   if (payload.photos?.length) {
-    const primary = payload.photos.find((p) => p.isPrimary) ?? payload.photos[0];
+    const primary =
+      payload.photos.find((p) => p.isPrimary && (p.kind === 'AVATAR' || p.kind === 'PROFILE')) ??
+      payload.photos.find((p) => p.kind === 'AVATAR' || p.kind === 'PROFILE');
     if (primary?.url) next.avatar = primary.url;
   }
 

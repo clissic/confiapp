@@ -1,6 +1,8 @@
 import { Badge } from 'react-bootstrap';
 import { History } from 'lucide-react';
 
+import { formatDateTime } from '@/shared/lib/money';
+
 import type { UserProfile } from '../../model/types';
 
 const TYPE_VARIANT: Record<string, string> = {
@@ -50,7 +52,7 @@ export function HistorySection({ profile }: { profile: UserProfile }) {
               <div className="ca-timeline__top">
                 <Badge bg={TYPE_VARIANT[item.type] ?? 'secondary'}>{item.type}</Badge>
                 <time dateTime={item.occurredAt}>
-                  {new Date(item.occurredAt).toLocaleString('es-AR')}
+                  {formatDateTime(item.occurredAt)}
                 </time>
               </div>
               <p className="ca-timeline__title">{item.title}</p>

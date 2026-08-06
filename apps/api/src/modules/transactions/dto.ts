@@ -66,6 +66,13 @@ export interface TransactionParticipantDto {
   respondedAt?: string;
 }
 
+export interface TransactionChecklistItemDto {
+  id: string;
+  text: string;
+  done: boolean;
+  doneAt?: string;
+}
+
 export interface TransactionDto {
   id: string;
   code: string;
@@ -76,7 +83,7 @@ export interface TransactionDto {
   status: TransactionStatus;
   conditions: {
     summary: string;
-    checklist?: string[];
+    checklist?: TransactionChecklistItemDto[];
   };
   amountCents?: number;
   currency?: string;

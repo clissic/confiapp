@@ -1,5 +1,6 @@
 import {
   AgentOnboardingStatus,
+  IdentityVerificationStatus,
   PlatformRole,
   UserStatus,
   type IUser,
@@ -7,7 +8,18 @@ import {
 import type { HydratedDocument } from 'mongoose';
 
 import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
+import {
+  AuditAction,
+  AuditOutcome,
+  auditService,
+  buildAuditUpdatePayload,
+} from '../audit';
 
+import {
+  agentActivationSummary,
+  agentDraftAuditNote,
+  collectAgentDraftChanges,
+} from './audit-diff';
 import { AGENT_TERMS_TEXT, AGENT_TERMS_VERSION } from './constants';
 import type { AgentOnboardingDto, SaveAgentOnboardingDto } from './dto';
 import { AgentsRepository, type UserDocument } from './repository';
@@ -15,21 +27,31 @@ import type { SubmitAgentOnboardingBody } from './validation';
 
 function buildSummary(user: HydratedDocument<IUser> | UserDocument): string {
   const slots = user.schedule?.weeklySlots?.length ?? 0;
-  const rate = user.agent?.hourlyRateCents;
   const radius = user.agent?.coverageRadiusKm ?? user.location?.coverageRadiusKm;
   const area = user.agent?.workAreaLabel ?? user.location?.label ?? 'Sin área';
-  const rateLabel =
-    rate != null ? `${(rate / 100).toFixed(2)} ${user.agent?.currency ?? 'UYU'}/h` : 'Tarifa pendiente';
-  return `${area} · ${radius ?? '?'} km · ${slots} franjas · ${rateLabel}`;
+  const rateLabel = user.agent?.ratesAccepted
+    ? 'Tarifa de plataforma aceptada'
+    : 'Tarifa pendiente';
+  const franjaLabel = user.schedule?.unspecifiedSchedule
+    ? 'Disponible 24 h'
+    : slots === 1
+      ? '1 franja'
+      : `${slots} franjas`;
+  return `${area} · ${radius ?? '?'} km · ${franjaLabel} · ${rateLabel}`;
 }
 
 function toDto(user: HydratedDocument<IUser> | UserDocument): AgentOnboardingDto {
   const agent = user.agent ?? {
     status: AgentOnboardingStatus.NONE,
     termsAccepted: false,
-    currency: 'UYU',
+    ratesAccepted: false,
+    currency: 'USD',
     draftStep: 1,
   };
+
+  const registered =
+    agent.status === AgentOnboardingStatus.ACTIVE ||
+    agent.status === AgentOnboardingStatus.INACTIVE;
 
   return {
     status: agent.status,
@@ -43,17 +65,17 @@ function toDto(user: HydratedDocument<IUser> | UserDocument): AgentOnboardingDto
       startTime: slot.startTime,
       endTime: slot.endTime,
     })),
+    unspecifiedSchedule: user.schedule?.unspecifiedSchedule === true,
     workAreaLabel: agent.workAreaLabel ?? user.location?.label,
     workAreaCity: agent.workAreaCity ?? user.location?.address?.city,
     workAreaCountry: agent.workAreaCountry ?? user.location?.address?.country,
     coverageRadiusKm: agent.coverageRadiusKm ?? user.location?.coverageRadiusKm,
     hourlyRateCents: agent.hourlyRateCents,
-    currency: agent.currency ?? 'UYU',
+    currency: agent.currency ?? 'USD',
+    ratesAccepted: Boolean(agent.ratesAccepted),
+    ratesAcceptedAt: agent.ratesAcceptedAt?.toISOString?.(),
     draftStep: agent.draftStep ?? 1,
-    isAgent:
-      user.role === PlatformRole.AGENT ||
-      user.roles?.includes(PlatformRole.AGENT) ||
-      agent.status === AgentOnboardingStatus.ACTIVE,
+    isAgent: registered,
     submittedAt: agent.submittedAt?.toISOString?.(),
     activatedAt: agent.activatedAt?.toISOString?.(),
     preview: {
@@ -77,12 +99,33 @@ export class AgentsService {
     const existing = await this.repository.findUserById(userId);
     if (!existing) throw new NotFoundError('User not found');
 
-    if (existing.agent?.status === AgentOnboardingStatus.ACTIVE) {
-      throw new ForbiddenError('Ya sos agente activo. Editá disponibilidad desde tu perfil.');
+    if (existing.agent?.status === AgentOnboardingStatus.SUSPENDED) {
+      throw new ForbiddenError('Tu agencia está suspendida. Contactá soporte.');
     }
+
+    const status = existing.agent?.status;
+    const isRegistered =
+      status === AgentOnboardingStatus.ACTIVE || status === AgentOnboardingStatus.INACTIVE;
+    const changes = collectAgentDraftChanges(existing, input);
 
     const user = await this.repository.saveOnboardingDraft(userId, input);
     if (!user) throw new NotFoundError('User not found');
+
+    if (changes.length > 0) {
+      auditService.track({
+        actor: userId,
+        action: AuditAction.UPDATE,
+        entityType: 'User',
+        entityId: userId,
+        outcome: AuditOutcome.SUCCESS,
+        metadata: buildAuditUpdatePayload(changes, {
+          note: agentDraftAuditNote(input, isRegistered),
+          draftStep: input.draftStep,
+          agentStatus: status,
+        }),
+      });
+    }
+
     return toDto(user);
   }
 
@@ -90,7 +133,10 @@ export class AgentsService {
     const existing = await this.repository.findUserById(userId);
     if (!existing) throw new NotFoundError('User not found');
 
-    if (existing.agent?.status === AgentOnboardingStatus.ACTIVE) {
+    if (
+      existing.agent?.status === AgentOnboardingStatus.ACTIVE ||
+      existing.agent?.status === AgentOnboardingStatus.INACTIVE
+    ) {
       throw new AppError(409, 'Already an active agent', undefined, 'ALREADY_AGENT');
     }
 
@@ -98,21 +144,41 @@ export class AgentsService {
       throw new ForbiddenError('La cuenta debe estar activa para convertirse en agente');
     }
 
+    const kycVerified =
+      existing.kyc?.status === IdentityVerificationStatus.VERIFIED ||
+      existing.verification?.identity?.status === IdentityVerificationStatus.VERIFIED;
+
+    if (!kycVerified) {
+      throw new ForbiddenError(
+        'Debés verificar tu identidad (DNI o pasaporte) antes de convertirte en agente.',
+      );
+    }
+
     const user = await this.repository.activateAgent(userId, {
       termsAccepted: true,
+      ratesAccepted: true,
       timezone: input.timezone,
-      weeklySlots: input.weeklySlots,
+      weeklySlots: input.unspecifiedSchedule ? [] : input.weeklySlots,
+      unspecifiedSchedule: input.unspecifiedSchedule,
       workAreaLabel: input.workAreaLabel,
       workAreaCity: input.workAreaCity,
       workAreaCountry: input.workAreaCountry,
       coverageRadiusKm: input.coverageRadiusKm,
-      hourlyRateCents: input.hourlyRateCents,
-      currency: input.currency ?? 'UYU',
+      currency: input.currency ?? 'USD',
     });
 
     if (!user) throw new NotFoundError('User not found');
 
-    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    const fromRole = existing.role;
+    const fromRoles = existing.roles?.length ? existing.roles : [existing.role];
+    const activationSummary = agentActivationSummary({
+      timezone: input.timezone,
+      unspecifiedSchedule: input.unspecifiedSchedule,
+      weeklySlots: input.weeklySlots,
+      workAreaLabel: input.workAreaLabel,
+      workAreaCity: input.workAreaCity,
+      coverageRadiusKm: input.coverageRadiusKm,
+    });
     auditService.track({
       actor: userId,
       action: AuditAction.ROLE_CHANGED,
@@ -120,10 +186,137 @@ export class AgentsService {
       entityId: userId,
       outcome: AuditOutcome.SUCCESS,
       metadata: {
-        role: PlatformRole.AGENT,
+        from: fromRole,
+        to: PlatformRole.AGENT,
+        summary: `${fromRole} > ${PlatformRole.AGENT} · ${activationSummary}`,
+        changes: [
+          {
+            field: 'role',
+            from: fromRole,
+            to: PlatformRole.AGENT,
+          },
+        ],
+        rolesFrom: fromRoles,
+        rolesTo: [...new Set([...fromRoles, PlatformRole.AGENT])],
         agentStatus: AgentOnboardingStatus.ACTIVE,
         workAreaLabel: input.workAreaLabel,
         coverageRadiusKm: input.coverageRadiusKm,
+        note: 'Alta como agente intermediario',
+      },
+    });
+
+    return toDto(user);
+  }
+
+  async suspend(userId: string): Promise<AgentOnboardingDto> {
+    const existing = await this.repository.findUserById(userId);
+    if (!existing) throw new NotFoundError('User not found');
+    if (existing.agent?.status !== AgentOnboardingStatus.ACTIVE) {
+      throw new AppError(
+        409,
+        'Solo un agente ACTIVE puede suspender actividad',
+        undefined,
+        'INVALID_STATUS',
+      );
+    }
+    const user = await this.repository.setAgentActivity(userId, AgentOnboardingStatus.INACTIVE);
+    if (!user) throw new NotFoundError('User not found');
+
+    auditService.track({
+      actor: userId,
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'User',
+      entityId: userId,
+      outcome: AuditOutcome.SUCCESS,
+      metadata: {
+        from: AgentOnboardingStatus.ACTIVE,
+        to: AgentOnboardingStatus.INACTIVE,
+        summary: `${AgentOnboardingStatus.ACTIVE} > ${AgentOnboardingStatus.INACTIVE}`,
+        changes: [
+          {
+            field: 'agent.status',
+            from: AgentOnboardingStatus.ACTIVE,
+            to: AgentOnboardingStatus.INACTIVE,
+          },
+        ],
+        note: 'Suspensión de actividad de agente',
+      },
+    });
+
+    return toDto(user);
+  }
+
+  async resume(userId: string): Promise<AgentOnboardingDto> {
+    const existing = await this.repository.findUserById(userId);
+    if (!existing) throw new NotFoundError('User not found');
+    if (existing.agent?.status !== AgentOnboardingStatus.INACTIVE) {
+      throw new AppError(409, 'Solo un agente INACTIVE puede reactivar', undefined, 'INVALID_STATUS');
+    }
+    const user = await this.repository.setAgentActivity(userId, AgentOnboardingStatus.ACTIVE);
+    if (!user) throw new NotFoundError('User not found');
+
+    auditService.track({
+      actor: userId,
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'User',
+      entityId: userId,
+      outcome: AuditOutcome.SUCCESS,
+      metadata: {
+        from: AgentOnboardingStatus.INACTIVE,
+        to: AgentOnboardingStatus.ACTIVE,
+        summary: `${AgentOnboardingStatus.INACTIVE} > ${AgentOnboardingStatus.ACTIVE}`,
+        changes: [
+          {
+            field: 'agent.status',
+            from: AgentOnboardingStatus.INACTIVE,
+            to: AgentOnboardingStatus.ACTIVE,
+          },
+        ],
+        note: 'Reactivación de actividad de agente',
+      },
+    });
+
+    return toDto(user);
+  }
+
+  async closeAgency(userId: string): Promise<AgentOnboardingDto> {
+    const existing = await this.repository.findUserById(userId);
+    if (!existing) throw new NotFoundError('User not found');
+    const status = existing.agent?.status;
+    if (status !== AgentOnboardingStatus.ACTIVE && status !== AgentOnboardingStatus.INACTIVE) {
+      throw new AppError(409, 'No tenés una agencia abierta para cerrar', undefined, 'INVALID_STATUS');
+    }
+    const fromRole = existing.role;
+    const fromRoles = existing.roles?.length ? existing.roles : [existing.role];
+    const user = await this.repository.closeAgency(userId);
+    if (!user) throw new NotFoundError('User not found');
+
+    const toRole = user.role;
+    auditService.track({
+      actor: userId,
+      action: AuditAction.ROLE_CHANGED,
+      entityType: 'User',
+      entityId: userId,
+      outcome: AuditOutcome.SUCCESS,
+      metadata: {
+        from: fromRole,
+        to: toRole,
+        summary: `${fromRole} > ${toRole}`,
+        changes: [
+          {
+            field: 'role',
+            from: fromRole,
+            to: toRole,
+          },
+          {
+            field: 'agent.status',
+            from: String(status),
+            to: AgentOnboardingStatus.NONE,
+          },
+        ],
+        rolesFrom: fromRoles,
+        rolesTo: user.roles,
+        note: 'Cierre de agencia',
       },
     });
 

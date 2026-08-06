@@ -19,7 +19,7 @@ Archivos del sistema:
 
 1. **Seguridad** — La UI debe sentirse controlada, estable y predecible. Evitar ruido visual, urgencia artificial o patrones de marketplace (grids de ofertas, descuentos flash, pill clusters).
 2. **Confianza** — Claridad de estados, trazabilidad y confirmaciones explícitas. El color secundario (`#55C5B5`) señala “todo en orden”.
-3. **Profesionalismo** — Tipografía Inter, jerarquía estricta, densidad calmada, navy dominante en chrome.
+3. **Profesionalismo** — Tipografía Inter en app shell (landing usa **Plus Jakarta Sans**), jerarquía estricta, densidad calmada, navy dominante en chrome.
 4. **Simplicidad** — Una acción primaria por vista. Copy corto. Sin decoración gratuita.
 5. **Elegancia** — Elevación sutil (sombras teñidas de navy), radio moderado, motion ≤ 250 ms.
 
@@ -263,6 +263,7 @@ Date Picker: popover sombra 4; día seleccionado Secondary; hoy ring Primary.
 ### 7.10 Toast / Alert / Progress / Skeleton / Pagination / Breadcrumb
 
 - Toast: sombra 6, radius `lg`, ícono semántico, auto-dismiss 4–6s (errores persistentes)
+- **Web actual:** `useAppToast` / `ToastProvider` (Bootstrap). Éxito/copy → toast; errores de form y banners permanentes → `Alert`. Regla: `.cursor/rules/web-toasts.mdc`.
 - Alert: inline, bg/border/fg semánticos, no dismissible si es bloqueante
 - Progress: track Gray 200, fill Secondary (éxito) o Primary (proceso neutro)
 - Skeleton: shimmer Gray 200→100, radius según contenido, duration ≤ 250ms loop suave o CSS gradient
@@ -391,7 +392,23 @@ Copy: preciso, sin jerga de tienda (“¡Ofertón!”). Preferir “Fondos reten
 
 ---
 
-## 16. Checklist de revisión de diseño
+## 16. Patrones web ConfiApp (actual)
+
+Detalle de rutas y producto: [`../WEB_APP.md`](../WEB_APP.md).
+
+| Patrón | Convención |
+|--------|------------|
+| UI kit | Bootstrap 5 + react-bootstrap; Tailwind solo `tw-*` |
+| Acciones de formulario | Contenedor `.ca-form-actions`; en mobile (≤767.98px) botones `width: 100%` (`global.css`) |
+| Composer chat | `.ca-chat-composer` excluido de full-width forzado |
+| Ícono dentro de input | Wrapper relative + botón absolute (ej. verificar teléfono, ojo password) |
+| Formularios nueva op. | `.ca-tx-edit` + `row g-3` (como perfil); vendedor con `.ca-tx-fieldset` |
+| Footer app | Solo desktop (`d-none d-lg-block`); placeholders legales |
+| Copy de usuario | Sin códigos de estado internos (`WAITING_PARTICIPANT`, etc.) — van en docs |
+
+---
+
+## 17. Checklist de revisión de diseño
 
 - [ ] ¿Se siente “caja fuerte digital” y no tienda?
 - [ ] ¿Primary y Secondary se usan en sus roles correctos?
@@ -399,6 +416,8 @@ Copy: preciso, sin jerga de tienda (“¡Ofertón!”). Preferir “Fondos reten
 - [ ] ¿Focus visible y teclado completos?
 - [ ] ¿Motion ≤ 250 ms y reduced-motion ok?
 - [ ] ¿Mobile first sin pérdida de estados críticos de escrow?
+- [ ] ¿Toasts vs Alerts según regla web-toasts?
+- [ ] ¿Formularios usable en mobile (acciones full-width)?
 
 ---
 

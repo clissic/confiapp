@@ -22,14 +22,35 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 type ApiErrorBody = {
   message?: string;
+  code?: string;
+  statusCode?: number;
   details?: {
     fieldErrors?: Record<string, string[] | undefined>;
     formErrors?: string[];
+    email?: string;
   };
 };
 
+export class ApiClientError extends Error {
+  readonly code?: string;
+  readonly statusCode?: number;
+  readonly details?: ApiErrorBody['details'];
+
+  constructor(
+    message: string,
+    options?: { code?: string; statusCode?: number; details?: ApiErrorBody['details'] },
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+    this.code = options?.code;
+    this.statusCode = options?.statusCode;
+    this.details = options?.details;
+  }
+}
+
 /** Extrae mensaje legible de errores Zod / AppError de la API. */
 export function getApiErrorMessage(error: unknown, fallback = 'Unexpected API error'): string {
+  if (error instanceof ApiClientError) return error.message;
   if (!axios.isAxiosError(error)) {
     return error instanceof Error ? error.message : fallback;
   }
@@ -61,7 +82,16 @@ export function getApiErrorMessage(error: unknown, fallback = 'Unexpected API er
 
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<ApiErrorBody>) => Promise.reject(new Error(getApiErrorMessage(error))),
+  (error: AxiosError<ApiErrorBody>) => {
+    const data = error.response?.data;
+    return Promise.reject(
+      new ApiClientError(getApiErrorMessage(error), {
+        code: data?.code,
+        statusCode: data?.statusCode ?? error.response?.status,
+        details: data?.details,
+      }),
+    );
+  },
 );
 
 export type { AxiosError };

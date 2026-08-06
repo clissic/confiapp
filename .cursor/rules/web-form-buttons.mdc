@@ -1,0 +1,47 @@
+---
+description: Estándar de botones en formularios y wizards de la web
+globs: apps/web/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# Botones de formulario (web)
+
+Mantener estilos consistentes entre pasos y pantallas. No mezclar `ca-btn-primary` y `ca-btn-cta` para la misma acción semántica.
+
+## Roles
+
+| Acción | Clase / variant | Uso |
+|--------|-----------------|-----|
+| Atrás / cancelar / secundario | `variant="outline-secondary"` | Volver, descartar, acción no dominante |
+| Continuar / guardar / avanzar en wizard | `className="ca-btn-primary"` | Siguiente paso, guardar borrador, acción primaria de formulario |
+| Compromiso final / CTA fuerte | `className="ca-btn-cta"` | Solo confirmación irreversible o conversión (ej. “Confirmar y convertirme en agente”, crear operación) |
+
+## Wizards multi-paso
+
+- Todos los botones **Continuar** del flujo usan **`ca-btn-primary`** (mismo estilo en cada paso).
+- El botón final de alta/confirmación usa **`ca-btn-cta`**.
+- Agrupar Atrás + Continuar en `.ca-form-actions`.
+- No usar `ca-btn-cta` en pasos intermedios solo porque “destaque más”.
+
+```tsx
+// ✅ GOOD — paso intermedio
+<div className="ca-form-actions">
+  <Button type="button" variant="outline-secondary" onClick={onBack}>Atrás</Button>
+  <Button type="submit" className="ca-btn-primary">Continuar</Button>
+</div>
+
+// ✅ GOOD — paso final
+<div className="ca-form-actions">
+  <Button type="button" variant="outline-secondary" onClick={onBack}>Atrás</Button>
+  <Button type="button" className="ca-btn-cta">Confirmar…</Button>
+</div>
+
+// ❌ BAD — Continuar con CTA en un paso y primary en el siguiente
+<Button type="submit" className="ca-btn-cta">Continuar</Button>
+```
+
+## No hacer
+
+- Cambiar el estilo del botón “Continuar” entre pasos del mismo flujo.
+- Usar `btn-primary` / `btn-success` de Bootstrap crudo cuando existan `ca-btn-primary` / `ca-btn-cta`.
+- Dejar el botón de avance suelto fuera de `.ca-form-actions` si el resto del flujo ya lo usa.

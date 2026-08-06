@@ -11,6 +11,7 @@ import {
   type ITransaction,
 } from '@confiapp/database';
 import type { HydratedDocument } from 'mongoose';
+import { Types } from 'mongoose';
 
 import { ProductModel, UserModel } from '../../database/models';
 import { env } from '../../shared/config/env';
@@ -22,6 +23,7 @@ import type {
   CreateSellerTransactionDto,
   CreateTransactionDto,
   InvitePreviewDto,
+  TransactionChecklistItemDto,
   TransactionDto,
   TransactionProductDto,
   TransactionsStatusDto,
@@ -70,6 +72,55 @@ function getInitiatedBy(tx: HydratedDocument<ITransaction>): TransactionInitiato
   return tx.initiatedBy ?? TransactionInitiator.BUYER;
 }
 
+function buildChecklistItems(
+  texts?: string[],
+): Array<{ id: string; text: string; done: boolean }> | undefined {
+  if (!texts?.length) return undefined;
+  const items = texts
+    .map((text) => text.trim())
+    .filter(Boolean)
+    .slice(0, 20)
+    .map((text) => ({
+      id: randomBytes(8).toString('hex'),
+      text,
+      done: false,
+    }));
+  return items.length ? items : undefined;
+}
+
+function normalizeChecklist(raw: unknown): TransactionChecklistItemDto[] {
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw.map((item, index) => {
+    if (typeof item === 'string') {
+      return {
+        id: `legacy-${index}`,
+        text: item,
+        done: false,
+      };
+    }
+    if (item && typeof item === 'object') {
+      const record = item as {
+        id?: string;
+        text?: string;
+        done?: boolean;
+        doneAt?: Date | string;
+      };
+      return {
+        id: record.id?.trim() || `legacy-${index}`,
+        text: String(record.text ?? '').trim() || `Ítem ${index + 1}`,
+        done: Boolean(record.done),
+        doneAt:
+          record.doneAt instanceof Date
+            ? record.doneAt.toISOString()
+            : typeof record.doneAt === 'string'
+              ? record.doneAt
+              : undefined,
+      };
+    }
+    return { id: `legacy-${index}`, text: String(item), done: false };
+  });
+}
+
 function toProductDto(
   product: HydratedDocument<IProduct> | (IProduct & { _id: unknown }),
 ): TransactionProductDto {
@@ -105,7 +156,7 @@ function toDto(
     status: tx.status,
     conditions: {
       summary: tx.conditions.summary,
-      checklist: tx.conditions.checklist,
+      checklist: normalizeChecklist(tx.conditions.checklist),
     },
     amountCents: tx.amountCents,
     currency: tx.currency,
@@ -219,7 +270,7 @@ export class TransactionsService {
       meetingLocation: await resolveMeetingLocation(userId),
       conditions: {
         summary: input.conditionsSummary.trim(),
-        checklist: input.checklist?.map((item) => item.trim()).filter(Boolean),
+        checklist: buildChecklistItems(input.checklist),
       },
       amountCents,
       currency: (input.currency ?? 'UYU').toUpperCase(),
@@ -289,7 +340,7 @@ export class TransactionsService {
       meetingLocation: await resolveMeetingLocation(userId),
       conditions: {
         summary: input.conditionsSummary.trim(),
-        checklist: input.checklist?.map((item) => item.trim()).filter(Boolean),
+        checklist: buildChecklistItems(input.checklist),
       },
       amountCents,
       currency,
@@ -339,6 +390,62 @@ export class TransactionsService {
     if (!isParticipant(tx, userId)) {
       throw new ForbiddenError('No tenés acceso a esta operación');
     }
+    return toDto(tx, { product: await loadProductDto(tx.product) });
+  }
+
+  /** Marca/desmarca un ítem del checklist (solo Agente intermediario aceptado). */
+  async toggleChecklistItem(
+    userId: string,
+    code: string,
+    itemId: string,
+    done: boolean,
+  ): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+
+    const isAgent = tx.participants.some(
+      (p) =>
+        String(p.user) === userId &&
+        p.role === ParticipantRole.INTERMEDIARY &&
+        p.status === ParticipantStatus.ACCEPTED,
+    );
+    if (!isAgent) {
+      throw new ForbiddenError('Solo el Agente asignado puede marcar el checklist');
+    }
+
+    const normalized = normalizeChecklist(tx.conditions.checklist);
+    if (normalized.length === 0) {
+      throw new ValidationError('Esta operación no tiene checklist');
+    }
+
+    const index = normalized.findIndex((item) => item.id === itemId);
+    if (index < 0) {
+      throw new NotFoundError('Ítem del checklist no encontrado');
+    }
+
+    const now = new Date();
+    tx.conditions.checklist = normalized.map((item) => {
+      if (item.id !== itemId) {
+        return {
+          id: item.id,
+          text: item.text,
+          done: item.done,
+          doneAt: item.doneAt ? new Date(item.doneAt) : undefined,
+        };
+      }
+      return {
+        id: item.id,
+        text: item.text,
+        done,
+        doneAt: done ? now : undefined,
+        doneBy: done ? new Types.ObjectId(userId) : undefined,
+      };
+    }) as typeof tx.conditions.checklist;
+
+    await tx.save();
     return toDto(tx, { product: await loadProductDto(tx.product) });
   }
 
