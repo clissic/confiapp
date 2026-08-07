@@ -5,7 +5,7 @@ import { ValidationError } from '../../shared/errors/app-error';
 /**
  * Transiciones válidas de la operación de escrow.
  *
- * CREATED → WAITING_PARTICIPANT → ACCEPTED → FUNDED → IN_PROGRESS → COMPLETED
+ * CREATED → WAITING_PARTICIPANT → [PENDING_BUYER_CONFIRM] → ACCEPTED → FUNDED → …
  * Cualquier estado activo (salvo COMPLETED) puede ir a CANCELLED o DISPUTED
  * según reglas específicas de cada caso de uso.
  */
@@ -15,9 +15,14 @@ const ALLOWED: Record<TransactionStatus, readonly TransactionStatus[]> = {
     TransactionStatus.CANCELLED,
   ],
   [TransactionStatus.WAITING_PARTICIPANT]: [
+    TransactionStatus.PENDING_BUYER_CONFIRM,
     TransactionStatus.ACCEPTED,
     TransactionStatus.CANCELLED,
     TransactionStatus.DISPUTED,
+  ],
+  [TransactionStatus.PENDING_BUYER_CONFIRM]: [
+    TransactionStatus.ACCEPTED,
+    TransactionStatus.CANCELLED,
   ],
   [TransactionStatus.ACCEPTED]: [
     TransactionStatus.FUNDED,

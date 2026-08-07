@@ -1,7 +1,9 @@
 import type { Request, Response } from 'express';
 
+import { env } from '../../shared/config/env';
 import { TransactionsService } from './service';
 import type {
+  AcceptPurchaseBody,
   ConfirmSaleBody,
   CreateSellerTransactionBody,
   CreateTransactionBody,
@@ -48,6 +50,7 @@ export class TransactionsController {
       code,
       itemId,
       body.done,
+      body.side,
     );
     res.status(200).json(data);
   };
@@ -72,7 +75,8 @@ export class TransactionsController {
 
   acceptPurchase = async (req: Request, res: Response): Promise<void> => {
     const token = String(req.params.token);
-    const data = await this.service.acceptPurchase(req.user!.id, token);
+    const body = req.body as AcceptPurchaseBody;
+    const data = await this.service.acceptPurchase(req.user!.id, token, body);
     res.status(200).json(data);
   };
 
@@ -81,5 +85,32 @@ export class TransactionsController {
     const body = req.body as ConfirmSaleBody;
     const data = await this.service.confirmSale(req.user!.id, token, body);
     res.status(201).json(data);
+  };
+
+  buyerConfirm = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.buyerConfirmChanges(req.user!.id, code);
+    res.status(200).json(data);
+  };
+
+  buyerReject = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.buyerRejectChanges(req.user!.id, code);
+    res.status(200).json(data);
+  };
+
+  expireDeadlines = async (req: Request, res: Response): Promise<void> => {
+    const provided = String(req.headers['x-job-secret'] ?? '');
+    const expected = env.TRANSACTIONS_JOB_SECRET;
+    const allowed =
+      expected.length > 0
+        ? provided === expected
+        : env.NODE_ENV !== 'production';
+    if (!allowed) {
+      res.status(401).json({ message: 'Unauthorized job' });
+      return;
+    }
+    const data = await this.service.expireOperationalDeadlines();
+    res.status(200).json(data);
   };
 }

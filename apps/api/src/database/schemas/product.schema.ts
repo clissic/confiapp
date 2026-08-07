@@ -8,7 +8,7 @@ import {
 
 const productImageSchema = new Schema(
   {
-    url: { type: String, required: true, trim: true, maxlength: 2048 },
+    url: { type: String, required: true, trim: true, maxlength: 3_500_000 },
     storageKey: { type: String, trim: true, maxlength: 512 },
     alt: { type: String, trim: true, maxlength: 200 },
     sortOrder: { type: Number, default: 0, min: 0 },

@@ -1,6 +1,7 @@
 export type TransactionStatus =
   | 'CREATED'
   | 'WAITING_PARTICIPANT'
+  | 'PENDING_BUYER_CONFIRM'
   | 'ACCEPTED'
   | 'FUNDED'
   | 'IN_PROGRESS'
@@ -30,6 +31,8 @@ export type ProductStatus =
   | 'DELIVERED'
   | 'ARCHIVED';
 
+export type ViewerPartyRole = 'BUYER' | 'SELLER' | 'AGENT';
+
 export interface TransactionParticipant {
   userId?: string;
   role: ParticipantRole;
@@ -57,6 +60,27 @@ export interface TransactionChecklistItem {
   doneAt?: string;
 }
 
+export type MeetingLocationMode = 'MAP' | 'CHAT' | 'HOME';
+
+export interface MeetingLocation {
+  type: 'Point';
+  coordinates: [number, number];
+  label: string;
+}
+
+export interface DeliveryLocationValue {
+  mode: MeetingLocationMode;
+  meetingLocation?: MeetingLocation;
+}
+
+export interface PartyInstructions {
+  conditionsSummary?: string;
+  checklist?: TransactionChecklistItem[];
+  meetingLocation?: MeetingLocation;
+  productTitle?: string;
+  productDescription?: string;
+}
+
 export interface Transaction {
   id: string;
   code: string;
@@ -65,12 +89,22 @@ export interface Transaction {
   createdBy: string;
   initiatedBy: TransactionInitiator;
   status: TransactionStatus;
+  /** @deprecated Preferir party según rol */
   conditions: {
     summary: string;
     checklist?: TransactionChecklistItem[];
   };
   amountCents?: number;
   currency?: string;
+  /** @deprecated Preferir party.*.meetingLocation */
+  meetingLocation?: MeetingLocation;
+  party?: {
+    buyer?: PartyInstructions;
+    seller?: PartyInstructions;
+  };
+  /** Directivas del vendedor al Agente (solo visibles para Agente). */
+  returnInstructions?: string;
+  viewerRole?: ViewerPartyRole | null;
   productId?: string;
   product?: TransactionProduct;
   participants: TransactionParticipant[];
@@ -84,6 +118,8 @@ export interface Transaction {
     expiresAt?: string;
     isExpired: boolean;
   };
+  operationDeadlineAt?: string;
+  pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -91,10 +127,10 @@ export interface Transaction {
 export interface InvitePreview {
   code: string;
   title: string;
-  description?: string;
+  productTitle?: string;
+  productDescription?: string;
   amountCents?: number;
   currency?: string;
-  conditionsSummary: string;
   status: TransactionStatus;
   initiatedBy: TransactionInitiator;
   inviteExpiresAt?: string;
@@ -105,14 +141,23 @@ export interface InvitePreview {
   product?: TransactionProduct;
 }
 
-export interface CreateTransactionPayload {
-  title: string;
-  description?: string;
+export interface AgentInstructionsPayload {
   conditionsSummary: string;
   checklist?: string[];
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocation;
+  productTitle?: string;
+  productDescription?: string;
+}
+
+export interface CreateTransactionPayload extends AgentInstructionsPayload {
+  title: string;
+  description?: string;
   amount: number;
   currency?: string;
   inviteExpiresInDays?: number;
+  productTitle: string;
+  productDescription: string;
 }
 
 export interface CreateSellerTransactionPayload {
@@ -121,10 +166,13 @@ export interface CreateSellerTransactionPayload {
   conditionsSummary: string;
   checklist?: string[];
   inviteExpiresInDays?: number;
-  product: ConfirmSalePayload;
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocation;
+  returnInstructions: string;
+  product: ConfirmSaleProductFields;
 }
 
-export interface ConfirmSalePayload {
+export interface ConfirmSaleProductFields {
   title: string;
   description: string;
   condition: ProductCondition;
@@ -134,9 +182,20 @@ export interface ConfirmSalePayload {
   images: Array<{ url: string; alt?: string }>;
 }
 
+export interface ConfirmSalePayload extends ConfirmSaleProductFields {
+  conditionsSummary: string;
+  checklist?: string[];
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocation;
+  returnInstructions: string;
+}
+
+export type AcceptPurchasePayload = AgentInstructionsPayload;
+
 export const STATUS_LABELS: Record<TransactionStatus, string> = {
   CREATED: 'Creada',
   WAITING_PARTICIPANT: 'Esperando participante',
+  PENDING_BUYER_CONFIRM: 'Pendiente confirmación del comprador',
   ACCEPTED: 'Aceptada',
   FUNDED: 'Fondeada',
   IN_PROGRESS: 'En curso',

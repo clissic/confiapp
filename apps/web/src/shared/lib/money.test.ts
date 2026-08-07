@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 
 import { fromKm, toKm, formatDistance, KM_PER_MI } from './distance';
 import { convertCents } from './fx';
-import { formatDateTime, formatMoney } from './money';
+import { formatDateTime, formatMoney, formatOperationMoney } from './money';
 import { setPreferencesSnapshot } from '../preferences/snapshot';
 
 describe('shared/lib/distance', () => {
@@ -53,7 +53,16 @@ describe('shared/lib/money', () => {
     expect(formatMoney(150_000, 'BRL', { convert: false })).toBe('BRL $1.500,00');
   });
 
-  it('convierte a moneda preferida cuando hay rates', () => {
+  it('formatOperationMoney no aplica preferencia de cuenta', () => {
+    setPreferencesSnapshot({
+      currency: 'USD',
+      rates: { USD: 1, UYU: 40, BRL: 5 },
+    });
+    expect(formatOperationMoney(4000, 'UYU')).toBe('UYU $40,00');
+    expect(formatOperationMoney(100, 'USD')).toBe('USD $1,00');
+  });
+
+  it('convierte a moneda preferida cuando hay rates (wallet)', () => {
     setPreferencesSnapshot({
       currency: 'USD',
       rates: { USD: 1, UYU: 40, BRL: 5 },

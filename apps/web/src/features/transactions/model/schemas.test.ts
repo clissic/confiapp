@@ -11,11 +11,16 @@ describe('transactions/schemas', () => {
     const parsed = createTransactionSchema.parse({
       title: 'Notebook Gamer',
       conditionsSummary: 'Entrega con agente en Montevideo',
+      productTitle: 'Notebook Lenovo',
+      productDescription: 'Busco notebook gamer en buen estado',
+      condition: 'GOOD',
+      category: 'ELECTRONICS',
       amount: 45000,
       currency: 'uyu',
     });
     expect(parsed.currency).toBe('UYU');
     expect(parsed.inviteExpiresInDays).toBe(7);
+    expect(parsed.productTitle).toBe('Notebook Lenovo');
   });
 
   it('rechaza monto inválido', () => {
@@ -34,8 +39,11 @@ describe('transactions/schemas', () => {
       condition: 'GOOD',
       price: 22000,
       currency: 'UYU',
+      conditionsSummary: 'Retiro en persona con mediador',
+      returnInstructions: 'Devolver embasado en el mismo punto de entrega',
     });
     expect(parsed.category).toBe('OTHER');
+    expect(parsed.returnInstructions.length).toBeGreaterThan(9);
   });
 
   it('acepta operación vendedor', () => {
@@ -47,6 +55,7 @@ describe('transactions/schemas', () => {
       condition: 'LIKE_NEW',
       price: 12000,
       currency: 'USD',
+      returnInstructions: 'Si no acepta, devolver al domicilio del vendedor',
     });
     expect(parsed.currency ?? 'UYU').toBeTruthy();
   });

@@ -1,0 +1,15 @@
+---
+description: Estética amigable prioritaria en UI web de ConfiApp
+globs: apps/web/**/*.{tsx,ts,css}
+alwaysApply: true
+---
+
+# Estética UI — prioridad
+
+En pantallas y componentes web de ConfiApp:
+
+- Priorizar una **estética amigable y cuidada** por sobre layouts puramente utilitarios o densos.
+- Mantener la información **entendible**, pero presentarla de forma **estilizada** (jerarquía tipográfica, chips, tarjetas compactas, contraste legible en dark/light).
+- Evitar listas crudas de `campo: valor → valor` o enums técnicos (`GOOD`, `OTHER`) visibles al usuario; usar labels humanos y comparación visual (antes / ahora).
+- Reducir espacios muertos; preferir bloques cortos, fotos reales cuando aporten, y alineación coherente con el resto de la app (panels, chips, brand secondary).
+- Seguir Bootstrap / tokens existentes (`--brand-secondary`, `--text-primary`, `ca-tx-*`); no inventar otro sistema visual.

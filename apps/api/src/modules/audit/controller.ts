@@ -6,8 +6,9 @@ import type { AuditListQuery } from './validation';
 export class AuditController {
   list = async (req: Request, res: Response): Promise<void> => {
     const query = req.query as unknown as AuditListQuery;
-    // Scope forense: siempre el usuario actual (mine=false + actorId reservado a admin futuro).
-    const actorId = req.user!.id;
+    // Temporal: listado global para forense / legal.
+    // Luego: solo ADMIN sin actorId; usuarios normales siempre scoped a req.user.id.
+    const actorId = query.mine ? req.user!.id : query.actorId;
     const data = await auditService.list({
       actorId,
       entityType: query.entityType,

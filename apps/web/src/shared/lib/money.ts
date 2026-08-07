@@ -8,7 +8,7 @@ export type AppCurrency = (typeof APP_CURRENCIES)[number];
 export const PAYMENT_CURRENCIES = ['UYU', 'USD'] as const;
 export type PaymentCurrency = (typeof PAYMENT_CURRENCIES)[number];
 
-export const DEFAULT_CURRENCY: AppCurrency = 'USD';
+export const DEFAULT_CURRENCY: AppCurrency = 'UYU';
 export const APP_LOCALE = 'es-UY';
 
 export const CURRENCY_OPTIONS: Array<{ code: AppCurrency; label: string }> = [
@@ -50,7 +50,8 @@ function formatInCurrency(cents: number, currency: string): string {
 
 /**
  * Formatea un monto. Si hay preferencia + rates, convierte a la moneda de display.
- * Pasá `options.convert: false` para forzar la moneda fuente (p. ej. formularios de cobro).
+ * Usar esto para **wallet** (ledger en UYU → preferencia del usuario).
+ * Para operaciones/pagos pactados, usá `formatOperationMoney` (sin conversión).
  */
 export function formatMoney(
   cents?: number,
@@ -88,6 +89,17 @@ export function formatMoney(
   }
 
   return formatInCurrency(convertCents(cents, source, target, rates), target);
+}
+
+/**
+ * Monto de operación / escrow / pago: siempre la moneda pactada al iniciar.
+ * No aplica la preferencia de cuenta (el FX solo aplica a la wallet en UYU).
+ */
+export function formatOperationMoney(
+  cents?: number,
+  currency: string = 'UYU',
+): string {
+  return formatMoney(cents, currency, { convert: false });
 }
 
 export function formatDateTime(

@@ -64,7 +64,7 @@ const walletSchema = new Schema(
       trim: true,
       minlength: 3,
       maxlength: 3,
-      default: 'USD',
+      default: 'UYU',
       match: [/^[A-Z]{3}$/, 'currency must be ISO 4217'],
     },
     availableCents: { type: Number, default: 0, min: 0 },
@@ -470,7 +470,7 @@ const userSchema = new Schema<IUser>(
       type: walletSchema,
       default: () => ({
         status: WalletStatus.ACTIVE,
-        currency: 'USD',
+        currency: 'UYU',
         availableCents: 0,
         pendingCents: 0,
         heldCents: 0,

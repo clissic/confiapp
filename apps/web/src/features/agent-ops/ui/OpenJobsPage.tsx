@@ -15,12 +15,13 @@ import type { OpenJob } from '../model/open-jobs.types';
 import '../styles/agent-ops.css';
 import '../styles/open-jobs.css';
 
-import { formatMoney } from '@/shared/lib/money';
+import { formatOperationMoney } from '@/shared/lib/money';
 import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
 import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
 import { useAppToast } from '@/shared/ui';
 
 // Fix default marker icons with Vite bundling.
+delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
@@ -240,7 +241,7 @@ export function OpenJobsPage() {
                 <Popup>
                   <strong>{job.title}</strong>
                   <br />
-                  {formatMoney(job.amountCents, job.currency)} ·{' '}
+                  {formatOperationMoney(job.amountCents, job.currency)} ·{' '}
                   {formatDistance(job.distanceKm, distanceUnit, 1)}
                 </Popup>
               </Marker>
@@ -279,7 +280,7 @@ export function OpenJobsPage() {
                   >
                     <div className="ca-agent-ops-list__row">
                       <strong>{job.title}</strong>
-                      <Badge bg="primary">{formatMoney(job.amountCents, job.currency)}</Badge>
+                      <Badge bg="primary">{formatOperationMoney(job.amountCents, job.currency)}</Badge>
                     </div>
                     <div className="ca-agent-ops-list__meta">
                       <MapPin size={14} className="me-1" />

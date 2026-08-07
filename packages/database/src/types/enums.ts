@@ -28,6 +28,8 @@ export enum IdentityVerificationStatus {
 export enum TransactionStatus {
   CREATED = 'CREATED',
   WAITING_PARTICIPANT = 'WAITING_PARTICIPANT',
+  /** Vendedor modificó la propuesta; el comprador debe reconfirmar o cancelar. */
+  PENDING_BUYER_CONFIRM = 'PENDING_BUYER_CONFIRM',
   /** Ambas partes aceptaron el acuerdo; pendiente de fondeo. */
   ACCEPTED = 'ACCEPTED',
   FUNDED = 'FUNDED',

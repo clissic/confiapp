@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
 import { ChevronLeft, ChevronRight, Copy, ScrollText } from 'lucide-react';
 
-import { useMyAuditLogs } from '../hooks/useAudit';
+import { useAuditLogs } from '../hooks/useAudit';
 import { AUDIT_PAGE_SIZE, type AuditLogItem } from '../model/types';
-import { formatMoney } from '@/shared/lib/money';
-import { usePreferencesSnapshot } from '@/shared/preferences';
+import { formatOperationMoney } from '@/shared/lib/money';
 import { useAppToast } from '@/shared/ui';
 import '../styles/audit.css';
 
@@ -29,6 +28,7 @@ const ACTION_OPTIONS = [
   'ROLE_CHANGED',
   'MESSAGE_SENT',
   'CHAT_CREATED',
+  'REVIEW_CREATED',
   'PASSWORD_CHANGE',
   'PASSWORD_RESET',
   'EMAIL_VERIFIED',
@@ -43,6 +43,8 @@ const ENTITY_OPTIONS = [
   'Chat',
   'Message',
   'Notification',
+  'Review',
+  'AgentProfile',
 ] as const;
 
 function formatWhen(iso: string): string {
@@ -93,16 +95,15 @@ function summarize(item: AuditLogItem): string {
   if (typeof meta.reason === 'string') bits.push(String(meta.reason));
   if (typeof meta.kycDecision === 'string') bits.push(`KYC ${meta.kycDecision}`);
   if (typeof meta.amountCents === 'number') {
-    const currency = typeof meta.currency === 'string' ? meta.currency : 'USD';
-    bits.push(formatMoney(meta.amountCents, currency));
+    const currency = typeof meta.currency === 'string' ? meta.currency : 'UYU';
+    bits.push(formatOperationMoney(meta.amountCents, currency));
   }
   if (typeof meta.source === 'string') bits.push(String(meta.source));
   return bits.join(' · ');
 }
 
-/** Consulta de auditoría personal (append-only). */
+/** Consulta de auditoría forense (append-only, listado global). */
 export function AuditPage() {
-  usePreferencesSnapshot();
   const toast = useAppToast();
   const [action, setAction] = useState('');
   const [entityType, setEntityType] = useState('');
@@ -121,7 +122,7 @@ export function AuditPage() {
     }),
     [action, entityType, page],
   );
-  const { data, isLoading, isError, error, refetch, isFetching } = useMyAuditLogs(params);
+  const { data, isLoading, isError, error, refetch, isFetching } = useAuditLogs(params);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -147,8 +148,8 @@ export function AuditPage() {
             Auditoría
           </h2>
           <p className="ca-audit__lead">
-            Registro append-only de logins, cambios de estado, pagos, wallet y actividad crítica
-            asociada a tu cuenta.
+            Registro append-only de movimientos de la app: logins, cambios de estado, pagos,
+            wallet, agentes y actividad crítica. Pensado para auditoría forense / legal.
           </p>
         </div>
         <Form className="ca-audit__filters" onSubmit={(e) => e.preventDefault()}>
@@ -204,7 +205,7 @@ export function AuditPage() {
             <span className="ca-audit__hint">Cargando eventos…</span>
           </div>
         ) : items.length === 0 ? (
-          <p className="ca-audit__hint">Todavía no hay eventos de auditoría para tu cuenta.</p>
+          <p className="ca-audit__hint">Todavía no hay eventos de auditoría registrados.</p>
         ) : (
           <>
             <ul className="ca-audit-list">

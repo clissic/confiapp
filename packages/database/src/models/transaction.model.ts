@@ -84,21 +84,43 @@ const transactionSchema = new Schema<ITransaction>(
       type: {
         type: String,
         enum: ['Point'],
-        default: 'Point',
       },
       coordinates: {
         type: [Number],
-        validate: {
-          validator: (value: number[] | undefined) =>
-            !value ||
-            (Array.isArray(value) &&
-              value.length === 2 &&
-              value.every((n) => typeof n === 'number')),
-          message: 'meetingLocation.coordinates must be [lng, lat]',
-        },
       },
       label: { type: String, trim: true, maxlength: 200 },
     },
+    party: {
+      buyer: {
+        conditionsSummary: { type: String, trim: true, maxlength: 5000, default: '' },
+        checklist: { type: [Schema.Types.Mixed], default: undefined },
+        meetingLocation: {
+          type: {
+            type: String,
+            enum: ['Point'],
+          },
+          coordinates: { type: [Number] },
+          label: { type: String, trim: true, maxlength: 200 },
+        },
+        productTitle: { type: String, trim: true, maxlength: 200 },
+        productDescription: { type: String, trim: true, maxlength: 10_000 },
+      },
+      seller: {
+        conditionsSummary: { type: String, trim: true, maxlength: 5000, default: '' },
+        checklist: { type: [Schema.Types.Mixed], default: undefined },
+        meetingLocation: {
+          type: {
+            type: String,
+            enum: ['Point'],
+          },
+          coordinates: { type: [Number] },
+          label: { type: String, trim: true, maxlength: 200 },
+        },
+        productTitle: { type: String, trim: true, maxlength: 200 },
+        productDescription: { type: String, trim: true, maxlength: 10_000 },
+      },
+    },
+    returnInstructions: { type: String, trim: true, maxlength: 5000 },
     chat: {
       type: Schema.Types.ObjectId,
       ref: 'Chat',
@@ -154,6 +176,17 @@ const transactionSchema = new Schema<ITransaction>(
       sparse: true,
     },
     inviteExpiresAt: { type: Date },
+    operationDeadlineAt: { type: Date, index: true },
+    pendingBuyerChanges: {
+      type: [
+        {
+          field: { type: String, trim: true, maxlength: 64 },
+          from: { type: String, trim: true, maxlength: 2000 },
+          to: { type: String, trim: true, maxlength: 2000 },
+        },
+      ],
+      default: undefined,
+    },
     startsAt: { type: Date },
     endsAt: { type: Date },
     fundedAt: { type: Date },
@@ -174,8 +207,23 @@ transactionSchema.index({ product: 1, status: 1 });
 transactionSchema.index({ 'participants.user': 1, status: 1 });
 transactionSchema.index({ 'participants.user': 1, createdAt: -1 });
 transactionSchema.index({ meetingLocation: '2dsphere' });
+transactionSchema.index({ operationDeadlineAt: 1, status: 1 });
 
 transactionSchema.pre('validate', function (next) {
+  const loc = this.meetingLocation as
+    | { type?: string; coordinates?: number[]; label?: string }
+    | null
+    | undefined;
+  if (loc) {
+    const hasCoords =
+      Array.isArray(loc.coordinates) &&
+      loc.coordinates.length === 2 &&
+      loc.coordinates.every((n) => typeof n === 'number' && Number.isFinite(n));
+    if (!hasCoords || loc.type !== 'Point') {
+      this.set('meetingLocation', undefined);
+    }
+  }
+
   if (!this.statusHistory?.length) {
     this.statusHistory = [
       {

@@ -8,31 +8,39 @@ import {
   ImagePlus,
   Package,
   ShoppingBag,
+  Tag,
   Trash2,
   UserPlus,
 } from 'lucide-react';
 
 import { useZodForm } from '@/shared/lib/form';
-import { defaultPaymentCurrency } from '@/shared/lib/money';
+import { defaultPaymentCurrency, formatOperationMoney } from '@/shared/lib/money';
 import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
+import { getApiErrorMessage } from '@/shared/api/client';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 
-import { formatMoney } from '../api/transactions.api';
+import { useAcceptPurchase, useConfirmSale, useInvitePreview } from '../hooks/useTransactions';
 import {
-  useAcceptPurchase,
-  useConfirmSale,
-  useInvitePreview,
-} from '../hooks/useTransactions';
-import {
+  acceptPurchaseSchema,
   confirmSaleSchema,
-  type ConfirmSaleValues,
+  type AcceptPurchaseValues,
 } from '../model/schemas';
 import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
   STATUS_LABELS,
+  type DeliveryLocationValue,
   type ProductCategory,
   type ProductCondition,
 } from '../model/types';
+import {
+  ChecklistEditor,
+  checklistDraftToPayload,
+  createEmptyChecklistItem,
+  type ChecklistDraftItem,
+} from './ChecklistEditor';
+import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
+import { PhotoLightbox } from './PhotoLightbox';
 import '../styles/transactions.css';
 
 const SELLER_STEPS = [
@@ -41,22 +49,56 @@ const SELLER_STEPS = [
   { id: 3, label: 'Confirmar' },
 ] as const;
 
+const DEFAULT_DELIVERY: DeliveryLocationValue = { mode: 'MAP' };
+
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
+}
+
+function validateDelivery(
+  delivery: DeliveryLocationValue,
+  profile: Parameters<typeof hasRegisteredAddress>[0],
+): string | null {
+  if (delivery.mode === 'MAP') {
+    if (
+      !delivery.meetingLocation?.label ||
+      !delivery.meetingLocation.coordinates ||
+      delivery.meetingLocation.coordinates.length !== 2
+    ) {
+      return 'Elegí un punto en el mapa o buscá una dirección.';
+    }
+  }
+  if (delivery.mode === 'HOME') {
+    if (!hasRegisteredAddress(profile)) {
+      return 'Completá tu domicilio en el perfil para usar esta opción.';
+    }
+    if (!delivery.meetingLocation?.coordinates) {
+      return 'No pudimos ubicar tu domicilio. Revisalo en el perfil o elegí otro modo.';
+    }
+  }
+  return null;
 }
 
 export function JoinTransactionPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { data, isLoading, isError } = useInvitePreview(token);
+  const { data, isLoading, isError, error: previewError } = useInvitePreview(token);
   const confirm = useConfirmSale();
   const acceptPurchase = useAcceptPurchase();
+  const { data: profileData } = useProfile();
+  const profile = profileData?.profile;
   usePreferencesSnapshot();
   const { currency: preferredCurrency } = useUserPreferences();
 
   const [step, setStep] = useState(1);
   const [images, setImages] = useState<Array<{ url: string; alt?: string }>>([]);
   const [error, setError] = useState<string | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  const [delivery, setDelivery] = useState<DeliveryLocationValue>(DEFAULT_DELIVERY);
+  const [buyerChecklistItems, setBuyerChecklistItems] = useState<ChecklistDraftItem[]>([
+    createEmptyChecklistItem(),
+  ]);
+  const [buyerDelivery, setBuyerDelivery] = useState<DeliveryLocationValue>(DEFAULT_DELIVERY);
 
   const form = useZodForm(confirmSaleSchema, {
     defaultValues: {
@@ -67,6 +109,16 @@ export function JoinTransactionPage() {
       price: undefined as unknown as number,
       currency: defaultPaymentCurrency(preferredCurrency),
       imageUrl: '',
+      conditionsSummary: '',
+      returnInstructions: '',
+    },
+  });
+
+  const acceptForm = useZodForm(acceptPurchaseSchema, {
+    defaultValues: {
+      conditionsSummary: '',
+      productTitle: '',
+      productDescription: '',
     },
   });
 
@@ -77,7 +129,7 @@ export function JoinTransactionPage() {
   const summaryPrice = useMemo(() => {
     const price = Number(values.price);
     if (!Number.isFinite(price)) return '—';
-    return formatMoney(Math.round(price * 100), values.currency || 'UYU');
+    return formatOperationMoney(Math.round(price * 100), values.currency || 'UYU');
   }, [values.price, values.currency]);
 
   if (isLoading) {
@@ -92,7 +144,7 @@ export function JoinTransactionPage() {
   if (isError || !preview) {
     return (
       <Alert variant="danger">
-        Enlace inválido o no disponible.{' '}
+        {getApiErrorMessage(previewError, 'Enlace inválido o no disponible.')}{' '}
         <Link to="/operaciones">Ir a operaciones</Link>
       </Alert>
     );
@@ -128,8 +180,8 @@ export function JoinTransactionPage() {
       setError('Solo se permiten imágenes');
       return;
     }
-    if (file.size > 1_500_000) {
-      setError('La imagen local debe pesar menos de 1.5 MB (o usá una URL)');
+    if (file.size > 1_200_000) {
+      setError('La imagen local debe pesar menos de 1.2 MB (o usá una URL)');
       return;
     }
     const reader = new FileReader();
@@ -137,10 +189,6 @@ export function JoinTransactionPage() {
       const result = typeof reader.result === 'string' ? reader.result : '';
       if (!result.startsWith('data:image/')) {
         setError('No se pudo leer la imagen');
-        return;
-      }
-      if (result.length > 2048 && localStorage.getItem('accessToken')) {
-        setError('Para fotos grandes usá una URL pública de la imagen.');
         return;
       }
       setImages((prev) => [...prev, { url: result, alt: file.name }]);
@@ -156,23 +204,28 @@ export function JoinTransactionPage() {
       setError('Esta operación ya tiene un producto confirmado.');
       return;
     }
-    form.setValue('title', preview.title);
+    form.setValue('title', preview.productTitle || preview.title);
+    form.setValue('description', preview.productDescription || '');
     form.setValue(
       'price',
       preview.amountCents != null ? preview.amountCents / 100 : (undefined as unknown as number),
     );
     form.setValue(
       'currency',
-      preview.currency === 'USD' || preview.currency === 'UYU'
-        ? preview.currency
-        : 'UYU',
-    );    setStep(2);
+      preview.currency === 'USD' || preview.currency === 'UYU' ? preview.currency : 'UYU',
+    );
+    setStep(2);
   };
 
   const goToConfirm = form.handleSubmit(() => {
     setError(null);
     if (images.length < 1) {
       setError('Agregá al menos una foto del producto');
+      return;
+    }
+    const deliveryError = validateDelivery(delivery, profile);
+    if (deliveryError) {
+      setError(deliveryError);
       return;
     }
     setStep(3);
@@ -183,12 +236,18 @@ export function JoinTransactionPage() {
     setError(null);
     const parsed = confirmSaleSchema.safeParse(form.getValues());
     if (!parsed.success) {
-      setError('Revisá los datos del producto');
+      setError('Revisá los datos del producto y las instrucciones para el Agente');
       setStep(2);
       return;
     }
     if (images.length < 1) {
       setError('Agregá al menos una foto');
+      setStep(2);
+      return;
+    }
+    const deliveryError = validateDelivery(delivery, profile);
+    if (deliveryError) {
+      setError(deliveryError);
       setStep(2);
       return;
     }
@@ -204,32 +263,64 @@ export function JoinTransactionPage() {
           price: parsed.data.price,
           currency: parsed.data.currency,
           images,
+          conditionsSummary: parsed.data.conditionsSummary,
+          meetingLocationMode: delivery.mode,
+          meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,
+          returnInstructions: parsed.data.returnInstructions,
         },
       });
       navigate(`/operaciones/${result.data.code}`, {
-        state: { sellerConfirmed: true },
+        state: {
+          sellerConfirmed: true,
+          pendingBuyerConfirm: result.data.status === 'PENDING_BUYER_CONFIRM',
+        },
       });
     } catch {
       setError('No se pudo confirmar la venta. Verificá la sesión o el enlace.');
     }
   };
 
-  const onAcceptAsBuyer = async () => {
+  const onAcceptAsBuyer = acceptForm.handleSubmit(async (values: AcceptPurchaseValues) => {
     if (!token) return;
     setError(null);
+    const deliveryError = validateDelivery(buyerDelivery, profile);
+    if (deliveryError) {
+      setError(deliveryError);
+      return;
+    }
+
     try {
-      const result = await acceptPurchase.mutateAsync(token);
+      const result = await acceptPurchase.mutateAsync({
+        token,
+        payload: {
+          conditionsSummary: values.conditionsSummary,
+          checklist: checklistDraftToPayload(buyerChecklistItems),
+          meetingLocationMode: buyerDelivery.mode,
+          meetingLocation:
+            buyerDelivery.mode === 'CHAT' ? undefined : buyerDelivery.meetingLocation,
+          productTitle: values.productTitle,
+          productDescription: values.productDescription,
+        },
+      });
       navigate(`/operaciones/${result.data.code}`, {
         state: { buyerAccepted: true },
       });
     } catch {
       setError('No se pudo aceptar la compra. Verificá la sesión o el enlace.');
     }
-  };
+  });
 
   if (isSellerInitiated) {
+    const product = preview.product;
+    const productImages = (product?.images ?? []).map((img) => ({
+      url: img.url,
+      alt: img.alt || product?.title || preview.title,
+    }));
+    const canAccept =
+      !preview.isExpired && !preview.hasCounterparty && preview.status !== 'ACCEPTED';
+
     return (
-      <div className="ca-tx">
+      <div className="ca-tx ca-tx--invite-buy">
         <header className="ca-tx__header">
           <div className="ca-tx__brand">
             <ShoppingBag size={22} strokeWidth={1.75} />
@@ -238,8 +329,8 @@ export function JoinTransactionPage() {
               <h2 className="ca-tx__title">Te invitaron a comprar</h2>
               <p className="ca-tx__lead">
                 {preview.creatorName
-                  ? `${preview.creatorName} publicó un producto y te invita a la operación.`
-                  : 'Un vendedor te invita a comprar con escrow ConfiApp.'}
+                  ? `${preview.creatorName} publicó un producto. Ves la descripción; tus instrucciones van al Agente.`
+                  : 'Un vendedor te invita a comprar. Completá tus instrucciones para el Agente.'}
               </p>
             </div>
           </div>
@@ -251,75 +342,195 @@ export function JoinTransactionPage() {
         {error ? <Alert variant="danger">{error}</Alert> : null}
 
         <motion.section
-          className="ca-tx-panel"
+          className="ca-tx-panel ca-tx-invite-buy"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h3 className="ca-section-title">{preview.title}</h3>
-          <p className="ca-section-lead">
-            Código <code>{preview.code}</code> ·{' '}
-            {formatMoney(preview.amountCents, preview.currency)}
-          </p>
-          {preview.description ? <p>{preview.description}</p> : null}
-          <p>{preview.conditionsSummary}</p>
-
-          {preview.product ? (
-            <div className="ca-tx-invite-product">
-              <h4 className="ca-section-title">Producto</h4>
-              <p className="ca-section-lead">
-                {CONDITION_LABELS[preview.product.condition]} ·{' '}
-                {CATEGORY_LABELS[preview.product.category]}
-              </p>
-              <p className="fw-semibold mb-1">{preview.product.title}</p>
-              {preview.product.description ? <p>{preview.product.description}</p> : null}
-              {preview.product.images.length ? (
-                <ul className="ca-tx-photos__grid">
-                  {preview.product.images.map((img) => (
-                    <li key={`${img.sortOrder}-${img.url}`}>
-                      <img src={img.url} alt={img.alt || preview.product!.title} />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+          {productImages.length ? (
+            <div className="ca-tx-invite-buy__media">
+              <ul className="ca-tx-invite-buy__thumbs">
+                {productImages.map((img, index) => (
+                  <li key={`${index}-${img.url}`}>
+                    <button
+                      type="button"
+                      onClick={() => setGalleryIndex(index)}
+                      aria-label={`Ampliar foto ${index + 1}`}
+                    >
+                      <img src={img.url} alt={img.alt || `Foto ${index + 1}`} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
+
+          <div className="ca-tx-invite-buy__head">
+            <p className="ca-tx-invite-buy__kicker">
+              {product ? 'Producto a comprar' : 'Operación'}
+            </p>
+            <h3 className="ca-tx-invite-buy__title">
+              {preview.productTitle || product?.title || preview.title}
+            </h3>
+            <p className="ca-tx-invite-buy__price">
+              {formatOperationMoney(
+                product?.estimatedValueCents ?? preview.amountCents,
+                product?.currency ?? preview.currency,
+              )}
+            </p>
+            {product ? (
+              <div className="ca-tx-invite-buy__chips">
+                <span className="ca-tx-invite-buy__chip">
+                  <Tag size={14} />
+                  {CONDITION_LABELS[product.condition]}
+                </span>
+                <span className="ca-tx-invite-buy__chip">{CATEGORY_LABELS[product.category]}</span>
+              </div>
+            ) : null}
+          </div>
+
+          {preview.productDescription || product?.description ? (
+            <div className="ca-tx-invite-buy__section">
+              <h3>Descripción del vendedor</h3>
+              <p>{preview.productDescription || product?.description}</p>
+            </div>
+          ) : null}
+
+          <div className="ca-tx-invite-buy__meta">
+            <div className="ca-tx-invite-buy__meta-row">
+              <span>Operación</span>
+              <strong>{preview.title}</strong>
+            </div>
+            <div className="ca-tx-invite-buy__meta-row">
+              <span>Código</span>
+              <strong>
+                <code>{preview.code}</code>
+              </strong>
+            </div>
+            {preview.creatorName ? (
+              <div className="ca-tx-invite-buy__meta-row">
+                <span>Vendedor</span>
+                <strong>{preview.creatorName}</strong>
+              </div>
+            ) : null}
+            {preview.inviteExpiresAt ? (
+              <div className="ca-tx-invite-buy__meta-row">
+                <span>Válido hasta</span>
+                <strong>
+                  {new Date(preview.inviteExpiresAt).toLocaleDateString('es-UY', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </strong>
+              </div>
+            ) : null}
+          </div>
 
           {preview.isExpired ? (
             <Alert variant="warning" className="mb-0">
               Este enlace expiró. Pedile al vendedor que regenere la invitación.
             </Alert>
-          ) : preview.hasCounterparty || preview.status === 'ACCEPTED' ? (
+          ) : !canAccept ? (
             <Alert variant="info" className="mb-0">
               Esta compra ya fue aceptada.{' '}
               <Link to={`/operaciones/${preview.code}`}>Ver detalle</Link>
             </Alert>
           ) : (
-            <div className="ca-form-actions">
-              <Button
-                className="ca-btn-cta"
-                disabled={acceptPurchase.isPending}
-                onClick={() => void onAcceptAsBuyer()}
-              >
-                {acceptPurchase.isPending ? (
-                  <Spinner size="sm" animation="border" className="me-2" />
-                ) : (
-                  <UserPlus size={16} className="me-1" />
-                )}
-                Aceptar compra
-              </Button>
-              <p className="ca-section-lead mb-0">
-                Al aceptar, el estado pasa automáticamente a{' '}
-                <strong>Aceptada</strong> (pendiente de fondeo).
-              </p>
-            </div>
+            <Form onSubmit={onAcceptAsBuyer} className="ca-tx-edit mt-3" noValidate>
+              <fieldset className="ca-tx-fieldset">
+                <legend>Para el Agente</legend>
+                <p className="ca-tx-fieldset__hint">
+                  El vendedor no ve estas instrucciones ni tu ubicación.
+                </p>
+                <div className="row g-3">
+                  <Form.Group className="col-12" controlId="buy-product-title">
+                    <Form.Label>Qué esperás recibir (título)</Form.Label>
+                    <Form.Control
+                      {...acceptForm.register('productTitle')}
+                      placeholder="Ej. Notebook Lenovo ThinkPad T14"
+                      isInvalid={Boolean(acceptForm.formState.errors.productTitle)}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {acceptForm.formState.errors.productTitle?.message}
+                    </Form.Control.Feedback>
+                  </Form.Group>
+                  <Form.Group className="col-12" controlId="buy-product-desc">
+                    <Form.Label>Descripción para el Agente / vendedor</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      {...acceptForm.register('productDescription')}
+                      placeholder="Detalles de lo que aceptás comprar…"
+                      isInvalid={Boolean(acceptForm.formState.errors.productDescription)}
+                    />
+                    <Form.Text muted>
+                      Esta descripción la ve el vendedor. El resto solo el Agente.
+                    </Form.Text>
+                    <Form.Control.Feedback type="invalid">
+                      {acceptForm.formState.errors.productDescription?.message}
+                    </Form.Control.Feedback>
+                  </Form.Group>
+                  <Form.Group className="col-12" controlId="buy-conditions">
+                    <Form.Label>Instrucciones para el Agente</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      {...acceptForm.register('conditionsSummary')}
+                      placeholder="Horarios disponibles, lugares de entrega, etc."
+                      isInvalid={Boolean(acceptForm.formState.errors.conditionsSummary)}
+                    />
+                    <Form.Control.Feedback type="invalid">
+                      {acceptForm.formState.errors.conditionsSummary?.message}
+                    </Form.Control.Feedback>
+                  </Form.Group>
+                  <div className="col-12">
+                    <ChecklistEditor
+                      items={buyerChecklistItems}
+                      onChange={setBuyerChecklistItems}
+                    />
+                  </div>
+                </div>
+              </fieldset>
+
+              <div className="ca-tx-delivery-wrap">
+                <DeliveryLocationPicker
+                  value={buyerDelivery}
+                  onChange={setBuyerDelivery}
+                  profile={profile}
+                  disabled={acceptPurchase.isPending}
+                />
+              </div>
+
+              <div className="ca-tx-invite-buy__actions">
+                <Button type="submit" className="ca-btn-cta" disabled={acceptPurchase.isPending}>
+                  {acceptPurchase.isPending ? (
+                    <Spinner size="sm" animation="border" className="me-2" />
+                  ) : (
+                    <UserPlus size={16} className="me-1" />
+                  )}
+                  Aceptar compra
+                </Button>
+              </div>
+            </Form>
           )}
         </motion.section>
+
+        <PhotoLightbox
+          images={productImages}
+          index={galleryIndex ?? 0}
+          open={galleryIndex != null}
+          onClose={() => setGalleryIndex(null)}
+          onIndexChange={setGalleryIndex}
+        />
       </div>
     );
   }
 
+  const currentStepLabel =
+    SELLER_STEPS.find((item) => item.id === step)?.label ?? 'Invitación';
+
   return (
-    <div className="ca-tx">
+    <div className="ca-tx ca-tx--invite-sell">
       <header className="ca-tx__header">
         <div className="ca-tx__brand">
           <Handshake size={22} strokeWidth={1.75} />
@@ -328,8 +539,8 @@ export function JoinTransactionPage() {
             <h2 className="ca-tx__title">Recibiste un enlace de operación</h2>
             <p className="ca-tx__lead">
               {preview.creatorName
-                ? `${preview.creatorName} te invita a vender con escrow.`
-                : 'Completá el producto y confirmá la venta.'}
+                ? `${preview.creatorName} te invita a vender. Ves la descripción del producto; tus instrucciones van al Agente.`
+                : 'Completá el producto y tus instrucciones para el Agente.'}
             </p>
           </div>
         </div>
@@ -338,57 +549,104 @@ export function JoinTransactionPage() {
         </div>
       </header>
 
-      <ol className="ca-tx-steps">
-        {SELLER_STEPS.map((item) => (
-          <li
-            key={item.id}
-            className={[
-              'ca-tx-steps__item',
-              step === item.id ? 'ca-tx-steps__item--active' : '',
-              step > item.id ? 'ca-tx-steps__item--done' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <span>{item.id}</span>
-            {item.label}
-          </li>
-        ))}
-      </ol>
+      <section className="ca-tx-panel ca-tx-steps-panel">
+        <div className="ca-tx-steps-wrap">
+          <ol className="ca-tx-steps" aria-label="Pasos para confirmar la venta">
+            {SELLER_STEPS.map((item) => (
+              <li
+                key={item.id}
+                className={[
+                  'ca-tx-steps__item',
+                  step === item.id ? 'ca-tx-steps__item--active' : '',
+                  step > item.id ? 'ca-tx-steps__item--done' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <span className="ca-tx-steps__num">{item.id}</span>
+                <span className="ca-tx-steps__label">{item.label}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="ca-tx-steps__current" aria-live="polite">
+            {currentStepLabel}
+          </p>
+        </div>
+      </section>
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
       {step === 1 ? (
         <motion.section
-          className="ca-tx-panel"
+          className="ca-tx-panel ca-tx-invite-sell"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h3 className="ca-section-title">{preview.title}</h3>
-          <p className="ca-section-lead">
-            Código <code>{preview.code}</code> · propuesta{' '}
-            {formatMoney(preview.amountCents, preview.currency)}
-          </p>
-          {preview.description ? <p>{preview.description}</p> : null}
-          <p>{preview.conditionsSummary}</p>
+          <div className="ca-tx-invite-sell__head">
+            <p className="ca-tx-invite-sell__kicker">Pedido del comprador</p>
+            <h3 className="ca-tx-invite-sell__title">
+              {preview.productTitle || preview.title}
+            </h3>
+            <p className="ca-tx-invite-sell__price">
+              {formatOperationMoney(preview.amountCents, preview.currency)}
+            </p>
+          </div>
 
-          {preview.isExpired ? (
-            <Alert variant="warning" className="mb-0">
-              Este enlace expiró. Pedile al comprador que regenere la invitación.
-            </Alert>
-          ) : preview.hasProduct ? (
-            <Alert variant="info" className="mb-0">
-              Ya hay un producto confirmado en esta operación.{' '}
-              <Link to={`/operaciones/${preview.code}`}>Ver detalle</Link>
-            </Alert>
-          ) : (
-            <div className="ca-form-actions">
+          {preview.productDescription ? (
+            <div className="ca-tx-invite-sell__section">
+              <h3>Descripción del comprador</h3>
+              <p>{preview.productDescription}</p>
+            </div>
+          ) : null}
+
+          <div className="ca-tx-invite-sell__meta">
+            <div className="ca-tx-invite-sell__meta-row">
+              <span>Operación</span>
+              <strong>{preview.title}</strong>
+            </div>
+            <div className="ca-tx-invite-sell__meta-row">
+              <span>Código</span>
+              <strong>
+                <code>{preview.code}</code>
+              </strong>
+            </div>
+            {preview.creatorName ? (
+              <div className="ca-tx-invite-sell__meta-row">
+                <span>Comprador</span>
+                <strong>{preview.creatorName}</strong>
+              </div>
+            ) : null}
+            {preview.inviteExpiresAt ? (
+              <div className="ca-tx-invite-sell__meta-row">
+                <span>Válido hasta</span>
+                <strong>
+                  {new Date(preview.inviteExpiresAt).toLocaleDateString('es-UY', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </strong>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="ca-tx-invite-sell__actions">
+            {preview.isExpired ? (
+              <Alert variant="warning" className="mb-0">
+                Este enlace expiró. Pedile al comprador que regenere la invitación.
+              </Alert>
+            ) : preview.hasProduct ? (
+              <Alert variant="info" className="mb-0">
+                Ya hay un producto confirmado en esta operación.{' '}
+                <Link to={`/operaciones/${preview.code}`}>Ver detalle</Link>
+              </Alert>
+            ) : (
               <Button className="ca-btn-cta" onClick={goToProduct}>
                 <Package size={16} className="me-1" />
                 Agregar producto y continuar
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </motion.section>
       ) : null}
 
@@ -398,82 +656,90 @@ export function JoinTransactionPage() {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h3 className="ca-section-title">Datos del producto</h3>
-          <p className="ca-section-lead">
-            Precio, condición, descripción y fotos. Se persisten al confirmar la venta.
-          </p>
+          <header className="ca-tx-panel__head">
+            <h3 className="ca-section-title">Producto e instrucciones</h3>
+            <p className="ca-section-lead ca-section-lead--soft-emphasis">
+              La descripción del producto la ve el comprador. Condiciones, ubicación y devolución
+              solo las ve el Agente.
+            </p>
+          </header>
 
-          <Form onSubmit={goToConfirm} className="ca-form-grid" noValidate>
-            <Form.Group className="ca-form-grid__full" controlId="sale-title">
-              <Form.Label>Título del producto</Form.Label>
-              <Form.Control
-                {...form.register('title')}
-                isInvalid={Boolean(form.formState.errors.title)}
-              />
-              <Form.Control.Feedback type="invalid">
-                {form.formState.errors.title?.message}
-              </Form.Control.Feedback>
-            </Form.Group>
+          <Form onSubmit={goToConfirm} className="ca-tx-edit" noValidate>
+            <fieldset className="ca-tx-fieldset">
+              <legend>Producto</legend>
+              <div className="row g-3">
+                <Form.Group className="col-12" controlId="sale-title">
+                  <Form.Label>Título del producto</Form.Label>
+                  <Form.Control
+                    {...form.register('title')}
+                    isInvalid={Boolean(form.formState.errors.title)}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {form.formState.errors.title?.message}
+                  </Form.Control.Feedback>
+                </Form.Group>
 
-            <Form.Group className="ca-form-grid__full" controlId="sale-description">
-              <Form.Label>Descripción</Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={4}
-                {...form.register('description')}
-                isInvalid={Boolean(form.formState.errors.description)}
-              />
-              <Form.Control.Feedback type="invalid">
-                {form.formState.errors.description?.message}
-              </Form.Control.Feedback>
-            </Form.Group>
+                <Form.Group className="col-12" controlId="sale-description">
+                  <Form.Label>Descripción</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={4}
+                    {...form.register('description')}
+                    isInvalid={Boolean(form.formState.errors.description)}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {form.formState.errors.description?.message}
+                  </Form.Control.Feedback>
+                </Form.Group>
 
-            <Form.Group controlId="sale-condition">
-              <Form.Label>Condición</Form.Label>
-              <Form.Select {...form.register('condition')}>
-                {(Object.keys(CONDITION_LABELS) as ProductCondition[]).map((key) => (
-                  <option key={key} value={key}>
-                    {CONDITION_LABELS[key]}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                <Form.Group className="col-6 col-md-3" controlId="sale-condition">
+                  <Form.Label>Condición</Form.Label>
+                  <Form.Select {...form.register('condition')}>
+                    {(Object.keys(CONDITION_LABELS) as ProductCondition[]).map((key) => (
+                      <option key={key} value={key}>
+                        {CONDITION_LABELS[key]}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
 
-            <Form.Group controlId="sale-category">
-              <Form.Label>Categoría</Form.Label>
-              <Form.Select {...form.register('category')}>
-                {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((key) => (
-                  <option key={key} value={key}>
-                    {CATEGORY_LABELS[key]}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
+                <Form.Group className="col-6 col-md-3" controlId="sale-category">
+                  <Form.Label>Categoría</Form.Label>
+                  <Form.Select {...form.register('category')}>
+                    {(Object.keys(CATEGORY_LABELS) as ProductCategory[]).map((key) => (
+                      <option key={key} value={key}>
+                        {CATEGORY_LABELS[key]}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
 
-            <Form.Group controlId="sale-price">
-              <Form.Label>Precio</Form.Label>
-              <Form.Control
-                type="number"
-                step="0.01"
-                min="1"
-                {...form.register('price')}
-                isInvalid={Boolean(form.formState.errors.price)}
-              />
-              <Form.Control.Feedback type="invalid">
-                {form.formState.errors.price?.message}
-              </Form.Control.Feedback>
-            </Form.Group>
+                <Form.Group className="col-6 col-md-3" controlId="sale-price">
+                  <Form.Label>Precio</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    {...form.register('price')}
+                    isInvalid={Boolean(form.formState.errors.price)}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {form.formState.errors.price?.message}
+                  </Form.Control.Feedback>
+                </Form.Group>
 
-            <Form.Group controlId="sale-currency">
-              <Form.Label>Moneda</Form.Label>
-              <Form.Select {...form.register('currency')}>
-                <option value="UYU">UYU $</option>
-                <option value="USD">USD $</option>
-              </Form.Select>
-            </Form.Group>
+                <Form.Group className="col-6 col-md-3" controlId="sale-currency">
+                  <Form.Label>Moneda</Form.Label>
+                  <Form.Select {...form.register('currency')}>
+                    <option value="UYU">UYU $</option>
+                    <option value="USD">USD $</option>
+                  </Form.Select>
+                </Form.Group>
+              </div>
+            </fieldset>
 
-            <div className="ca-form-grid__full ca-tx-photos">
-              <h4 className="ca-section-title">Fotos</h4>
+            <fieldset className="ca-tx-fieldset ca-tx-photos">
+              <legend>Fotos</legend>
               <div className="ca-tx-photos__add">
                 <Form.Control
                   {...form.register('imageUrl')}
@@ -514,9 +780,57 @@ export function JoinTransactionPage() {
               ) : (
                 <p className="ca-section-lead mb-0">Sin fotos todavía.</p>
               )}
+            </fieldset>
+
+            <fieldset className="ca-tx-fieldset">
+              <legend>Para el Agente</legend>
+              <div className="row g-3">
+                <Form.Group className="col-12" controlId="sale-conditions">
+                  <Form.Label>Instrucciones para el Agente</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    {...form.register('conditionsSummary')}
+                    placeholder="Horarios disponibles, lugares de entrega, etc."
+                    isInvalid={Boolean(form.formState.errors.conditionsSummary)}
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {form.formState.errors.conditionsSummary?.message}
+                  </Form.Control.Feedback>
+                </Form.Group>
+              </div>
+            </fieldset>
+
+            <div className="ca-tx-delivery-wrap">
+              <DeliveryLocationPicker
+                value={delivery}
+                onChange={setDelivery}
+                profile={profile}
+                disabled={confirm.isPending}
+              />
             </div>
 
-            <div className="ca-form-grid__full ca-form-actions">
+            <fieldset className="ca-tx-fieldset">
+              <legend>Devolución</legend>
+              <p className="ca-tx-fieldset__hint">
+                Indicále al Agente cómo devolver tu producto si el comprador lo rechaza en la
+                entrega personal. Solo lo ve el Agente.
+              </p>
+              <Form.Group controlId="sale-return">
+                <Form.Label>Instrucciones para el Agente</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  {...form.register('returnInstructions')}
+                  isInvalid={Boolean(form.formState.errors.returnInstructions)}
+                />
+                <Form.Control.Feedback type="invalid">
+                  {form.formState.errors.returnInstructions?.message}
+                </Form.Control.Feedback>
+              </Form.Group>
+            </fieldset>
+
+            <div className="ca-form-actions">
               <Button type="button" variant="outline-secondary" onClick={() => setStep(1)}>
                 Atrás
               </Button>
@@ -530,50 +844,53 @@ export function JoinTransactionPage() {
 
       {step === 3 ? (
         <motion.section
-          className="ca-tx-panel"
+          className="ca-tx-panel ca-tx-confirm"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h3 className="ca-section-title">Confirmar venta</h3>
-          <p className="ca-section-lead">
-            Al confirmar te unís como vendedor, se persiste el producto y la operación queda
-            pendiente de fondeo.
-          </p>
+          <header className="ca-tx-panel__head">
+            <h3 className="ca-section-title">Confirmar venta</h3>
+            <p className="ca-section-lead ca-section-lead--soft-emphasis">
+              Al confirmar te unís como vendedor y la operación queda pendiente de fondeo.
+            </p>
+          </header>
 
-          <dl className="ca-tx-summary">
-            <div>
-              <dt>Producto</dt>
-              <dd>{values.title}</dd>
+          <div className="ca-tx-confirm__body">
+            <div className="ca-tx-confirm__main">
+              <p className="ca-tx-confirm__kicker">Producto</p>
+              <h3 className="ca-tx-confirm__title">{values.title}</h3>
+              <p className="ca-tx-confirm__price">{summaryPrice}</p>
+              <div className="ca-tx-confirm__chips">
+                <span className="ca-tx-confirm__chip">
+                  <Tag size={14} aria-hidden />
+                  {CONDITION_LABELS[(values.condition || 'GOOD') as ProductCondition]}
+                </span>
+                {values.category ? (
+                  <span className="ca-tx-confirm__chip">
+                    {CATEGORY_LABELS[values.category as ProductCategory]}
+                  </span>
+                ) : null}
+                <span className="ca-tx-confirm__chip">
+                  {images.length} foto{images.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              {values.description ? (
+                <p className="ca-tx-confirm__desc">{values.description}</p>
+              ) : null}
             </div>
-            <div>
-              <dt>Precio</dt>
-              <dd>{summaryPrice}</dd>
-            </div>
-            <div>
-              <dt>Condición</dt>
-              <dd>
-                {CONDITION_LABELS[(values.condition || 'GOOD') as ProductCondition]}
-              </dd>
-            </div>
-            <div>
-              <dt>Fotos</dt>
-              <dd>{images.length}</dd>
-            </div>
-          </dl>
 
-          <p>{values.description}</p>
+            {images.length ? (
+              <ul className="ca-tx-confirm__thumbs" aria-label="Fotos del producto">
+                {images.map((img) => (
+                  <li key={img.url}>
+                    <img src={img.url} alt={img.alt || 'Foto'} />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
 
-          {images.length ? (
-            <ul className="ca-tx-photos__grid">
-              {images.map((img) => (
-                <li key={img.url}>
-                  <img src={img.url} alt={img.alt || 'Foto'} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          <div className="ca-form-actions">
+          <div className="ca-tx-confirm__actions ca-form-actions">
             <Button type="button" variant="outline-secondary" onClick={() => setStep(2)}>
               Editar
             </Button>

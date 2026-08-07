@@ -48,7 +48,7 @@ export function WalletPage() {
       return;
     }
 
-    const walletCurrency = (summary?.currency ?? 'USD').toUpperCase();
+    const walletCurrency = (summary?.currency ?? 'UYU').toUpperCase();
     const displayCents = Math.round(value * 100);
     let amountInWalletUnits = value;
 
@@ -95,7 +95,8 @@ export function WalletPage() {
           <p className="ca-wallet__kicker">Billetera</p>
           <h2 className="ca-wallet__title">Wallet</h2>
           <p className="ca-wallet__lead">
-            Saldo, pendiente, movimientos, comisiones y retiros en {displayCurrencyLabel}.
+            Saldos retenidos en UYU (Mercado Pago). Se muestran convertidos a {displayCurrencyLabel}{' '}
+            según tu preferencia; el valor en pantalla puede variar con la cotización.
           </p>
         </div>
         <div className="d-flex gap-2 flex-wrap align-items-center">

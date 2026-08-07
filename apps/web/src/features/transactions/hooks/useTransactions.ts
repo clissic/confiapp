@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   acceptPurchase,
+  buyerConfirmChanges,
+  buyerRejectChanges,
   confirmSale,
   createSellerTransaction,
   createTransaction,
@@ -13,6 +15,7 @@ import {
   toggleChecklistItem,
 } from '../api/transactions.api';
 import type {
+  AcceptPurchasePayload,
   ConfirmSalePayload,
   CreateSellerTransactionPayload,
   CreateTransactionPayload,
@@ -92,7 +95,13 @@ export function useJoinInvite() {
 export function useAcceptPurchase() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (token: string) => acceptPurchase(token),
+    mutationFn: ({
+      token,
+      payload,
+    }: {
+      token: string;
+      payload: AcceptPurchasePayload;
+    }) => acceptPurchase(token, payload),
     onSuccess: (result) => {
       queryClient.setQueryData(
         [...transactionsQueryKey, 'code', result.data.code],
@@ -106,8 +115,15 @@ export function useAcceptPurchase() {
 export function useToggleChecklistItem(code: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ itemId, done }: { itemId: string; done: boolean }) =>
-      toggleChecklistItem(code!, itemId, done),
+    mutationFn: ({
+      itemId,
+      done,
+      side,
+    }: {
+      itemId: string;
+      done: boolean;
+      side?: 'buyer' | 'seller';
+    }) => toggleChecklistItem(code!, itemId, done, side),
     onSuccess: (result) => {
       queryClient.setQueryData(
         [...transactionsQueryKey, 'code', result.data.code],
@@ -127,6 +143,34 @@ export function useConfirmSale() {
       token: string;
       payload: ConfirmSalePayload;
     }) => confirmSale(token, payload),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useBuyerConfirmChanges(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => buyerConfirmChanges(code!),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useBuyerRejectChanges(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => buyerRejectChanges(code!),
     onSuccess: (result) => {
       queryClient.setQueryData(
         [...transactionsQueryKey, 'code', result.data.code],

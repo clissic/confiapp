@@ -44,14 +44,6 @@ const STEPS = [
   { id: 5, label: 'Vista previa' },
 ] as const;
 
-const AGENCY_STEPS = [
-  { id: 1, label: 'Términos' },
-  { id: 2, label: 'Horarios' },
-  { id: 3, label: 'Área' },
-  { id: 4, label: 'Tarifa' },
-  { id: 5, label: 'Resumen' },
-] as const;
-
 export function BecomeAgentPage() {
   const toast = useAppToast();
   const { data, isLoading, isError } = useAgentOnboarding();
@@ -92,7 +84,6 @@ export function BecomeAgentPage() {
     return <Alert variant="danger">No se pudo cargar el flujo de agente.</Alert>;
   }
 
-  const stepLabels = isRegistered ? AGENCY_STEPS : STEPS;
   const busy =
     saveDraft.isPending ||
     submit.isPending ||
@@ -114,42 +105,45 @@ export function BecomeAgentPage() {
             </h2>
           </div>
         </div>
-        <div className="ca-agent-flow__meta">
+        <div
+          className={[
+            'ca-agent-flow__meta',
+            onboarding.status === 'ACTIVE' ? 'ca-agent-flow__meta--hide-mobile' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <Badge bg={onboarding.status === 'INACTIVE' ? 'secondary' : 'primary'}>
             {onboarding.status}
           </Badge>
         </div>
       </header>
 
-      <div className="ca-agent-steps-wrap">
-        <ol className="ca-agent-steps" aria-label="Pasos del onboarding">
-          {stepLabels.map((item) => (
-            <li
-              key={item.id}
-              className={[
-                'ca-agent-steps__item',
-                !isRegistered && step === item.id ? 'ca-agent-steps__item--active' : '',
-                isRegistered || step > item.id ? 'ca-agent-steps__item--done' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-current={!isRegistered && step === item.id ? 'step' : undefined}
-            >
-              <span className="ca-agent-steps__num">{item.id}</span>
-              <span className="ca-agent-steps__label">{item.label}</span>
-            </li>
-          ))}
-        </ol>
-        <p className="ca-agent-steps__current" aria-live="polite">
-          {isRegistered && !editSection
-            ? 'Resumen'
-            : editSection === 'schedule'
-              ? 'Horarios'
-              : editSection === 'area'
-                ? 'Área'
-                : stepLabels.find((item) => item.id === step)?.label}
-        </p>
-      </div>
+      {!isRegistered ? (
+        <div className="ca-agent-steps-wrap">
+          <ol className="ca-agent-steps" aria-label="Pasos del onboarding">
+            {STEPS.map((item) => (
+              <li
+                key={item.id}
+                className={[
+                  'ca-agent-steps__item',
+                  step === item.id ? 'ca-agent-steps__item--active' : '',
+                  step > item.id ? 'ca-agent-steps__item--done' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                aria-current={step === item.id ? 'step' : undefined}
+              >
+                <span className="ca-agent-steps__num">{item.id}</span>
+                <span className="ca-agent-steps__label">{item.label}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="ca-agent-steps__current" aria-live="polite">
+            {STEPS.find((item) => item.id === step)?.label}
+          </p>
+        </div>
+      ) : null}
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
 

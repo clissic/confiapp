@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { asyncHandler, authenticate, validateRequest } from '../../middleware';
 import { TransactionsController } from './controller';
 import {
+  acceptPurchaseBodySchema,
   confirmSaleBodySchema,
   createSellerTransactionBodySchema,
   createTransactionBodySchema,
@@ -74,7 +75,10 @@ transactionsRoutes.post(
 transactionsRoutes.post(
   '/invite/:token/accept-purchase',
   authenticate,
-  validateRequest({ params: inviteTokenParamsSchema }),
+  validateRequest({
+    params: inviteTokenParamsSchema,
+    body: acceptPurchaseBodySchema,
+  }),
   asyncHandler(controller.acceptPurchase),
 );
 
@@ -86,4 +90,23 @@ transactionsRoutes.post(
     body: confirmSaleBodySchema,
   }),
   asyncHandler(controller.confirmSale),
+);
+
+transactionsRoutes.post(
+  '/by-code/:code/buyer-confirm',
+  authenticate,
+  validateRequest({ params: transactionCodeParamsSchema }),
+  asyncHandler(controller.buyerConfirm),
+);
+
+transactionsRoutes.post(
+  '/by-code/:code/buyer-reject',
+  authenticate,
+  validateRequest({ params: transactionCodeParamsSchema }),
+  asyncHandler(controller.buyerReject),
+);
+
+transactionsRoutes.post(
+  '/jobs/expire-deadlines',
+  asyncHandler(controller.expireDeadlines),
 );

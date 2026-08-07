@@ -1,41 +1,86 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { Alert, Badge, Button, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
-import { Copy, Handshake, Link2, RefreshCw, Share2 } from 'lucide-react';
+import { Copy, Link2, MapPin, RefreshCw, Share2 } from 'lucide-react';
 
-import { formatMoney } from '../api/transactions.api';
-import { formatDateTime } from '@/shared/lib/money';
-import { usePreferencesSnapshot } from '@/shared/preferences';
+import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
 import { useAuth } from '@/features/auth/ui/AuthProvider';
 import { useAppToast } from '@/shared/ui';
-import { useRefreshInvite, useToggleChecklistItem, useTransaction } from '../hooks/useTransactions';
+import { useRefreshInvite, useToggleChecklistItem, useTransaction, useBuyerConfirmChanges, useBuyerRejectChanges } from '../hooks/useTransactions';
 import {
+  CATEGORY_LABELS,
   CONDITION_LABELS,
   INITIATOR_LABELS,
   STATUS_LABELS,
+  type ProductCategory,
+  type ProductCondition,
   type TransactionStatus,
 } from '../model/types';
 import { ReviewFormPanel } from '@/features/reputation';
 import { AgentChecklistPanel } from './AgentChecklistPanel';
+import { PhotoLightbox } from './PhotoLightbox';
 import '../styles/transactions.css';
 
-const STATE_PIPELINE: TransactionStatus[] = [
+const STATE_PIPELINE = [
   'CREATED',
   'WAITING_PARTICIPANT',
+  'PENDING_BUYER_CONFIRM',
   'ACCEPTED',
   'FUNDED',
   'IN_PROGRESS',
   'COMPLETED',
-];
+] as const satisfies readonly TransactionStatus[];
+
+const PIPELINE_SHORT_LABELS: Record<(typeof STATE_PIPELINE)[number], string> = {
+  CREATED: 'Creada',
+  WAITING_PARTICIPANT: 'Esperando',
+  PENDING_BUYER_CONFIRM: 'Reconfirmación',
+  ACCEPTED: 'Aceptada',
+  FUNDED: 'Fondeada',
+  IN_PROGRESS: 'En curso',
+  COMPLETED: 'Completada',
+};
+
+const CHANGE_FIELD_LABELS: Record<string, string> = {
+  title: 'Título',
+  description: 'Descripción',
+  price: 'Precio',
+  condition: 'Condición',
+  category: 'Categoría',
+  images: 'Fotos',
+};
+
+function formatChangeValue(field: string, raw: string): string {
+  const value = raw.trim();
+  if (!value || value === '(vacío)' || value === '(ninguna)') {
+    if (field === 'images') return 'Sin fotos';
+    return 'Sin definir';
+  }
+  if (field === 'condition') {
+    const key = value.toUpperCase() as ProductCondition;
+    return CONDITION_LABELS[key] ?? value;
+  }
+  if (field === 'category') {
+    const key = value.toUpperCase() as ProductCategory;
+    return CATEGORY_LABELS[key] ?? value;
+  }
+  return value;
+}
+
+function sameText(a?: string | null, b?: string | null): boolean {
+  return (
+    (a ?? '').trim().replace(/\s+/g, ' ').toLowerCase() ===
+    (b ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
+  );
+}
 
 function pipelineIndex(status: TransactionStatus): number {
   if (status === 'CANCELLED' || status === 'DISPUTED') return -1;
-  return STATE_PIPELINE.indexOf(status);
+  return (STATE_PIPELINE as readonly TransactionStatus[]).indexOf(status);
 }
 
 export function TransactionDetailPage() {
-  usePreferencesSnapshot();
   const toast = useAppToast();
   const { user } = useAuth();
   const { code } = useParams<{ code: string }>();
@@ -44,6 +89,7 @@ export function TransactionDetailPage() {
     shareUrl?: string;
     justCreated?: boolean;
     sellerConfirmed?: boolean;
+    pendingBuyerConfirm?: boolean;
     buyerAccepted?: boolean;
     initiatedBySeller?: boolean;
     agentAccepted?: boolean;
@@ -51,8 +97,11 @@ export function TransactionDetailPage() {
   const { data, isLoading, isError } = useTransaction(code);
   const refresh = useRefreshInvite();
   const toggleChecklist = useToggleChecklistItem(code);
+  const buyerConfirm = useBuyerConfirmChanges(code);
+  const buyerReject = useBuyerRejectChanges(code);
   const [shareUrl, setShareUrl] = useState<string | undefined>(state?.shareUrl);
   const [error, setError] = useState<string | null>(null);
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (state?.agentAccepted) {
@@ -60,7 +109,11 @@ export function TransactionDetailPage() {
     } else if (state?.buyerAccepted) {
       toast.success('Compra aceptada. Estado actualizado a Aceptada — pendiente de fondeo.');
     } else if (state?.sellerConfirmed) {
-      toast.success('Venta confirmada. Estado actualizado a Aceptada — pendiente de fondeo.');
+      toast.success(
+        state.pendingBuyerConfirm
+          ? 'Venta enviada. El comprador debe aceptar los cambios.'
+          : 'Venta confirmada. Estado actualizado a Aceptada — pendiente de fondeo.',
+      );
     } else if (state?.justCreated) {
       toast.success(
         state.initiatedBySeller
@@ -78,6 +131,16 @@ export function TransactionDetailPage() {
     }
   }, [data?.data.invite.shareUrl]);
 
+  const tx = data?.data;
+  const productImages = useMemo(
+    () =>
+      (tx?.product?.images ?? []).map((img) => ({
+        url: img.url,
+        alt: img.alt || tx?.product?.title || tx?.title,
+      })),
+    [tx?.product?.images, tx?.product?.title, tx?.title],
+  );
+
   if (isLoading) {
     return (
       <div className="ca-tx ca-tx--loading">
@@ -87,7 +150,7 @@ export function TransactionDetailPage() {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !tx) {
     return (
       <Alert variant="danger">
         No se encontró la operación.{' '}
@@ -96,7 +159,6 @@ export function TransactionDetailPage() {
     );
   }
 
-  const tx = data.data;
   const hasCounterparty = tx.participants.some(
     (p) => p.role === 'COUNTERPARTY' && p.status === 'ACCEPTED',
   );
@@ -109,7 +171,11 @@ export function TransactionDetailPage() {
           p.status === 'ACCEPTED',
       ),
   );
-  const checklist = tx.conditions.checklist ?? [];
+  const currentPipeline = pipelineIndex(tx.status);
+  const currentStepLabel =
+    currentPipeline >= 0
+      ? PIPELINE_SHORT_LABELS[STATE_PIPELINE[currentPipeline]!]
+      : STATUS_LABELS[tx.status];
 
   const copyLink = async () => {
     if (!shareUrl) return;
@@ -148,201 +214,731 @@ export function TransactionDetailPage() {
     }
   };
 
+  const onBuyerConfirm = async () => {
+    setError(null);
+    try {
+      await buyerConfirm.mutateAsync();
+      toast.success('Cambios aceptados. La operación quedó aceptada.');
+    } catch {
+      setError('No se pudieron aceptar los cambios.');
+    }
+  };
+
+  const onBuyerReject = async () => {
+    setError(null);
+    try {
+      await buyerReject.mutateAsync();
+      toast.success('Operación cancelada.');
+    } catch {
+      setError('No se pudo cancelar la operación.');
+    }
+  };
+
   return (
-    <div className="ca-tx">
-      <header className="ca-tx__header">
-        <div className="ca-tx__brand">
-          <Handshake size={22} strokeWidth={1.75} />
-          <div>
-            <p className="ca-tx__kicker">{tx.code}</p>
-            <h2 className="ca-tx__title">{tx.title}</h2>
-            <p className="ca-tx__lead">{tx.description || 'Sin descripción adicional.'}</p>
+    <div className="ca-tx ca-tx--detail">
+      <header className="ca-tx-detail-hero">
+        <div className="ca-tx-detail-hero__main">
+          <p className="ca-tx-detail-hero__code">{tx.code}</p>
+          <h1 className="ca-tx-detail-hero__title">{tx.title}</h1>
+          <div className="ca-tx-detail-hero__badges">
+            <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
+            <Badge bg="secondary">{INITIATOR_LABELS[tx.initiatedBy ?? 'BUYER']}</Badge>
           </div>
+          {tx.description ? (
+            <p className="ca-tx-detail-hero__desc">{tx.description}</p>
+          ) : null}
+          {tx.operationDeadlineAt ? (
+            <p className="ca-tx-detail-hero__desc mb-0">
+              Plazo operativo hasta {formatDateTime(tx.operationDeadlineAt)}
+            </p>
+          ) : null}
         </div>
-        <div className="ca-tx__meta">
-          <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
-          <Badge bg="secondary">{INITIATOR_LABELS[tx.initiatedBy ?? 'BUYER']}</Badge>
+        <div className="ca-tx-detail-hero__amount">
+          <span>Monto</span>
+          <strong>{formatOperationMoney(tx.amountCents, tx.currency)}</strong>
         </div>
       </header>
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
 
-      <section className="ca-tx-panel">
-        <h3 className="ca-section-title">Máquina de estados</h3>
-        <p className="ca-section-lead">
-          Estado actual: <strong>{STATUS_LABELS[tx.status]}</strong>
-        </p>
-        {tx.status === 'CANCELLED' || tx.status === 'DISPUTED' ? (
-          <Badge bg="danger">{STATUS_LABELS[tx.status]}</Badge>
-        ) : (
-          <ol className="ca-tx-pipeline">
-            {STATE_PIPELINE.map((stepStatus, index) => {
-              const current = pipelineIndex(tx.status);
-              const done = current > index;
-              const active = current === index;
-              return (
-                <li
-                  key={stepStatus}
-                  className={[
-                    'ca-tx-pipeline__item',
-                    done ? 'ca-tx-pipeline__item--done' : '',
-                    active ? 'ca-tx-pipeline__item--active' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
+      {tx.status === 'PENDING_BUYER_CONFIRM' ? (
+        <section className="ca-tx-panel ca-tx-reconfirm">
+          {tx.viewerRole === 'BUYER' ? (
+            <>
+              <header className="ca-tx-reconfirm__head">
+                <div>
+                  <p className="ca-tx-reconfirm__kicker">Revisión requerida</p>
+                  <h2 className="ca-tx-reconfirm__title">El vendedor actualizó la propuesta</h2>
+                  <p className="ca-tx-reconfirm__lead">
+                    Compará lo que pediste con lo que ofreció. Podés aceptar y seguir, o cancelar.
+                  </p>
+                </div>
+              </header>
+
+              {tx.pendingBuyerChanges?.length ? (
+                <div className="ca-tx-reconfirm__grid">
+                  {tx.pendingBuyerChanges.map((change) => {
+                    const isImages = change.field === 'images';
+                    return (
+                      <article
+                        key={`${change.field}-${change.from}-${change.to}`}
+                        className="ca-tx-reconfirm__item"
+                      >
+                        <h3>{CHANGE_FIELD_LABELS[change.field] ?? change.field}</h3>
+                        <div className="ca-tx-reconfirm__compare">
+                          <div className="ca-tx-reconfirm__side ca-tx-reconfirm__side--from">
+                            <span className="ca-tx-reconfirm__side-label">Tu propuesta</span>
+                            <strong>{formatChangeValue(change.field, change.from)}</strong>
+                          </div>
+                          <span className="ca-tx-reconfirm__arrow" aria-hidden>
+                            →
+                          </span>
+                          <div className="ca-tx-reconfirm__side ca-tx-reconfirm__side--to">
+                            <span className="ca-tx-reconfirm__side-label">Oferta del vendedor</span>
+                            <strong>{formatChangeValue(change.field, change.to)}</strong>
+                          </div>
+                        </div>
+                        {isImages && productImages.length ? (
+                          <ul className="ca-tx-reconfirm__thumbs">
+                            {productImages.slice(0, 4).map((img, index) => (
+                              <li key={`${index}-${img.url}`}>
+                                <button
+                                  type="button"
+                                  onClick={() => setGalleryIndex(index)}
+                                  aria-label={`Ampliar foto ${index + 1}`}
+                                >
+                                  <img src={img.url} alt={img.alt || `Foto ${index + 1}`} />
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="ca-tx-reconfirm__lead mb-0">
+                  Hay cambios pendientes de tu confirmación.
+                </p>
+              )}
+
+              <div className="ca-tx-reconfirm__actions">
+                <Button
+                  className="ca-btn-cta"
+                  disabled={buyerConfirm.isPending || buyerReject.isPending}
+                  onClick={() => void onBuyerConfirm()}
                 >
-                  <span>{index + 1}</span>
-                  {STATUS_LABELS[stepStatus]}
-                </li>
-              );
-            })}
-          </ol>
-        )}
+                  {buyerConfirm.isPending ? 'Aceptando…' : 'Aceptar y continuar'}
+                </Button>
+                <Button
+                  variant="outline-danger"
+                  disabled={buyerConfirm.isPending || buyerReject.isPending}
+                  onClick={() => void onBuyerReject()}
+                >
+                  {buyerReject.isPending ? 'Cancelando…' : 'Cancelar operación'}
+                </Button>
+              </div>
+            </>
+          ) : tx.viewerRole === 'SELLER' ? (
+            <>
+              <header className="ca-tx-reconfirm__head">
+                <div>
+                  <p className="ca-tx-reconfirm__kicker">En espera</p>
+                  <h2 className="ca-tx-reconfirm__title">Esperando al comprador</h2>
+                  <p className="ca-tx-reconfirm__lead mb-0">
+                    Ya enviaste tu versión. Cuando acepte, la operación pasa a aceptada.
+                  </p>
+                </div>
+              </header>
+              {tx.pendingBuyerChanges?.length ? (
+                <div className="ca-tx-reconfirm__grid">
+                  {tx.pendingBuyerChanges.map((change) => (
+                    <article
+                      key={`${change.field}-${change.from}-${change.to}`}
+                      className="ca-tx-reconfirm__item"
+                    >
+                      <h3>{CHANGE_FIELD_LABELS[change.field] ?? change.field}</h3>
+                      <div className="ca-tx-reconfirm__compare">
+                        <div className="ca-tx-reconfirm__side ca-tx-reconfirm__side--from">
+                          <span className="ca-tx-reconfirm__side-label">Propuesta original</span>
+                          <strong>{formatChangeValue(change.field, change.from)}</strong>
+                        </div>
+                        <span className="ca-tx-reconfirm__arrow" aria-hidden>
+                          →
+                        </span>
+                        <div className="ca-tx-reconfirm__side ca-tx-reconfirm__side--to">
+                          <span className="ca-tx-reconfirm__side-label">Tu oferta</span>
+                          <strong>{formatChangeValue(change.field, change.to)}</strong>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <header className="ca-tx-reconfirm__head">
+                <div>
+                  <p className="ca-tx-reconfirm__kicker">Estado</p>
+                  <h2 className="ca-tx-reconfirm__title">Pendiente de confirmación</h2>
+                  <p className="ca-tx-reconfirm__lead mb-0">
+                    El comprador debe aceptar o cancelar los cambios del vendedor.
+                  </p>
+                </div>
+              </header>
+            </>
+          )}
+        </section>
+      ) : null}
+
+      <section className="ca-tx-panel ca-tx-detail-progress">
+        <div className="ca-tx-pipeline-wrap">
+          {tx.status === 'CANCELLED' || tx.status === 'DISPUTED' ? (
+            <Badge bg="danger">{STATUS_LABELS[tx.status]}</Badge>
+          ) : (
+            <>
+              <ol className="ca-tx-pipeline" aria-label="Progreso de la operación">
+                {STATE_PIPELINE.map((stepStatus, index) => {
+                  const done = currentPipeline > index;
+                  const active = currentPipeline === index;
+                  return (
+                    <li
+                      key={stepStatus}
+                      className={[
+                        'ca-tx-pipeline__item',
+                        done ? 'ca-tx-pipeline__item--done' : '',
+                        active ? 'ca-tx-pipeline__item--active' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      <span className="ca-tx-pipeline__num">{index + 1}</span>
+                      <span className="ca-tx-pipeline__label">
+                        {PIPELINE_SHORT_LABELS[stepStatus]}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              <p className="ca-tx-pipeline__current" aria-live="polite">
+                {currentStepLabel}
+              </p>
+            </>
+          )}
+        </div>
       </section>
 
       <motion.section
-        className="ca-tx-panel"
+        className="ca-tx-panel ca-tx-detail-media"
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h3 className="ca-section-title">Resumen</h3>
-        <p className="ca-section-lead">
-          Monto: <strong>{formatMoney(tx.amountCents, tx.currency)}</strong>
-        </p>
-        <p>{tx.conditions.summary}</p>
-      </motion.section>
+        <div className="ca-tx-detail-media__body">
+          {(() => {
+            const role = tx.viewerRole;
+            const own =
+              role === 'BUYER'
+                ? tx.party?.buyer
+                : role === 'SELLER'
+                  ? tx.party?.seller
+                  : undefined;
+            const otherPublic =
+              role === 'BUYER'
+                ? tx.party?.seller
+                : role === 'SELLER'
+                  ? tx.party?.buyer
+                  : undefined;
 
-      {checklist.length ? (
-        <motion.section
-          className="ca-tx-panel"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.02 }}
-        >
-          <AgentChecklistPanel
-            items={checklist}
-            canToggle={isAssignedAgent}
-            pendingItemId={
-              toggleChecklist.isPending
-                ? (toggleChecklist.variables?.itemId ?? null)
-                : null
-            }
-            onToggle={(itemId, done) => {
-              void toggleChecklist.mutateAsync({ itemId, done }).catch(() => {
-                toast.error('No se pudo actualizar el checklist.');
-              });
-            }}
-          />
-        </motion.section>
-      ) : null}
+            const productTitle = tx.product?.title;
+            const productDesc = tx.product?.description;
+            const showOwnProduct =
+              Boolean(own?.productTitle || own?.productDescription) &&
+              !(
+                sameText(own?.productTitle, productTitle) &&
+                sameText(own?.productDescription, productDesc)
+              );
+            const showOtherProduct =
+              Boolean(otherPublic?.productTitle || otherPublic?.productDescription) &&
+              !(
+                sameText(otherPublic?.productTitle, productTitle) &&
+                sameText(otherPublic?.productDescription, productDesc)
+              ) &&
+              !(
+                sameText(otherPublic?.productTitle, own?.productTitle) &&
+                sameText(otherPublic?.productDescription, own?.productDescription)
+              );
 
-      {tx.product ? (
-        <motion.section
-          className="ca-tx-panel"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.03 }}
-        >
-          <h3 className="ca-section-title">Producto del vendedor</h3>
-          <p className="ca-section-lead">
-            {CONDITION_LABELS[tx.product.condition]} ·{' '}
-            {formatMoney(tx.product.estimatedValueCents, tx.product.currency)} · estado{' '}
-            {tx.product.status}
-          </p>
-          <p className="fw-semibold mb-1">{tx.product.title}</p>
-          {tx.product.description ? <p>{tx.product.description}</p> : null}
-          {tx.product.images.length ? (
-            <ul className="ca-tx-photos__grid">
-              {tx.product.images.map((img) => (
-                <li key={`${img.sortOrder}-${img.url}`}>
-                  <img src={img.url} alt={img.alt || tx.product!.title} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </motion.section>
-      ) : null}
+            const instructionsSummary =
+              own?.conditionsSummary ||
+              (role !== 'AGENT' ? tx.conditions.summary : undefined);
+            const deliveryLabel = own?.meetingLocation?.label;
 
-      <motion.section
-        className="ca-tx-panel"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.05 }}
-      >
-        <h3 className="ca-section-title">
-          <Link2 size={18} className="me-1" />
-          Enlace de invitación
-        </h3>
-        <p className="ca-section-lead">
-          {tx.initiatedBy === 'SELLER'
-            ? 'Compartí este enlace con el comprador.'
-            : 'Compartí este enlace con el vendedor.'}{' '}
-          {tx.invite.expiresAt
-            ? `Vence: ${formatDateTime(tx.invite.expiresAt)}`
-            : 'Sin vencimiento registrado'}
-          {tx.invite.isExpired ? ' · Expirado' : ''}
-        </p>
+            return (
+              <>
+                <header className="ca-tx-detail-media__top">
+                  <div className="ca-tx-detail-media__intro">
+                    <p className="ca-tx-detail-media__kicker">Detalle de la operación</p>
+                    <h2 className="ca-tx-detail-media__heading">
+                      {tx.product?.title || own?.productTitle || otherPublic?.productTitle || tx.title}
+                    </h2>
+                  </div>
+                  <div className="ca-tx-detail-media__visual" aria-hidden="true">
+                    <img
+                      src="/landing/LandingPage.png"
+                      alt=""
+                      width={512}
+                      height={512}
+                      decoding="async"
+                    />
+                  </div>
+                </header>
 
-        {shareUrl ? (
-          <div className="ca-tx-share">
-            <p className="ca-tx-share__url">{shareUrl}</p>
-            <div className="ca-tx-share__actions">
-              <Button className="ca-btn-primary" onClick={() => void copyLink()}>
-                <Copy size={16} className="me-1" />
-                Copiar enlace
-              </Button>
-              <Button variant="outline-primary" onClick={() => void shareNative()}>
-                <Share2 size={16} className="me-1" />
-                Compartir
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <Alert variant="info" className="mb-0">
-            Por seguridad el enlace solo se muestra al crearlo o regenerarlo. Generá uno
-            nuevo para compartir.
-          </Alert>
-        )}
+                {role === 'AGENT' ? (
+                  <div className="ca-tx-detail-cards">
+                    {tx.party?.buyer?.conditionsSummary ? (
+                      <article className="ca-tx-detail-card">
+                        <h3>Instrucciones del comprador</h3>
+                        <p>{tx.party.buyer.conditionsSummary}</p>
+                        {tx.party.buyer.meetingLocation?.label ? (
+                          <p className="ca-tx-detail-card__meta">
+                            <MapPin size={14} aria-hidden />
+                            {tx.party.buyer.meetingLocation.label}
+                          </p>
+                        ) : null}
+                      </article>
+                    ) : null}
+                    {tx.party?.seller?.conditionsSummary ? (
+                      <article className="ca-tx-detail-card">
+                        <h3>Instrucciones del vendedor</h3>
+                        <p>{tx.party.seller.conditionsSummary}</p>
+                        {tx.party.seller.meetingLocation?.label ? (
+                          <p className="ca-tx-detail-card__meta">
+                            <MapPin size={14} aria-hidden />
+                            {tx.party.seller.meetingLocation.label}
+                          </p>
+                        ) : null}
+                      </article>
+                    ) : null}
+                    {tx.returnInstructions ? (
+                      <article className="ca-tx-detail-card ca-tx-detail-card--accent">
+                        <h3>Devolución — directivas del vendedor</h3>
+                        <p className="ca-tx-detail-card__hint">
+                          Si el comprador rechaza el producto en la entrega personal.
+                        </p>
+                        <p>{tx.returnInstructions}</p>
+                      </article>
+                    ) : null}
+                  </div>
+                ) : instructionsSummary || deliveryLabel ? (
+                  <article className="ca-tx-detail-card">
+                    <h3>Tus instrucciones para el Agente</h3>
+                    {instructionsSummary ? <p>{instructionsSummary}</p> : null}
+                    {deliveryLabel ? (
+                      <p className="ca-tx-detail-card__meta">
+                        <MapPin size={14} aria-hidden />
+                        <span>
+                          <strong>Entrega:</strong> {deliveryLabel}
+                        </span>
+                      </p>
+                    ) : null}
+                  </article>
+                ) : null}
 
-        <div className="ca-form-actions">
-          {!hasCounterparty ? (
-            <Button
-              variant="outline-secondary"
-              disabled={refresh.isPending}
-              onClick={() => void onRefresh()}
-            >
-              {refresh.isPending ? (
-                <Spinner size="sm" animation="border" className="me-2" />
-              ) : (
-                <RefreshCw size={16} className="me-1" />
-              )}
-              Regenerar enlace
-            </Button>
-          ) : null}
-          <Link to="/operaciones" className="btn btn-link">
-            Ver todas
-          </Link>
+                {tx.product ? (
+                  <article className="ca-tx-detail-product-card">
+                    <div className="ca-tx-detail-product-card__info">
+                      <p className="ca-tx-detail-media__kicker">Producto</p>
+                      <h3 className="ca-tx-detail-product-card__title">{tx.product.title}</h3>
+                      <div className="ca-tx-detail-chips">
+                        <span>{CONDITION_LABELS[tx.product.condition]}</span>
+                        <span>{CATEGORY_LABELS[tx.product.category]}</span>
+                        <span>
+                          {formatOperationMoney(
+                            tx.product.estimatedValueCents,
+                            tx.product.currency,
+                          )}
+                        </span>
+                      </div>
+                      {tx.product.description ? (
+                        <p className="ca-tx-detail-product-card__desc">{tx.product.description}</p>
+                      ) : null}
+                    </div>
+                    {productImages.length ? (
+                      <ul className="ca-tx-detail-product-card__thumbs">
+                        {productImages.map((img, index) => (
+                          <li key={`${index}-${img.url}`}>
+                            <button
+                              type="button"
+                              onClick={() => setGalleryIndex(index)}
+                              aria-label={`Ampliar foto ${index + 1}`}
+                            >
+                              <img src={img.url} alt={img.alt || `Foto ${index + 1}`} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </article>
+                ) : null}
+
+                {role !== 'AGENT' && showOwnProduct ? (
+                  <article className="ca-tx-detail-card ca-tx-detail-card--muted">
+                    <h3>Tu descripción del producto</h3>
+                    {own?.productTitle ? (
+                      <p className="ca-tx-detail-product__title">{own.productTitle}</p>
+                    ) : null}
+                    {own?.productDescription ? <p>{own.productDescription}</p> : null}
+                  </article>
+                ) : null}
+
+                {role !== 'AGENT' && showOtherProduct ? (
+                  <article className="ca-tx-detail-card ca-tx-detail-card--muted">
+                    <h3>
+                      {role === 'BUYER'
+                        ? 'Descripción del vendedor'
+                        : 'Descripción del comprador'}
+                    </h3>
+                    {otherPublic?.productTitle ? (
+                      <p className="ca-tx-detail-product__title">{otherPublic.productTitle}</p>
+                    ) : null}
+                    {otherPublic?.productDescription ? (
+                      <p>{otherPublic.productDescription}</p>
+                    ) : null}
+                  </article>
+                ) : null}
+
+                {role === 'AGENT' &&
+                (tx.party?.buyer?.productTitle ||
+                  tx.party?.buyer?.productDescription ||
+                  tx.party?.seller?.productTitle ||
+                  tx.party?.seller?.productDescription) &&
+                !tx.product ? (
+                  <div className="ca-tx-detail-cards">
+                    {tx.party?.buyer?.productTitle || tx.party?.buyer?.productDescription ? (
+                      <article className="ca-tx-detail-card ca-tx-detail-card--muted">
+                        <h3>Producto — comprador</h3>
+                        {tx.party.buyer.productTitle ? (
+                          <p className="ca-tx-detail-product__title">
+                            {tx.party.buyer.productTitle}
+                          </p>
+                        ) : null}
+                        {tx.party.buyer.productDescription ? (
+                          <p>{tx.party.buyer.productDescription}</p>
+                        ) : null}
+                      </article>
+                    ) : null}
+                    {tx.party?.seller?.productTitle || tx.party?.seller?.productDescription ? (
+                      <article className="ca-tx-detail-card ca-tx-detail-card--muted">
+                        <h3>Producto — vendedor</h3>
+                        {tx.party.seller.productTitle ? (
+                          <p className="ca-tx-detail-product__title">
+                            {tx.party.seller.productTitle}
+                          </p>
+                        ) : null}
+                        {tx.party.seller.productDescription ? (
+                          <p>{tx.party.seller.productDescription}</p>
+                        ) : null}
+                      </article>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            );
+          })()}
         </div>
       </motion.section>
 
-      <section className="ca-tx-panel">
-        <h3 className="ca-section-title">Estados</h3>
-        <ul className="ca-tx-timeline">
-          {tx.statusHistory.map((event, idx) => (
-            <li key={`${event.status}-${idx}`} className="ca-tx-timeline__item">
-              <span className="ca-tx-timeline__status">
-                {STATUS_LABELS[event.status]}
-              </span>
-              <p className="ca-tx-timeline__note">
-                {event.note || 'Cambio de estado'} ·{' '}
-                {formatDateTime(event.changedAt)}
-              </p>
-            </li>
-          ))}
-        </ul>
+      {(() => {
+        const role = tx.viewerRole;
+        const buyerItems = tx.party?.buyer?.checklist ?? [];
+        const sellerItems = tx.party?.seller?.checklist ?? [];
+        const legacyItems =
+          !buyerItems.length && !sellerItems.length ? (tx.conditions.checklist ?? []) : [];
+        const showAgentBoth = role === 'AGENT';
+        const ownItems =
+          role === 'BUYER'
+            ? buyerItems
+            : role === 'SELLER'
+              ? sellerItems
+              : legacyItems;
+
+        if (showAgentBoth) {
+          if (!buyerItems.length && !sellerItems.length && !legacyItems.length) return null;
+          return (
+            <>
+              {buyerItems.length ? (
+                <motion.section
+                  className="ca-tx-panel ca-tx-detail-media"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.02 }}
+                >
+                  <div className="ca-tx-detail-media__visual" aria-hidden="true">
+                    <img
+                      src="/landing/TaskList.png"
+                      alt=""
+                      width={512}
+                      height={512}
+                      decoding="async"
+                    />
+                  </div>
+                  <div className="ca-tx-detail-media__body">
+                    <AgentChecklistPanel
+                      title="Checklist — comprador"
+                      items={buyerItems}
+                      canToggle={isAssignedAgent}
+                      pendingItemId={
+                        toggleChecklist.isPending
+                          ? (toggleChecklist.variables?.itemId ?? null)
+                          : null
+                      }
+                      onToggle={(itemId, done) => {
+                        void toggleChecklist
+                          .mutateAsync({ itemId, done, side: 'buyer' })
+                          .catch(() => {
+                            toast.error('No se pudo actualizar el checklist.');
+                          });
+                      }}
+                    />
+                  </div>
+                </motion.section>
+              ) : null}
+              {sellerItems.length ? (
+                <motion.section
+                  className="ca-tx-panel ca-tx-detail-media"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.03 }}
+                >
+                  <div className="ca-tx-detail-media__visual" aria-hidden="true">
+                    <img
+                      src="/landing/TaskList.png"
+                      alt=""
+                      width={512}
+                      height={512}
+                      decoding="async"
+                    />
+                  </div>
+                  <div className="ca-tx-detail-media__body">
+                    <AgentChecklistPanel
+                      title="Checklist — vendedor"
+                      items={sellerItems}
+                      canToggle={isAssignedAgent}
+                      pendingItemId={
+                        toggleChecklist.isPending
+                          ? (toggleChecklist.variables?.itemId ?? null)
+                          : null
+                      }
+                      onToggle={(itemId, done) => {
+                        void toggleChecklist
+                          .mutateAsync({ itemId, done, side: 'seller' })
+                          .catch(() => {
+                            toast.error('No se pudo actualizar el checklist.');
+                          });
+                      }}
+                    />
+                  </div>
+                </motion.section>
+              ) : null}
+              {!buyerItems.length && !sellerItems.length && legacyItems.length ? (
+                <motion.section
+                  className="ca-tx-panel ca-tx-detail-media"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.02 }}
+                >
+                  <div className="ca-tx-detail-media__visual" aria-hidden="true">
+                    <img
+                      src="/landing/TaskList.png"
+                      alt=""
+                      width={512}
+                      height={512}
+                      decoding="async"
+                    />
+                  </div>
+                  <div className="ca-tx-detail-media__body">
+                    <AgentChecklistPanel
+                      items={legacyItems}
+                      canToggle={isAssignedAgent}
+                      pendingItemId={
+                        toggleChecklist.isPending
+                          ? (toggleChecklist.variables?.itemId ?? null)
+                          : null
+                      }
+                      onToggle={(itemId, done) => {
+                        void toggleChecklist.mutateAsync({ itemId, done }).catch(() => {
+                          toast.error('No se pudo actualizar el checklist.');
+                        });
+                      }}
+                    />
+                  </div>
+                </motion.section>
+              ) : null}
+            </>
+          );
+        }
+
+        if (!ownItems.length) return null;
+        return (
+          <motion.section
+            className="ca-tx-panel ca-tx-detail-media"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.02 }}
+          >
+            <div className="ca-tx-detail-media__visual" aria-hidden="true">
+              <img
+                src="/landing/TaskList.png"
+                alt=""
+                width={512}
+                height={512}
+                decoding="async"
+              />
+            </div>
+            <div className="ca-tx-detail-media__body">
+              <AgentChecklistPanel
+                title="Tu checklist para el Agente"
+                items={ownItems}
+                canToggle={false}
+                onToggle={() => undefined}
+              />
+            </div>
+          </motion.section>
+        );
+      })()}
+
+      <motion.section
+        className="ca-tx-panel ca-tx-detail-media ca-tx-detail-invite"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.04 }}
+      >
+        <div className="ca-tx-detail-media__visual" aria-hidden="true">
+          <img
+            src="/landing/Idea.png"
+            alt=""
+            width={512}
+            height={512}
+            decoding="async"
+          />
+        </div>
+        <div className="ca-tx-detail-media__body">
+          <div className="ca-tx-detail-section">
+            <h2>
+              <Link2 size={18} aria-hidden />
+              Enlace de invitación
+            </h2>
+            <p className="ca-tx-detail-invite__hint">
+              {tx.initiatedBy === 'SELLER'
+                ? 'Compartilo con el comprador.'
+                : 'Compartilo con el vendedor.'}
+              {tx.invite.expiresAt
+                ? ` Vence ${formatDateTime(tx.invite.expiresAt)}.`
+                : ''}
+              {tx.invite.isExpired ? ' Expirado.' : ''}
+            </p>
+          </div>
+
+          {shareUrl ? (
+            <div className="ca-tx-share">
+              <p className="ca-tx-share__url">{shareUrl}</p>
+              <div className="ca-tx-share__actions">
+                <Button className="ca-btn-primary" onClick={() => void copyLink()}>
+                  <Copy size={16} className="me-1" />
+                  Copiar
+                </Button>
+                <Button variant="outline-primary" onClick={() => void shareNative()}>
+                  <Share2 size={16} className="me-1" />
+                  Compartir
+                </Button>
+                {!hasCounterparty ? (
+                  <Button
+                    variant="outline-secondary"
+                    disabled={refresh.isPending}
+                    onClick={() => void onRefresh()}
+                  >
+                    {refresh.isPending ? (
+                      <Spinner size="sm" animation="border" className="me-2" />
+                    ) : (
+                      <RefreshCw size={16} className="me-1" />
+                    )}
+                    Regenerar
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div className="ca-tx-detail-invite__empty">
+              <Alert variant="info" className="mb-0">
+                El enlace solo se muestra al crearlo o regenerarlo.
+              </Alert>
+              {!hasCounterparty ? (
+                <Button
+                  variant="outline-secondary"
+                  disabled={refresh.isPending}
+                  onClick={() => void onRefresh()}
+                >
+                  {refresh.isPending ? (
+                    <Spinner size="sm" animation="border" className="me-2" />
+                  ) : (
+                    <RefreshCw size={16} className="me-1" />
+                  )}
+                  Regenerar enlace
+                </Button>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </motion.section>
+
+      <section className="ca-tx-panel ca-tx-detail-media ca-tx-detail-history">
+        <div className="ca-tx-detail-media__visual" aria-hidden="true">
+          <img
+            src="/landing/WorldTravel.png"
+            alt=""
+            width={512}
+            height={512}
+            decoding="async"
+          />
+        </div>
+        <div className="ca-tx-detail-media__body">
+          <div className="ca-tx-detail-section">
+            <h2>Historial</h2>
+          </div>
+          <ul className="ca-tx-timeline">
+            {tx.statusHistory.map((event, idx) => (
+              <li key={`${event.status}-${idx}`} className="ca-tx-timeline__item">
+                <div className="ca-tx-timeline__row">
+                  <span className="ca-tx-timeline__status">
+                    {STATUS_LABELS[event.status]}
+                  </span>
+                  <time dateTime={event.changedAt}>
+                    {formatDateTime(event.changedAt)}
+                  </time>
+                </div>
+                {event.note ? <p className="ca-tx-timeline__note">{event.note}</p> : null}
+              </li>
+            ))}
+          </ul>
+          <div className="ca-tx-detail-footer">
+            <Link to="/operaciones" className="btn btn-link px-0">
+              Volver a operaciones
+            </Link>
+          </div>
+        </div>
       </section>
 
       {tx.status === 'COMPLETED' ? <ReviewFormPanel transactionCode={tx.code} /> : null}
+
+      <PhotoLightbox
+        images={productImages}
+        index={galleryIndex ?? 0}
+        open={galleryIndex != null}
+        onClose={() => setGalleryIndex(null)}
+        onIndexChange={setGalleryIndex}
+      />
     </div>
   );
 }

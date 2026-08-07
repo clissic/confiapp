@@ -26,6 +26,7 @@ import {
 import { ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { logger } from '../../utils/logger';
 import { assertTransition } from '../transactions/state-machine';
+import { assertNotPastDeadline } from '../transactions/operation-deadline';
 import { walletLedger } from '../wallet/service';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { computeEscrowSplit, type EscrowSplit } from './split';
@@ -210,6 +211,7 @@ export class PaymentsService {
     if (tx.status === TransactionStatus.FUNDED) {
       throw new ValidationError('La operación ya está fondeada');
     }
+    assertNotPastDeadline(tx);
 
     const existingHold = await PaymentModel.findOne({
       transaction: tx._id,
@@ -596,6 +598,7 @@ export class PaymentsService {
         `Solo se puede liberar en FUNDED/IN_PROGRESS (actual: ${tx.status})`,
       );
     }
+    assertNotPastDeadline(tx);
 
     const parties = resolveParties(tx);
     const hold = await PaymentModel.findOne({

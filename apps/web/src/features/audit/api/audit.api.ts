@@ -13,12 +13,13 @@ export interface FetchAuditParams {
   before?: string;
 }
 
-export async function fetchMyAuditLogs(
+/** Listado global de auditoría (por ahora abierto; después solo ADMIN). */
+export async function fetchAuditLogs(
   params: FetchAuditParams = {},
 ): Promise<AuditListResponse> {
   const { data } = await apiClient.get<AuditListResponse>('/audit', {
     params: {
-      mine: 'true',
+      mine: 'false',
       action: params.action || undefined,
       entityType: params.entityType || undefined,
       limit: params.limit ?? AUDIT_PAGE_SIZE,
@@ -34,3 +35,6 @@ export async function fetchMyAuditLogs(
     totalPages: data.totalPages ?? 0,
   };
 }
+
+/** @deprecated Usar fetchAuditLogs */
+export const fetchMyAuditLogs = fetchAuditLogs;

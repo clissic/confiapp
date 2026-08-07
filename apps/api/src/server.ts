@@ -34,9 +34,19 @@ async function bootstrap(): Promise<void> {
   }, 15_000);
   expireTimer.unref();
 
+  const { TransactionsService } = await import('./modules/transactions/service');
+  const transactionsService = new TransactionsService();
+  const deadlineTimer = setInterval(() => {
+    void transactionsService.expireOperationalDeadlines().catch((error) => {
+      logger.error('expire operation deadlines failed', error);
+    });
+  }, 60 * 60_000);
+  deadlineTimer.unref();
+
   const shutdown = (signal: string) => {
     logger.info(`${signal} received — graceful shutdown`);
     clearInterval(expireTimer);
+    clearInterval(deadlineTimer);
 
     void (async () => {
       try {

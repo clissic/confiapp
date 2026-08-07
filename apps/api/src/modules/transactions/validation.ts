@@ -18,7 +18,7 @@ const imageSchema = z.object({
     .string()
     .trim()
     .min(8)
-    .max(2048)
+    .max(3_500_000)
     .refine(
       (value) => /^https?:\/\//i.test(value) || value.startsWith('data:image/'),
       'URL de imagen inválida',
@@ -36,26 +36,90 @@ const productPayloadSchema = z.object({
   images: z.array(imageSchema).min(1, 'Agregá al menos una foto').max(20),
 });
 
-export const createTransactionBodySchema = z.object({
-  title: z.string().trim().min(3).max(200),
-  description: z.string().trim().max(5000).optional(),
-  conditionsSummary: z.string().trim().min(10).max(5000),
-  checklist: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
-  amount: z.coerce.number().positive('El monto debe ser mayor a 0').max(100_000_000),
-  currency: appCurrencySchema.default('UYU'),
-  inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
+const meetingLocationSchema = z.object({
+  type: z.literal('Point'),
+  coordinates: z.tuple([z.number(), z.number()]),
+  label: z.string().trim().min(2).max(200),
 });
 
-export const createSellerTransactionBodySchema = z.object({
-  title: z.string().trim().min(3).max(200),
-  description: z.string().trim().max(5000).optional(),
-  conditionsSummary: z.string().trim().min(10).max(5000),
-  checklist: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
-  inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
-  product: productPayloadSchema,
+const meetingLocationFieldsSchema = z.object({
+  meetingLocationMode: z.enum(['MAP', 'CHAT', 'HOME']).default('CHAT'),
+  meetingLocation: meetingLocationSchema.optional(),
 });
 
-export const confirmSaleBodySchema = productPayloadSchema;
+function refineMeetingLocation(
+  data: {
+    meetingLocationMode: 'MAP' | 'CHAT' | 'HOME';
+    meetingLocation?: z.infer<typeof meetingLocationSchema>;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (data.meetingLocationMode === 'CHAT') return;
+  if (!data.meetingLocation) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['meetingLocation'],
+      message: 'Indicá el punto de entrega',
+    });
+  }
+}
+
+const agentInstructionsFieldsSchema = z.object({
+  conditionsSummary: z.string().trim().min(10).max(5000),
+  checklist: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
+  productTitle: z.string().trim().min(3).max(200).optional(),
+  productDescription: z.string().trim().min(10).max(10_000).optional(),
+});
+
+export const createTransactionBodySchema = z
+  .object({
+    title: z.string().trim().min(3).max(200),
+    description: z.string().trim().max(5000).optional(),
+    amount: z.coerce.number().positive('El monto debe ser mayor a 0').max(100_000_000),
+    currency: appCurrencySchema.default('UYU'),
+    inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
+    productTitle: z.string().trim().min(3).max(200),
+    productDescription: z.string().trim().min(10).max(10_000),
+  })
+  .merge(agentInstructionsFieldsSchema)
+  .merge(meetingLocationFieldsSchema)
+  .superRefine(refineMeetingLocation);
+
+export const createSellerTransactionBodySchema = z
+  .object({
+    title: z.string().trim().min(3).max(200),
+    description: z.string().trim().max(5000).optional(),
+    inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
+    returnInstructions: z
+      .string()
+      .trim()
+      .min(10, 'Indicá al Agente cómo devolver tu producto si el comprador lo rechaza')
+      .max(5000),
+    product: productPayloadSchema,
+  })
+  .merge(agentInstructionsFieldsSchema.omit({ productTitle: true, productDescription: true }))
+  .merge(meetingLocationFieldsSchema)
+  .superRefine(refineMeetingLocation);
+
+export const confirmSaleBodySchema = productPayloadSchema
+  .extend({
+    returnInstructions: z
+      .string()
+      .trim()
+      .min(10, 'Indicá al Agente cómo devolver tu producto si el comprador lo rechaza')
+      .max(5000),
+  })
+  .merge(agentInstructionsFieldsSchema.omit({ productTitle: true, productDescription: true }))
+  .merge(meetingLocationFieldsSchema)
+  .superRefine(refineMeetingLocation);
+
+export const acceptPurchaseBodySchema = agentInstructionsFieldsSchema
+  .extend({
+    productTitle: z.string().trim().min(3).max(200).optional(),
+    productDescription: z.string().trim().min(10).max(10_000).optional(),
+  })
+  .merge(meetingLocationFieldsSchema)
+  .superRefine(refineMeetingLocation);
 
 export const transactionCodeParamsSchema = z.object({
   code: z
@@ -71,6 +135,8 @@ export const transactionChecklistParamsSchema = transactionCodeParamsSchema.exte
 
 export const toggleChecklistBodySchema = z.object({
   done: z.boolean(),
+  /** Lado del checklist (requerido si hay party). */
+  side: z.enum(['buyer', 'seller']).optional(),
 });
 
 export const inviteTokenParamsSchema = z.object({
@@ -84,6 +150,7 @@ export const transactionIdParamsSchema = z.object({
 export type CreateTransactionBody = z.infer<typeof createTransactionBodySchema>;
 export type CreateSellerTransactionBody = z.infer<typeof createSellerTransactionBodySchema>;
 export type ConfirmSaleBody = z.infer<typeof confirmSaleBodySchema>;
+export type AcceptPurchaseBody = z.infer<typeof acceptPurchaseBodySchema>;
 export type TransactionCodeParams = z.infer<typeof transactionCodeParamsSchema>;
 export type InviteTokenParams = z.infer<typeof inviteTokenParamsSchema>;
 export type ToggleChecklistBody = z.infer<typeof toggleChecklistBodySchema>;

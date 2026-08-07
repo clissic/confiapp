@@ -47,7 +47,7 @@ export function ChecklistEditor({
         Checklist para el Agente
       </Form.Label>
       <p className="ca-checklist-editor__hint">
-        Agregá pasos concretos que el Agente deberá verificar en la entrega.
+        Pasos que solo el Agente verá y verificará en la entrega.
       </p>
       <ul className="ca-checklist-editor__list">
         {items.map((item, index) => (

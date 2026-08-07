@@ -8,11 +8,11 @@ export const auditListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   page: z.coerce.number().int().min(1).optional(),
   before: z.string().optional(),
-  /** Si true (default), solo eventos del usuario autenticado. */
+  /** Si true, solo eventos del usuario autenticado. Default false = listado global (luego solo ADMIN). */
   mine: z
     .enum(['true', 'false'])
     .optional()
-    .default('true')
+    .default('false')
     .transform((v) => v === 'true'),
 });
 

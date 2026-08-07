@@ -6,6 +6,9 @@ import {
   TransactionInitiator,
   TransactionStatus,
   type ITransaction,
+  type TransactionMeetingLocation,
+  type TransactionPartyInstructions,
+  type TransactionPartySides,
 } from '@confiapp/database';
 
 import { TransactionModel } from '../../database/models';
@@ -15,6 +18,25 @@ export type TransactionDocument = HydratedDocument<ITransaction>;
 
 const INVITE_SELECT = '+inviteTokenHash';
 
+function sanitizeMeetingLocation(
+  loc?: TransactionMeetingLocation | null,
+): TransactionMeetingLocation | undefined {
+  if (
+    !loc ||
+    loc.type !== 'Point' ||
+    !Array.isArray(loc.coordinates) ||
+    loc.coordinates.length !== 2 ||
+    !loc.coordinates.every((n) => typeof n === 'number' && Number.isFinite(n))
+  ) {
+    return undefined;
+  }
+  return {
+    type: 'Point',
+    coordinates: loc.coordinates,
+    label: loc.label?.trim() || undefined,
+  };
+}
+
 export class TransactionsRepository {
   async create(data: {
     code: string;
@@ -23,11 +45,9 @@ export class TransactionsRepository {
     createdBy: string;
     initiatedBy: TransactionInitiator;
     productId?: string;
-    meetingLocation?: {
-      type: 'Point';
-      coordinates: [number, number];
-      label?: string;
-    };
+    meetingLocation?: TransactionMeetingLocation;
+    party?: TransactionPartySides;
+    returnInstructions?: string;
     conditions: {
       summary: string;
       checklist?: Array<{ id: string; text: string; done: boolean }>;
@@ -45,6 +65,8 @@ export class TransactionsRepository {
         ? 'Enlace generado para el comprador — esperando aceptación'
         : 'Enlace de invitación generado — esperando contraparte';
 
+    const meetingLocation = sanitizeMeetingLocation(data.meetingLocation);
+
     return TransactionModel.create({
       code: data.code,
       title: data.title,
@@ -52,7 +74,11 @@ export class TransactionsRepository {
       createdBy: data.createdBy,
       initiatedBy: data.initiatedBy,
       product: data.productId,
-      meetingLocation: data.meetingLocation,
+      ...(meetingLocation ? { meetingLocation } : {}),
+      ...(data.party ? { party: data.party } : {}),
+      ...(data.returnInstructions?.trim()
+        ? { returnInstructions: data.returnInstructions.trim() }
+        : {}),
       conditions: data.conditions,
       amountCents: data.amountCents,
       currency: data.currency,
@@ -173,12 +199,22 @@ export class TransactionsRepository {
   async transitionStatus(
     transaction: TransactionDocument,
     to: TransactionStatus,
-    data: { userId: string; note: string },
+    data: { userId: string; note: string; clearPendingChanges?: boolean },
   ): Promise<TransactionDocument> {
     const from = transaction.status;
     assertTransition(from, to);
     const now = new Date();
     transaction.status = to;
+    if (to === TransactionStatus.CANCELLED && !transaction.cancelledAt) {
+      transaction.cancelledAt = now;
+    }
+    if (
+      data.clearPendingChanges &&
+      (to === TransactionStatus.ACCEPTED || to === TransactionStatus.CANCELLED)
+    ) {
+      transaction.pendingBuyerChanges = undefined;
+      transaction.markModified('pendingBuyerChanges');
+    }
     transaction.statusHistory.push({
       status: to,
       changedAt: now,
@@ -204,6 +240,8 @@ export class TransactionsRepository {
   async acceptPurchase(
     transaction: TransactionDocument,
     userId: string,
+    partyBuyer: TransactionPartyInstructions | undefined,
+    operationDeadlineAt: Date,
   ): Promise<TransactionDocument> {
     const now = new Date();
     const userOid = new Types.ObjectId(userId);
@@ -220,6 +258,14 @@ export class TransactionsRepository {
         respondedAt: now,
       });
     }
+
+    if (partyBuyer) {
+      if (!transaction.party) transaction.party = {};
+      transaction.party.buyer = partyBuyer;
+      transaction.markModified('party');
+    }
+
+    transaction.operationDeadlineAt = operationDeadlineAt;
 
     assertTransition(transaction.status, TransactionStatus.ACCEPTED);
     const from = transaction.status;
@@ -268,6 +314,11 @@ export class TransactionsRepository {
       amountCents: number;
       currency: string;
       alreadyParticipant: boolean;
+      partySeller?: TransactionPartyInstructions;
+      returnInstructions?: string;
+      targetStatus: typeof TransactionStatus.ACCEPTED | typeof TransactionStatus.PENDING_BUYER_CONFIRM;
+      pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;
+      operationDeadlineAt: Date;
     },
   ): Promise<TransactionDocument> {
     const now = new Date();
@@ -286,16 +337,36 @@ export class TransactionsRepository {
     transaction.product = new Types.ObjectId(data.productId);
     transaction.amountCents = data.amountCents;
     transaction.currency = data.currency;
+    transaction.operationDeadlineAt = data.operationDeadlineAt;
 
-    // Ambas partes + producto → acuerdo aceptado automáticamente.
+    if (data.partySeller) {
+      if (!transaction.party) transaction.party = {};
+      transaction.party.seller = data.partySeller;
+      transaction.markModified('party');
+    }
+    if (data.returnInstructions?.trim()) {
+      transaction.returnInstructions = data.returnInstructions.trim();
+    }
+
+    if (data.pendingBuyerChanges?.length) {
+      transaction.pendingBuyerChanges = data.pendingBuyerChanges;
+      transaction.markModified('pendingBuyerChanges');
+    } else {
+      transaction.pendingBuyerChanges = undefined;
+    }
+
+    const to = data.targetStatus;
     const from = transaction.status;
-    assertTransition(transaction.status, TransactionStatus.ACCEPTED);
-    transaction.status = TransactionStatus.ACCEPTED;
+    assertTransition(transaction.status, to);
+    transaction.status = to;
     transaction.statusHistory.push({
-      status: TransactionStatus.ACCEPTED,
+      status: to,
       changedAt: now,
       changedBy: userOid,
-      note: 'Vendedor confirmó la venta — acuerdo cerrado, pendiente de fondeo',
+      note:
+        to === TransactionStatus.PENDING_BUYER_CONFIRM
+          ? 'Vendedor confirmó con cambios — pendiente de reconfirmación del comprador'
+          : 'Vendedor confirmó la venta — acuerdo cerrado, pendiente de fondeo',
     });
 
     const saved = await transaction.save();
@@ -307,7 +378,7 @@ export class TransactionsRepository {
       entityId: String(saved._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: saved.code,
-      metadata: { from, to: TransactionStatus.ACCEPTED, note: 'confirm_seller_sale' },
+      metadata: { from, to, note: 'confirm_seller_sale' },
     });
     return saved;
   }
@@ -315,5 +386,23 @@ export class TransactionsRepository {
   async codeExists(code: string): Promise<boolean> {
     const count = await TransactionModel.countDocuments({ code }).exec();
     return count > 0;
+  }
+
+  async findExpiredOperational(limit = 50): Promise<TransactionDocument[]> {
+    const now = new Date();
+    return TransactionModel.find({
+      deletedAt: null,
+      operationDeadlineAt: { $lte: now },
+      status: {
+        $in: [
+          TransactionStatus.PENDING_BUYER_CONFIRM,
+          TransactionStatus.ACCEPTED,
+          TransactionStatus.FUNDED,
+          TransactionStatus.IN_PROGRESS,
+        ],
+      },
+    })
+      .limit(limit)
+      .exec();
   }
 }

@@ -14,8 +14,8 @@ export function AppBreadcrumbs() {
       ? [
           { label: 'Inicio', to: '/inicio' },
           pathname === '/agente'
-            ? { label: 'Ser agente', current: true as const }
-            : { label: 'Agente', to: '/agente' },
+            ? { label: 'Mi Agencia', current: true as const }
+            : { label: 'Mi Agencia', to: '/agente' },
           ...(pathname === '/agente/buscar'
             ? [{ label: 'Buscar', current: true as const }]
             : pathname === '/agente/ofertas'

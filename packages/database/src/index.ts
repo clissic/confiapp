@@ -36,6 +36,9 @@ export type {
   TransactionConditions,
   TransactionStatusEvent,
   TransactionMeetingLocation,
+  TransactionChecklistItem,
+  TransactionPartyInstructions,
+  TransactionPartySides,
 } from './interfaces/transaction.interface';
 export type { IEvidence } from './interfaces/evidence.interface';
 export type { IDispute } from './interfaces/dispute.interface';

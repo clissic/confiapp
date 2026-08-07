@@ -2,38 +2,32 @@ import type { LucideIcon } from 'lucide-react';
 import {
   Award,
   BadgeCheck,
-  BellRing,
-  BriefcaseBusiness,
   CircleDollarSign,
   Handshake,
   Home,
-  MapPinned,
-  MessageSquare,
   Plus,
   ScrollText,
   Settings,
-  ShoppingBag,
   UserRound,
-  Wallet,
-  Package,
 } from 'lucide-react';
 
-export type NavTone = 'mint' | 'sky' | 'lilac' | 'peach' | 'slate' | 'navy' | 'teal';
+export type NavTone = 'primary' | 'secondary';
 
 export interface HomeAction {
   id: string;
   title: string;
   description: string;
   to: string;
-  icon: LucideIcon;
+  /** Imagen dominante de la card (public/). */
+  image: string;
+  /** Acento de marca: primary (navy) o secondary (teal). */
   tone: NavTone;
-  /** Cards principales (grandes) vs herramientas (secundarias). */
-  size: 'lg' | 'md' | 'sm';
 }
 
 /**
- * Acciones del inicio. No incluir acá lo que vive solo en el menú de usuario
- * (perfil, wallet, reputación) para evitar duplicados.
+ * Acciones del inicio (grilla 2×2).
+ * Transacciones y Auditoría viven en el menú de usuario; herramientas de agente
+ * (trabajos, ofertas, etc.) no se listan acá.
  */
 export const HOME_PRIMARY_ACTIONS: HomeAction[] = [
   {
@@ -41,94 +35,32 @@ export const HOME_PRIMARY_ACTIONS: HomeAction[] = [
     title: 'Comprar',
     description: 'Encontrá un agente de confianza para recibir tu producto.',
     to: '/operaciones/nueva/comprador',
-    icon: ShoppingBag,
-    tone: 'mint',
-    size: 'lg',
+    image: '/landing/Shopping.png',
+    tone: 'primary',
   },
   {
     id: 'vender',
     title: 'Vender',
     description: 'Vendé de forma segura y protegida con un agente de confianza.',
     to: '/operaciones/nueva/vendedor',
-    icon: Package,
-    tone: 'sky',
-    size: 'lg',
+    image: '/landing/Shopping2.png',
+    tone: 'secondary',
   },
   {
     id: 'agente',
-    title: 'Ser Agente',
+    title: 'Mi Agencia',
     description: 'Generá ingresos ayudando a asegurar operaciones.',
     to: '/agente',
-    icon: BadgeCheck,
-    tone: 'lilac',
-    size: 'md',
-  },
-  {
-    id: 'operaciones',
-    title: 'Mis transacciones',
-    description: 'Seguí el estado de todas tus operaciones en tiempo real.',
-    to: '/operaciones',
-    icon: Handshake,
-    tone: 'peach',
-    size: 'md',
+    image: '/landing/Delivery.png',
+    tone: 'secondary',
   },
   {
     id: 'mensajes',
     title: 'Mensajes',
     description: 'Conversaciones activas sobre tus operaciones.',
     to: '/mensajes',
-    icon: MessageSquare,
-    tone: 'slate',
-    size: 'md',
-  },
-];
-
-/** Reemplaza el bloque de marketing: atajos útiles que antes estaban en la sidebar. */
-export const HOME_TOOL_ACTIONS: HomeAction[] = [
-  {
-    id: 'buscar-agentes',
-    title: 'Buscar agentes',
-    description: 'Encontrá Agentes cerca para tu entrega.',
-    to: '/agente/buscar',
-    icon: MapPinned,
-    tone: 'teal',
-    size: 'sm',
-  },
-  {
-    id: 'trabajos',
-    title: 'Trabajos abiertos',
-    description: 'Operaciones disponibles para mediar.',
-    to: '/agente/trabajos',
-    icon: BriefcaseBusiness,
-    tone: 'navy',
-    size: 'sm',
-  },
-  {
-    id: 'ofertas',
-    title: 'Ofertas',
-    description: 'Propuestas pendientes como Agente.',
-    to: '/agente/ofertas',
-    icon: BellRing,
-    tone: 'peach',
-    size: 'sm',
-  },
-  {
-    id: 'pagos',
-    title: 'Pagos',
-    description: 'Historial y estado de los pagos.',
-    to: '/pagos',
-    icon: Wallet,
-    tone: 'mint',
-    size: 'sm',
-  },
-  {
-    id: 'auditoria',
-    title: 'Auditoría',
-    description: 'Trazabilidad de tus operaciones.',
-    to: '/auditoria',
-    icon: ScrollText,
-    tone: 'slate',
-    size: 'sm',
+    image: '/landing/Chat.png',
+    tone: 'primary',
   },
 ];
 
@@ -153,7 +85,7 @@ export const BOTTOM_NAV_ITEMS: BottomNavItem[] = [
     icon: Plus,
     primary: true,
   },
-  { id: 'agente', label: 'Agente', to: '/agente', icon: BadgeCheck },
+  { id: 'agente', label: 'Agencia', to: '/agente', icon: BadgeCheck },
   { id: 'cuenta', label: 'Mi cuenta', to: '/perfil', icon: UserRound },
 ];
 
@@ -162,15 +94,26 @@ export interface UserMenuLink {
   label: string;
   to: string;
   icon: LucideIcon;
+  /** Solo visible si `user.role === 'ADMIN'`. */
+  adminOnly?: boolean;
 }
 
 /**
- * Opciones anidadas bajo el nombre de usuario (cuenta / dinero / reputación).
- * No repite Comprar/Vender/Mensajes/Operaciones del home.
+ * Opciones anidadas bajo el nombre de usuario.
+ * Incluye Mis transacciones y Auditoría (esta última solo ADMIN).
+ * No repite Comprar/Vender/Mensajes/Agencia del home.
  */
 export const USER_MENU_LINKS: UserMenuLink[] = [
   { id: 'perfil', label: 'Mi perfil', to: '/perfil', icon: UserRound },
   { id: 'configuracion', label: 'Configuración', to: '/perfil?tab=settings', icon: Settings },
+  { id: 'operaciones', label: 'Mis transacciones', to: '/operaciones', icon: Handshake },
   { id: 'wallet', label: 'Wallet', to: '/wallet', icon: CircleDollarSign },
   { id: 'reputacion', label: 'Reputación', to: '/reputacion', icon: Award },
+  {
+    id: 'auditoria',
+    label: 'Auditoría',
+    to: '/auditoria',
+    icon: ScrollText,
+    adminOnly: true,
+  },
 ];

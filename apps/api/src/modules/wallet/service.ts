@@ -111,7 +111,8 @@ export class WalletService {
 
     return {
       status: wallet.status,
-      currency: wallet.currency || defaultCurrency(),
+      /** Ledger retenido siempre en UYU (Mercado Pago). La UI convierte con preferencia. */
+      currency: 'UYU',
       saldoCents: wallet.availableCents ?? 0,
       pendienteCents: wallet.pendingCents ?? 0,
       retenidoCents: wallet.heldCents ?? 0,
@@ -257,14 +258,15 @@ export class WalletService {
     const amount = Math.trunc(input.amountCents);
     if (!Number.isFinite(amount) || amount < MIN_WITHDRAWAL_CENTS) {
       throw new ValidationError(
-        `El retiro mínimo es ${MIN_WITHDRAWAL_CENTS / 100} ${user.wallet.currency}`,
+        `El retiro mínimo es ${MIN_WITHDRAWAL_CENTS / 100} UYU`,
       );
     }
     if (amount > (user.wallet.availableCents ?? 0)) {
       throw new ValidationError('Saldo disponible insuficiente');
     }
 
-    const currency = user.wallet.currency || defaultCurrency();
+    const currency = 'UYU';
+    user.wallet.currency = currency;
     const now = new Date();
 
     user.wallet.availableCents -= amount;

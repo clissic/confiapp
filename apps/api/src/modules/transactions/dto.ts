@@ -8,6 +8,25 @@ import type {
   TransactionStatus,
 } from '@confiapp/database';
 
+export type MeetingLocationMode = 'MAP' | 'CHAT' | 'HOME';
+
+export type ViewerPartyRole = 'BUYER' | 'SELLER' | 'AGENT' | null;
+
+export interface MeetingLocationDto {
+  type: 'Point';
+  coordinates: [number, number];
+  label: string;
+}
+
+export interface PartyInstructionsInput {
+  conditionsSummary: string;
+  checklist?: string[];
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocationDto;
+  productTitle?: string;
+  productDescription?: string;
+}
+
 export interface CreateTransactionDto {
   title: string;
   description?: string;
@@ -15,8 +34,11 @@ export interface CreateTransactionDto {
   checklist?: string[];
   amount: number;
   currency?: string;
-  /** Días de validez del enlace de invitación (1–30). */
   inviteExpiresInDays?: number;
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocationDto;
+  productTitle?: string;
+  productDescription?: string;
 }
 
 export interface CreateSellerTransactionDto {
@@ -25,6 +47,9 @@ export interface CreateSellerTransactionDto {
   conditionsSummary: string;
   checklist?: string[];
   inviteExpiresInDays?: number;
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocationDto;
+  returnInstructions: string;
   product: {
     title: string;
     description: string;
@@ -44,6 +69,20 @@ export interface ConfirmSaleProductDto {
   price: number;
   currency?: string;
   images: Array<{ url: string; alt?: string }>;
+  conditionsSummary: string;
+  checklist?: string[];
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocationDto;
+  returnInstructions: string;
+}
+
+export interface AcceptPurchaseDto {
+  conditionsSummary: string;
+  checklist?: string[];
+  meetingLocationMode?: MeetingLocationMode;
+  meetingLocation?: MeetingLocationDto;
+  productTitle?: string;
+  productDescription?: string;
 }
 
 export interface TransactionProductDto {
@@ -73,6 +112,16 @@ export interface TransactionChecklistItemDto {
   doneAt?: string;
 }
 
+/** Instrucciones visibles según rol del viewer. */
+export interface PartyInstructionsDto {
+  conditionsSummary?: string;
+  checklist?: TransactionChecklistItemDto[];
+  meetingLocation?: MeetingLocationDto;
+  /** Siempre visible a buyer/seller/agent cuando existe. */
+  productTitle?: string;
+  productDescription?: string;
+}
+
 export interface TransactionDto {
   id: string;
   code: string;
@@ -81,12 +130,22 @@ export interface TransactionDto {
   createdBy: string;
   initiatedBy: TransactionInitiator;
   status: TransactionStatus;
+  /** @deprecated Usar party.* según rol */
   conditions: {
     summary: string;
     checklist?: TransactionChecklistItemDto[];
   };
   amountCents?: number;
   currency?: string;
+  /** @deprecated Usar party.*.meetingLocation */
+  meetingLocation?: MeetingLocationDto;
+  party?: {
+    buyer?: PartyInstructionsDto;
+    seller?: PartyInstructionsDto;
+  };
+  /** Directivas del vendedor al Agente (solo visibles para Agente). */
+  returnInstructions?: string;
+  viewerRole?: ViewerPartyRole;
   productId?: string;
   product?: TransactionProductDto;
   participants: TransactionParticipantDto[];
@@ -100,6 +159,10 @@ export interface TransactionDto {
     expiresAt?: string;
     isExpired: boolean;
   };
+  /** Límite operativo (21 días desde el join). */
+  operationDeadlineAt?: string;
+  /** Cambios pendientes de reconfirmación del comprador. */
+  pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -107,10 +170,11 @@ export interface TransactionDto {
 export interface InvitePreviewDto {
   code: string;
   title: string;
-  description?: string;
+  /** Solo descripción pública del producto / pedido (sin condiciones privadas). */
+  productTitle?: string;
+  productDescription?: string;
   amountCents?: number;
   currency?: string;
-  conditionsSummary: string;
   status: TransactionStatus;
   initiatedBy: TransactionInitiator;
   inviteExpiresAt?: string;

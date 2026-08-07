@@ -2,8 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Alert, Badge, Button, Form, Spinner, Table } from 'react-bootstrap';
 
-import { formatDateTime, formatMoney } from '@/shared/lib/money';
-import { usePreferencesSnapshot } from '@/shared/preferences';
+import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
 import { useAppToast } from '@/shared/ui';
 
 import {
@@ -16,7 +15,6 @@ import {
 import '../styles/payments.css';
 
 export function PaymentsPage() {
-  usePreferencesSnapshot();
   const toast = useAppToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialCode = searchParams.get('code') ?? 'DEMO-001';
@@ -53,8 +51,9 @@ export function PaymentsPage() {
     setError(null);
     try {
       const result = await checkout.mutateAsync();
+      const cur = escrow?.currency ?? 'UYU';
       toast.success(
-        `Checkout listo (${result.providerMode}). Split: plataforma ${formatMoney(result.split.platformFeeCents)} · agente ${formatMoney(result.split.agentFeeCents)} · vendedor ${formatMoney(result.split.sellerCents)}`,
+        `Checkout listo (${result.providerMode}). Split: plataforma ${formatOperationMoney(result.split.platformFeeCents, cur)} · agente ${formatOperationMoney(result.split.agentFeeCents, cur)} · vendedor ${formatOperationMoney(result.split.sellerCents, cur)}`,
       );
       if (result.checkoutUrl && result.checkoutUrl !== '#') {
         window.location.href = result.checkoutUrl;
@@ -81,8 +80,8 @@ export function PaymentsPage() {
           <p className="ca-payments__kicker">Pagos · Mercado Pago Uruguay</p>
           <h2 className="ca-payments__title">Escrow</h2>
           <p className="ca-payments__lead">
-            Monedas: UYU o USD. Pago del comprador, retención, webhook MLU, liberación con 20% de
-            comisión y pago al agente.
+            El monto se muestra en la moneda de la operación. El fondeo con Mercado Pago y la
+            retención en wallet son en UYU.
           </p>
         </div>
         {escrow?.providerMode ? (
@@ -121,20 +120,20 @@ export function PaymentsPage() {
               <span>
                 Estado: <strong>{escrow.status}</strong>
               </span>
-              <span>Bruto: {formatMoney(escrow.grossCents, escrow.currency)}</span>
+              <span>Bruto: {formatOperationMoney(escrow.grossCents, escrow.currency)}</span>
             </div>
             <div className="ca-payments-split">
               <div>
                 <span>Plataforma 20%</span>
-                <strong>{formatMoney(escrow.split.platformFeeCents, escrow.currency)}</strong>
+                <strong>{formatOperationMoney(escrow.split.platformFeeCents, escrow.currency)}</strong>
               </div>
               <div>
                 <span>Agente {escrow.split.agentFeeBps / 100}%</span>
-                <strong>{formatMoney(escrow.split.agentFeeCents, escrow.currency)}</strong>
+                <strong>{formatOperationMoney(escrow.split.agentFeeCents, escrow.currency)}</strong>
               </div>
               <div>
                 <span>Vendedor</span>
-                <strong>{formatMoney(escrow.split.sellerCents, escrow.currency)}</strong>
+                <strong>{formatOperationMoney(escrow.split.sellerCents, escrow.currency)}</strong>
               </div>
             </div>
             <div className="ca-form-actions">
@@ -168,7 +167,7 @@ export function PaymentsPage() {
                     <tr key={p.id}>
                       <td>{p.type}</td>
                       <td>{p.status}</td>
-                      <td>{formatMoney(p.amountCents, p.currency)}</td>
+                      <td>{formatOperationMoney(p.amountCents, p.currency)}</td>
                       <td>{p.provider}</td>
                     </tr>
                   ))}
@@ -200,7 +199,7 @@ export function PaymentsPage() {
                 <tr key={p.id}>
                   <td>{p.type}</td>
                   <td>{p.status}</td>
-                  <td>{formatMoney(p.amountCents, p.currency)}</td>
+                  <td>{formatOperationMoney(p.amountCents, p.currency)}</td>
                   <td>{formatDateTime(p.createdAt)}</td>
                 </tr>
               ))}

@@ -1,0 +1,13 @@
+---
+description: Carteles Alert danger/warning — scroll automático al aparecer
+globs: apps/web/**/*.{tsx,ts}
+alwaysApply: false
+---
+
+# Alertas de error / advertencia (web)
+
+- Los carteles rojos/ámbar (`Alert` Bootstrap `variant="danger"` | `"warning"`) hacen **scroll automático** al aparecer o cambiar de mensaje.
+- Mecanismo global: `AlertScrollObserver` en `AppProviders` (MutationObserver sobre `.alert-danger` / `.alert-warning`). No hace falta cablear scroll en cada pantalla.
+- Para código nuevo preferir `AppAlert` desde `@/shared/ui` (mismo API que `Alert` de react-bootstrap).
+- Seguir usando Bootstrap `Alert`; no inventar toasts para errores de formulario que deben quedar visibles en el flujo.
+- No desactivar el observer ni omitir la clase `alert-*` de Bootstrap en estos carteles.

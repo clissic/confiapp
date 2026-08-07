@@ -126,10 +126,10 @@ export function AppRouter() {
               <Route path="mensajes" element={<MessagesPage />} />
               <Route path="pagos" element={<PaymentsPage />} />
               <Route path="wallet" element={<WalletPage />} />
-              <Route path="auditoria" element={<AuditPage />} />
               <Route path="reputacion" element={<ReputationPage />} />
               <Route path="notificaciones" element={<NotificationsPage />} />
               <Route element={<RequireAdmin />}>
+                <Route path="auditoria" element={<AuditPage />} />
                 <Route path="admin/kyc/:token" element={<AdminKycReviewPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/inicio" replace />} />

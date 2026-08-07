@@ -1,5 +1,6 @@
 import { Alert, Button } from 'react-bootstrap';
-import { PauseCircle, Pencil, PlayCircle, XCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { BriefcaseBusiness, PauseCircle, Pencil, PlayCircle, XCircle } from 'lucide-react';
 
 import { formatDistance } from '@/shared/lib/distance';
 import { useUserPreferences } from '@/shared/preferences';
@@ -133,6 +134,16 @@ export function AgentAgencyPanel({
                 </dd>
               </div>
             </dl>
+          </div>
+
+          <div className="ca-agency-jobs">
+            <Link to="/agente/trabajos" className="ca-agency-jobs__link">
+              <BriefcaseBusiness size={18} strokeWidth={1.75} aria-hidden />
+              <span>
+                <strong>Trabajos abiertos</strong>
+                <span className="ca-agency-jobs__hint">Operaciones disponibles para mediar</span>
+              </span>
+            </Link>
           </div>
 
           <div className="ca-agency-footer">

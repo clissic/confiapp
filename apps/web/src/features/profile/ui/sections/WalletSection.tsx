@@ -15,7 +15,8 @@ export function WalletSection({ profile }: { profile: UserProfile }) {
     <section>
       <h3 className="ca-section-title">Wallet</h3>
       <p className="ca-section-lead">
-        Resumen de saldos. Gestioná retiros, comisiones y exportá el historial en Wallet.
+        Saldos en UYU (retención Mercado Pago), mostrados según tu preferencia de moneda.
+        Gestioná retiros y exportá el historial en Wallet.
       </p>
 
       <div className="ca-wallet-card">

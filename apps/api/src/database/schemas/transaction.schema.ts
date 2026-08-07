@@ -49,6 +49,35 @@ const statusEventSchema = new Schema(
   { _id: false },
 );
 
+const meetingLocationSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ['Point'],
+    },
+    coordinates: {
+      type: [Number],
+    },
+    label: { type: String, trim: true, maxlength: 200 },
+  },
+  { _id: false },
+);
+
+const partyInstructionsSchema = new Schema(
+  {
+    conditionsSummary: { type: String, trim: true, maxlength: 5000, default: '' },
+    checklist: { type: [Schema.Types.Mixed], default: undefined },
+    meetingLocation: {
+      type: meetingLocationSchema,
+      required: false,
+      default: undefined,
+    },
+    productTitle: { type: String, trim: true, maxlength: 200 },
+    productDescription: { type: String, trim: true, maxlength: 10_000 },
+  },
+  { _id: false },
+);
+
 export const transactionSchema = new Schema<ITransaction>(
   {
     code: {
@@ -72,17 +101,33 @@ export const transactionSchema = new Schema<ITransaction>(
       default: TransactionInitiator.BUYER,
     },
     product: { type: Schema.Types.ObjectId, ref: 'Product' },
+    /** @deprecated Preferir party.*.meetingLocation */
     meetingLocation: {
-      type: {
-        type: String,
-        enum: ['Point'],
-        default: 'Point',
+      type: meetingLocationSchema,
+      required: false,
+      default: undefined,
+      validate: {
+        validator(value: { type?: string; coordinates?: number[] } | null | undefined) {
+          if (value == null) return true;
+          const hasCoords =
+            Array.isArray(value.coordinates) &&
+            value.coordinates.length === 2 &&
+            value.coordinates.every((n) => typeof n === 'number' && Number.isFinite(n));
+          const empty =
+            !value.type &&
+            (!value.coordinates || value.coordinates.length === 0) &&
+            !(value as { label?: string }).label;
+          if (empty) return true;
+          return value.type === 'Point' && hasCoords;
+        },
+        message: 'meetingLocation must be a valid Point [lng, lat]',
       },
-      coordinates: {
-        type: [Number],
-      },
-      label: { type: String, trim: true, maxlength: 200 },
     },
+    party: {
+      buyer: { type: partyInstructionsSchema, required: false },
+      seller: { type: partyInstructionsSchema, required: false },
+    },
+    returnInstructions: { type: String, trim: true, maxlength: 5000 },
     chat: { type: Schema.Types.ObjectId, ref: 'Chat' },
     participants: {
       type: [participantSchema],
@@ -130,6 +175,17 @@ export const transactionSchema = new Schema<ITransaction>(
       sparse: true,
     },
     inviteExpiresAt: { type: Date },
+    operationDeadlineAt: { type: Date, index: true },
+    pendingBuyerChanges: {
+      type: [
+        {
+          field: { type: String, trim: true, maxlength: 64 },
+          from: { type: String, trim: true, maxlength: 2000 },
+          to: { type: String, trim: true, maxlength: 2000 },
+        },
+      ],
+      default: undefined,
+    },
     startsAt: { type: Date },
     endsAt: { type: Date },
     fundedAt: { type: Date },
@@ -145,6 +201,20 @@ export const transactionSchema = new Schema<ITransaction>(
 );
 
 transactionSchema.pre('validate', function (next) {
+  const loc = this.meetingLocation as
+    | { type?: string; coordinates?: number[]; label?: string }
+    | null
+    | undefined;
+  if (loc) {
+    const hasCoords =
+      Array.isArray(loc.coordinates) &&
+      loc.coordinates.length === 2 &&
+      loc.coordinates.every((n) => typeof n === 'number' && Number.isFinite(n));
+    if (!hasCoords || loc.type !== 'Point') {
+      this.set('meetingLocation', undefined);
+    }
+  }
+
   if (!this.statusHistory?.length) {
     this.statusHistory = [
       {

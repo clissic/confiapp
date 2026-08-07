@@ -22,9 +22,12 @@ describe('integration/transactions+reviews', () => {
         title: 'iPhone 15 Pro',
         description: 'Equipo en excelente estado',
         conditionsSummary: 'Entrega presencial con agente intermediario',
+        productTitle: 'iPhone 15 Pro',
+        productDescription: 'Busco iPhone 15 Pro en buen estado con caja',
         amount: 25000,
         currency: 'UYU',
         inviteExpiresInDays: 7,
+        meetingLocationMode: 'CHAT',
       });
 
     expect(create.status).toBeLessThan(300);
@@ -47,7 +50,7 @@ describe('integration/transactions+reviews', () => {
     expect(rep.body.roleRatings).toBeTruthy();
   });
 
-  it('lista auditoría propia', async () => {
+  it('lista auditoría global', async () => {
     const user = await registerAndLogin();
     const audit = await api().get('/audit').set(bearer(user.accessToken));
     expect(audit.status).toBe(200);

@@ -16,8 +16,23 @@ describe('transactions/state-machine', () => {
     expect(canTransition(TransactionStatus.WAITING_PARTICIPANT, TransactionStatus.ACCEPTED)).toBe(
       true,
     );
+    expect(
+      canTransition(TransactionStatus.WAITING_PARTICIPANT, TransactionStatus.PENDING_BUYER_CONFIRM),
+    ).toBe(true);
+    expect(
+      canTransition(TransactionStatus.PENDING_BUYER_CONFIRM, TransactionStatus.ACCEPTED),
+    ).toBe(true);
+    expect(
+      canTransition(TransactionStatus.PENDING_BUYER_CONFIRM, TransactionStatus.CANCELLED),
+    ).toBe(true);
     expect(canTransition(TransactionStatus.ACCEPTED, TransactionStatus.FUNDED)).toBe(true);
     expect(canTransition(TransactionStatus.FUNDED, TransactionStatus.COMPLETED)).toBe(true);
+  });
+
+  it('bloquea saltos inválidos desde PENDING_BUYER_CONFIRM', () => {
+    expect(
+      canTransition(TransactionStatus.PENDING_BUYER_CONFIRM, TransactionStatus.FUNDED),
+    ).toBe(false);
   });
 
   it('trata same-state como no-op permitido', () => {

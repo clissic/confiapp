@@ -61,6 +61,11 @@ const envSchema = z.object({
   MAIL_FROM: z.string().default('ConfiApp <noreply@confiapp.local>'),
   /** Destinatario de notificaciones internas (KYC). Vacío = email parseado de MAIL_FROM. */
   PLATFORM_NOTIFY_EMAIL: z.string().default(''),
+  /**
+   * Secret para jobs internos (p. ej. expirar deadlines).
+   * Header `x-job-secret`. Vacío = deshabilitado en production; en dev permite sin secret.
+   */
+  TRANSACTIONS_JOB_SECRET: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

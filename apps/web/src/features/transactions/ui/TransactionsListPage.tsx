@@ -3,14 +3,12 @@ import { Alert, Badge, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
 import { Handshake, Plus } from 'lucide-react';
 
-import { formatMoney } from '../api/transactions.api';
-import { usePreferencesSnapshot } from '@/shared/preferences';
+import { formatOperationMoney } from '@/shared/lib/money';
 import { useTransactions } from '../hooks/useTransactions';
 import { STATUS_LABELS } from '../model/types';
 import '../styles/transactions.css';
 
 export function TransactionsListPage() {
-  usePreferencesSnapshot();
   const { data, isLoading, isError } = useTransactions();
 
   if (isLoading) {
@@ -78,7 +76,7 @@ export function TransactionsListPage() {
                 </div>
                 <div className="ca-tx-list__row">
                   <span className="ca-tx-list__code">{tx.code}</span>
-                  <span>{formatMoney(tx.amountCents, tx.currency)}</span>
+                  <span>{formatOperationMoney(tx.amountCents, tx.currency)}</span>
                 </div>
               </Link>
             </motion.li>

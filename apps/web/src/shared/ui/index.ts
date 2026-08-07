@@ -6,3 +6,5 @@ export {
   type ShowToastOptions,
 } from './ToastProvider';
 export { VerifiedName } from './VerifiedName';
+export { AppAlert, type AppAlertProps } from './AppAlert';
+export { AlertScrollObserver } from './AlertScrollObserver';

@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api/client';
+import { apiClient, refreshAccessToken } from '@/shared/api/client';
 
 export interface AuthUser {
   id: string;
@@ -56,6 +56,10 @@ export function getAccessToken(): string | null {
   return localStorage.getItem('accessToken');
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem('refreshToken');
+}
+
 export function isAuthenticated(): boolean {
   return Boolean(getAccessToken());
 }
@@ -97,6 +101,26 @@ export async function resendVerificationRequest(email: string): Promise<{ messag
 export async function fetchAuthMe(): Promise<AuthUser> {
   const { data } = await apiClient.get<AuthUser>('/auth/me');
   return data;
+}
+
+/** Renueva tokens con el refresh guardado; actualiza localStorage. */
+export async function refreshSessionRequest(): Promise<AuthSession> {
+  await refreshAccessToken();
+  const user = getStoredUser();
+  const accessToken = getAccessToken();
+  const refreshToken = getRefreshToken();
+  if (!user || !accessToken || !refreshToken) {
+    throw new Error('Sesión incompleta tras refresh');
+  }
+  return {
+    user,
+    tokens: {
+      accessToken,
+      refreshToken,
+      tokenType: 'Bearer',
+      expiresIn: '',
+    },
+  };
 }
 
 export async function logoutRequest(): Promise<void> {

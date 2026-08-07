@@ -78,6 +78,14 @@ export function UserMenu() {
     navigate('/ingresar', { replace: true });
   }
 
+  const menuLinks = useMemo(
+    () =>
+      USER_MENU_LINKS.filter(
+        (item) => !item.adminOnly || user?.role === 'ADMIN',
+      ),
+    [user?.role],
+  );
+
   return (
     <div className="ca-user-menu" ref={rootRef}>
       <button
@@ -133,7 +141,7 @@ export function UserMenu() {
             </div>
             <div className="ca-user-menu__sep" />
             <p className="ca-user-menu__section">Mi cuenta</p>
-            {USER_MENU_LINKS.map((item) => {
+            {menuLinks.map((item) => {
               const Icon = item.icon;
               return (
                 <Link

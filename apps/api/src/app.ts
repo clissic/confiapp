@@ -84,6 +84,18 @@ function isUserProfileWrite(req: Request): boolean {
   );
 }
 
+/** Altas de venta / confirmación con fotos en data URL. */
+function isTransactionMediaWrite(req: Request): boolean {
+  if (req.method !== 'POST' && req.method !== 'PUT' && req.method !== 'PATCH') {
+    return false;
+  }
+  const pathOnly = (req.originalUrl || req.url || req.path || '').split('?')[0] ?? '';
+  return (
+    /\/transactions\/as-seller\/?$/.test(pathOnly) ||
+    /\/transactions\/invite\/[^/]+\/(confirm-sale|accept-purchase)\/?$/.test(pathOnly)
+  );
+}
+
 export function createApp(): Express {
   const app = express();
 
@@ -110,7 +122,9 @@ export function createApp(): Express {
   // Límite estricto global; chat permite base64 más grande solo en esa ruta.
   app.use((req, res, next) => {
     const limit =
-      isChatMessageWrite(req) || isUserProfileWrite(req) ? '6mb' : '256kb';
+      isChatMessageWrite(req) || isUserProfileWrite(req) || isTransactionMediaWrite(req)
+        ? '6mb'
+        : '256kb';
     express.json({ limit })(req, res, next);
   });
   app.use(express.urlencoded({ extended: true, limit: '256kb' }));

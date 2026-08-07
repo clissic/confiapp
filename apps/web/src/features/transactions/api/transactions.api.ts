@@ -1,6 +1,7 @@
 import { apiClient } from '@/shared/api/client';
 
 import type {
+  AcceptPurchasePayload,
   ConfirmSalePayload,
   CreateSellerTransactionPayload,
   CreateTransactionPayload,
@@ -72,6 +73,9 @@ function createDemoTransaction(payload: CreateTransactionPayload): Transaction {
   const code = demoCode();
   const token = `demo_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
   const shareUrl = `${window.location.origin}/operaciones/unirse/${token}`;
+  const checklist = createDemoChecklist(payload.checklist);
+  const meetingLocation =
+    payload.meetingLocationMode === 'CHAT' ? undefined : payload.meetingLocation;
 
   return {
     id: `demo-${Date.now()}`,
@@ -83,10 +87,21 @@ function createDemoTransaction(payload: CreateTransactionPayload): Transaction {
     status: 'WAITING_PARTICIPANT',
     conditions: {
       summary: payload.conditionsSummary,
-      checklist: createDemoChecklist(payload.checklist),
+      checklist,
     },
     amountCents: Math.round(payload.amount * 100),
     currency: payload.currency ?? 'UYU',
+    meetingLocation,
+    party: {
+      buyer: {
+        conditionsSummary: payload.conditionsSummary,
+        checklist,
+        meetingLocation,
+        productTitle: payload.productTitle,
+        productDescription: payload.productDescription,
+      },
+    },
+    viewerRole: 'BUYER',
     participants: [
       {
         userId: 'demo-user',
@@ -130,6 +145,9 @@ function createDemoSellerTransaction(
   const amountCents = Math.round(payload.product.price * 100);
   const currency = payload.product.currency ?? 'UYU';
   const productId = `demo-product-${Date.now()}`;
+  const checklist = createDemoChecklist(payload.checklist);
+  const meetingLocation =
+    payload.meetingLocationMode === 'CHAT' ? undefined : payload.meetingLocation;
 
   return {
     id: `demo-${Date.now()}`,
@@ -141,10 +159,22 @@ function createDemoSellerTransaction(
     status: 'WAITING_PARTICIPANT',
     conditions: {
       summary: payload.conditionsSummary,
-      checklist: createDemoChecklist(payload.checklist),
+      checklist,
     },
     amountCents,
     currency,
+    meetingLocation,
+    party: {
+      seller: {
+        conditionsSummary: payload.conditionsSummary,
+        checklist,
+        meetingLocation,
+        productTitle: payload.product.title,
+        productDescription: payload.product.description,
+      },
+    },
+    returnInstructions: payload.returnInstructions,
+    viewerRole: 'SELLER',
     productId,
     product: {
       id: productId,
@@ -192,7 +222,7 @@ function createDemoSellerTransaction(
   };
 }
 
-export { formatMoney } from '@/shared/lib/money';
+export { formatMoney, formatOperationMoney } from '@/shared/lib/money';
 
 export async function listTransactions(): Promise<{
   data: Transaction[];
@@ -218,15 +248,8 @@ export async function createTransaction(
     saveDemoList([created, ...list]);
     return { data: created, source: 'demo' };
   }
-  try {
-    const { data } = await apiClient.post<Transaction>('/transactions', payload);
-    return { data, source: 'api' };
-  } catch {
-    const created = createDemoTransaction(payload);
-    const list = loadDemoList();
-    saveDemoList([created, ...list]);
-    return { data: created, source: 'demo' };
-  }
+  const { data } = await apiClient.post<Transaction>('/transactions', payload);
+  return { data, source: 'api' };
 }
 
 export async function createSellerTransaction(
@@ -238,15 +261,8 @@ export async function createSellerTransaction(
     saveDemoList([created, ...list]);
     return { data: created, source: 'demo' };
   }
-  try {
-    const { data } = await apiClient.post<Transaction>('/transactions/as-seller', payload);
-    return { data, source: 'api' };
-  } catch {
-    const created = createDemoSellerTransaction(payload);
-    const list = loadDemoList();
-    saveDemoList([created, ...list]);
-    return { data: created, source: 'demo' };
-  }
+  const { data } = await apiClient.post<Transaction>('/transactions/as-seller', payload);
+  return { data, source: 'api' };
 }
 
 export async function getTransactionByCode(
@@ -271,26 +287,49 @@ export async function toggleChecklistItem(
   code: string,
   itemId: string,
   done: boolean,
+  side?: 'buyer' | 'seller',
 ): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
   if (!hasAccessToken()) {
     const list = loadDemoList();
     const index = list.findIndex((tx) => tx.code === code.toUpperCase());
     if (index < 0) throw new Error('Operación no encontrada');
     const tx = list[index]!;
-    const checklist = (tx.conditions.checklist ?? []).map((item) =>
-      item.id === itemId
-        ? {
-            ...item,
-            done,
-            doneAt: done ? new Date().toISOString() : undefined,
-          }
-        : item,
-    );
-    const updated: Transaction = {
-      ...tx,
-      conditions: { ...tx.conditions, checklist },
-      updatedAt: new Date().toISOString(),
-    };
+    const patchSide = (
+      items: NonNullable<Transaction['conditions']['checklist']> | undefined,
+    ) =>
+      (items ?? []).map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              done,
+              doneAt: done ? new Date().toISOString() : undefined,
+            }
+          : item,
+      );
+
+    let updated: Transaction = { ...tx, updatedAt: new Date().toISOString() };
+    if (side === 'buyer' && tx.party?.buyer) {
+      updated = {
+        ...updated,
+        party: {
+          ...tx.party,
+          buyer: { ...tx.party.buyer, checklist: patchSide(tx.party.buyer.checklist) },
+        },
+      };
+    } else if (side === 'seller' && tx.party?.seller) {
+      updated = {
+        ...updated,
+        party: {
+          ...tx.party,
+          seller: { ...tx.party.seller, checklist: patchSide(tx.party.seller.checklist) },
+        },
+      };
+    } else {
+      updated = {
+        ...updated,
+        conditions: { ...tx.conditions, checklist: patchSide(tx.conditions.checklist) },
+      };
+    }
     const next = [...list];
     next[index] = updated;
     saveDemoList(next);
@@ -298,7 +337,7 @@ export async function toggleChecklistItem(
   }
   const { data } = await apiClient.patch<Transaction>(
     `/transactions/by-code/${encodeURIComponent(code)}/checklist/${encodeURIComponent(itemId)}`,
-    { done },
+    { done, ...(side ? { side } : {}) },
   );
   return { data, source: 'api' };
 }
@@ -328,26 +367,24 @@ export async function refreshInviteLink(
   if (!hasAccessToken()) {
     return { data: patchDemo(), source: 'demo' };
   }
-  try {
-    const { data } = await apiClient.post<Transaction>(
-      `/transactions/by-code/${code}/invite/refresh`,
-    );
-    return { data, source: 'api' };
-  } catch {
-    return { data: patchDemo(), source: 'demo' };
-  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/invite/refresh`,
+  );
+  return { data, source: 'api' };
 }
 
 function demoInvitePreview(token: string): InvitePreview | null {
   const found = loadDemoList().find((tx) => tx.invite.shareUrl?.includes(token));
   if (!found) return null;
+  const publicSide =
+    found.initiatedBy === 'SELLER' ? found.party?.seller : found.party?.buyer;
   return {
     code: found.code,
     title: found.title,
-    description: found.description,
+    productTitle: publicSide?.productTitle || found.product?.title,
+    productDescription: publicSide?.productDescription || found.product?.description,
     amountCents: found.amountCents,
     currency: found.currency,
-    conditionsSummary: found.conditions.summary,
     status: found.status,
     initiatedBy: found.initiatedBy ?? 'BUYER',
     inviteExpiresAt: found.invite.expiresAt,
@@ -364,16 +401,23 @@ export async function previewInvite(
   token: string,
 ): Promise<{ data: InvitePreview; source: 'api' | 'demo' }> {
   try {
-    const { data } = await apiClient.get<InvitePreview>(`/transactions/invite/${token}`);
+    const { data } = await apiClient.get<InvitePreview>(
+      `/transactions/invite/${encodeURIComponent(token)}`,
+    );
     return { data, source: 'api' };
-  } catch {
-    const demo = demoInvitePreview(token);
-    if (!demo) throw new Error('Enlace inválido');
-    return { data: demo, source: 'demo' };
+  } catch (error) {
+    if (token.startsWith('demo_')) {
+      const demo = demoInvitePreview(token);
+      if (demo) return { data: demo, source: 'demo' };
+    }
+    throw error instanceof Error ? error : new Error('Enlace inválido');
   }
 }
 
-function applyAcceptPurchaseDemo(token: string): Transaction {
+function applyAcceptPurchaseDemo(
+  token: string,
+  payload: AcceptPurchasePayload,
+): Transaction {
   const list = loadDemoList();
   const current = list.find((item) => item.invite.shareUrl?.includes(token));
   if (!current) throw new Error('Enlace inválido');
@@ -386,9 +430,24 @@ function applyAcceptPurchaseDemo(token: string): Transaction {
 
   const now = new Date().toISOString();
   const hasCounter = current.participants.some((p) => p.role === 'COUNTERPARTY');
+  const checklist = createDemoChecklist(payload.checklist);
+  const meetingLocation =
+    payload.meetingLocationMode === 'CHAT' ? undefined : payload.meetingLocation;
   const updated: Transaction = {
     ...current,
     status: 'ACCEPTED',
+    operationDeadlineAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+    party: {
+      ...current.party,
+      buyer: {
+        conditionsSummary: payload.conditionsSummary,
+        checklist,
+        meetingLocation,
+        productTitle: payload.productTitle,
+        productDescription: payload.productDescription,
+      },
+    },
+    viewerRole: 'BUYER',
     participants: hasCounter
       ? current.participants
       : [
@@ -423,7 +482,9 @@ export async function joinInvite(
     const current = list.find((item) => item.invite.shareUrl?.includes(token));
     if (!current) throw new Error('Enlace inválido');
     if (current.initiatedBy === 'SELLER') {
-      return { data: applyAcceptPurchaseDemo(token), source: 'demo' };
+      throw new Error(
+        'Para aceptar la compra completá tus instrucciones para el Agente.',
+      );
     }
     if (current.invite.isExpired) throw new Error('El enlace expiró');
     const hasCounter = current.participants.some((p) => p.role === 'COUNTERPARTY');
@@ -457,7 +518,9 @@ export async function joinInvite(
     return { data: current, source: 'demo' };
   }
   try {
-    const { data } = await apiClient.post<Transaction>(`/transactions/invite/${token}/join`);
+    const { data } = await apiClient.post<Transaction>(
+      `/transactions/invite/${encodeURIComponent(token)}/join`,
+    );
     return { data, source: 'api' };
   } catch (error) {
     throw error instanceof Error ? error : new Error('No se pudo unir a la operación');
@@ -466,18 +529,16 @@ export async function joinInvite(
 
 export async function acceptPurchase(
   token: string,
+  payload: AcceptPurchasePayload,
 ): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
   if (!hasAccessToken()) {
-    return { data: applyAcceptPurchaseDemo(token), source: 'demo' };
+    return { data: applyAcceptPurchaseDemo(token, payload), source: 'demo' };
   }
-  try {
-    const { data } = await apiClient.post<Transaction>(
-      `/transactions/invite/${token}/accept-purchase`,
-    );
-    return { data, source: 'api' };
-  } catch {
-    return { data: applyAcceptPurchaseDemo(token), source: 'demo' };
-  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/invite/${encodeURIComponent(token)}/accept-purchase`,
+    payload,
+  );
+  return { data, source: 'api' };
 }
 
 function applyConfirmSaleDemo(
@@ -494,6 +555,9 @@ function applyConfirmSaleDemo(
   const amountCents = Math.round(payload.price * 100);
   const currency = payload.currency ?? current.currency ?? 'UYU';
   const hasCounter = current.participants.some((p) => p.role === 'COUNTERPARTY');
+  const checklist = createDemoChecklist(payload.checklist);
+  const meetingLocation =
+    payload.meetingLocationMode === 'CHAT' ? undefined : payload.meetingLocation;
 
   const product = {
     id: `demo-product-${Date.now()}`,
@@ -518,6 +582,19 @@ function applyConfirmSaleDemo(
     currency,
     productId: product.id,
     product,
+    operationDeadlineAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
+    party: {
+      ...current.party,
+      seller: {
+        conditionsSummary: payload.conditionsSummary,
+        checklist,
+        meetingLocation,
+        productTitle: payload.title,
+        productDescription: payload.description,
+      },
+    },
+    returnInstructions: payload.returnInstructions,
+    viewerRole: 'SELLER',
     participants: hasCounter
       ? current.participants
       : [
@@ -541,6 +618,40 @@ function applyConfirmSaleDemo(
     updatedAt: now,
   };
 
+  // Demo: fotos no cuentan (requisito solo del vendedor).
+  const buyerTitle = current.party?.buyer?.productTitle ?? '';
+  const buyerDesc = current.party?.buyer?.productDescription ?? '';
+  const changes: NonNullable<Transaction['pendingBuyerChanges']> = [];
+  if (payload.title.trim() !== buyerTitle.trim()) {
+    changes.push({ field: 'title', from: buyerTitle || '(vacío)', to: payload.title });
+  }
+  if (payload.description.trim() !== buyerDesc.trim()) {
+    changes.push({
+      field: 'description',
+      from: buyerDesc || '(vacío)',
+      to: payload.description,
+    });
+  }
+  if (amountCents !== (current.amountCents ?? 0) || currency !== (current.currency ?? 'UYU')) {
+    changes.push({
+      field: 'price',
+      from: `${((current.amountCents ?? 0) / 100).toFixed(2)} ${current.currency ?? 'UYU'}`,
+      to: `${(amountCents / 100).toFixed(2)} ${currency}`,
+    });
+  }
+  if (changes.length > 0) {
+    updated.status = 'PENDING_BUYER_CONFIRM';
+    updated.pendingBuyerChanges = changes;
+    updated.statusHistory = [
+      ...current.statusHistory,
+      {
+        status: 'PENDING_BUYER_CONFIRM',
+        changedAt: now,
+        note: 'Vendedor confirmó con cambios — pendiente de reconfirmación del comprador',
+      },
+    ];
+  }
+
   saveDemoList(list.map((item) => (item.code === updated.code ? updated : item)));
   return updated;
 }
@@ -552,13 +663,83 @@ export async function confirmSale(
   if (!hasAccessToken()) {
     return { data: applyConfirmSaleDemo(token, payload), source: 'demo' };
   }
-  try {
-    const { data } = await apiClient.post<Transaction>(
-      `/transactions/invite/${token}/confirm-sale`,
-      payload,
-    );
-    return { data, source: 'api' };
-  } catch {
-    return { data: applyConfirmSaleDemo(token, payload), source: 'demo' };
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/invite/${encodeURIComponent(token)}/confirm-sale`,
+    payload,
+  );
+  return { data, source: 'api' };
+}
+
+export async function buyerConfirmChanges(
+  code: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const current = list[index]!;
+    if (current.status !== 'PENDING_BUYER_CONFIRM') {
+      throw new Error('La operación no está pendiente de confirmación');
+    }
+    const now = new Date().toISOString();
+    const updated: Transaction = {
+      ...current,
+      status: 'ACCEPTED',
+      pendingBuyerChanges: undefined,
+      statusHistory: [
+        ...current.statusHistory,
+        {
+          status: 'ACCEPTED',
+          changedAt: now,
+          note: 'Comprador aceptó los cambios del vendedor',
+        },
+      ],
+      updatedAt: now,
+    };
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
   }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/buyer-confirm`,
+  );
+  return { data, source: 'api' };
+}
+
+export async function buyerRejectChanges(
+  code: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const current = list[index]!;
+    if (current.status !== 'PENDING_BUYER_CONFIRM') {
+      throw new Error('La operación no está pendiente de confirmación');
+    }
+    const now = new Date().toISOString();
+    const updated: Transaction = {
+      ...current,
+      status: 'CANCELLED',
+      pendingBuyerChanges: undefined,
+      statusHistory: [
+        ...current.statusHistory,
+        {
+          status: 'CANCELLED',
+          changedAt: now,
+          note: 'Comprador rechazó los cambios del vendedor',
+        },
+      ],
+      updatedAt: now,
+    };
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/buyer-reject`,
+  );
+  return { data, source: 'api' };
 }

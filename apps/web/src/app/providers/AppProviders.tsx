@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/features/auth/ui/AuthProvider';
 import { queryClient } from '@/shared/lib/query-client';
 import { UserPreferencesProvider } from '@/shared/preferences';
+import { AlertScrollObserver } from '@/shared/ui/AlertScrollObserver';
 import { ToastProvider } from '@/shared/ui/ToastProvider';
 
 interface AppProvidersProps {
@@ -16,7 +17,10 @@ export function AppProviders({ children }: AppProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <UserPreferencesProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            <AlertScrollObserver />
+            {children}
+          </ToastProvider>
         </UserPreferencesProvider>
       </AuthProvider>
     </QueryClientProvider>

@@ -9,11 +9,15 @@ export function AgentChecklistPanel({
   canToggle,
   pendingItemId,
   onToggle,
+  title = 'Checklist del Agente',
+  lead,
 }: {
   items: TransactionChecklistItem[];
   canToggle: boolean;
   pendingItemId?: string | null;
   onToggle: (itemId: string, done: boolean) => void;
+  title?: string;
+  lead?: string;
 }) {
   if (!items.length) return null;
 
@@ -24,16 +28,17 @@ export function AgentChecklistPanel({
       <div className="ca-tx-checklist__head">
         <h3 className="ca-section-title mb-0">
           <ClipboardList size={18} className="me-1" aria-hidden />
-          Checklist del Agente
+          {title}
         </h3>
         <span className="ca-tx-checklist__progress">
           {doneCount}/{items.length}
         </span>
       </div>
       <p className="ca-section-lead ca-tx-checklist__lead">
-        {canToggle
-          ? 'Marcá cada paso a medida que lo verifiques en la entrega.'
-          : 'Guía de verificación definida por quien inició la operación.'}
+        {lead ??
+          (canToggle
+            ? 'Marcá cada paso a medida que lo verifiques en la entrega.'
+            : 'Guía de verificación para el Agente (solo visible para vos y el Agente).')}
       </p>
       <ul className="ca-tx-checklist__list">
         {items.map((item) => {

@@ -24,12 +24,9 @@ export interface TransactionChecklistItem {
 }
 
 export interface TransactionConditions {
-  /** Condiciones acordadas en texto libre. */
+  /** @deprecated Preferir party.buyer / party.seller */
   summary: string;
-  /**
-   * Pasos para el Agente.
-   * Compat: docs antiguos pueden tener `string[]`; normalizar en capa de servicio.
-   */
+  /** @deprecated Preferir party.*.checklist */
   checklist?: TransactionChecklistItem[] | string[];
 }
 
@@ -45,6 +42,21 @@ export interface TransactionMeetingLocation {
   /** GeoJSON: [longitude, latitude] */
   coordinates: [number, number];
   label?: string;
+}
+
+/** Instrucciones de una parte hacia el Agente (privadas respecto de la contraparte). */
+export interface TransactionPartyInstructions {
+  conditionsSummary: string;
+  checklist?: TransactionChecklistItem[] | string[];
+  meetingLocation?: TransactionMeetingLocation;
+  /** Descripción del producto / pedido visible también a la contraparte. */
+  productTitle?: string;
+  productDescription?: string;
+}
+
+export interface TransactionPartySides {
+  buyer?: TransactionPartyInstructions;
+  seller?: TransactionPartyInstructions;
 }
 
 /**
@@ -65,9 +77,17 @@ export interface ITransaction {
    * vinculados por `transaction` + `channel`.
    */
   chat?: Types.ObjectId;
-  /** Punto de encuentro / zona del trabajo (mapa de agentes). */
+  /** @deprecated Preferir party.*.meetingLocation */
   meetingLocation?: TransactionMeetingLocation;
+  /** Instrucciones por lado (buyer/seller) hacia el Agente. */
+  party?: TransactionPartySides;
+  /**
+   * Cómo devolver el objeto si el comprador no lo acepta.
+   * Solo visible para el Agente.
+   */
+  returnInstructions?: string;
   participants: TransactionParticipant[];
+  /** @deprecated Preferir party.*.conditionsSummary / checklist */
   conditions: TransactionConditions;
   status: TransactionStatus;
   statusHistory: TransactionStatusEvent[];
@@ -79,6 +99,13 @@ export interface ITransaction {
   /** Hash del token de invitación compartible (nunca en claro). */
   inviteTokenHash?: string;
   inviteExpiresAt?: Date;
+  /**
+   * Límite operativo (21 días desde confirm-sale / accept-purchase)
+   * hasta liberación del pago o cancelación.
+   */
+  operationDeadlineAt?: Date;
+  /** Diff de propuesta pendiente de reconfirmación del comprador. */
+  pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;
   startsAt?: Date;
   endsAt?: Date;
   fundedAt?: Date;
