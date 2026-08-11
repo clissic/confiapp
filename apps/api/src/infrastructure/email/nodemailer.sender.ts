@@ -38,6 +38,9 @@ export class NodemailerEmailSender implements EmailSenderPort {
           filename: item.filename,
           content: item.content,
           contentType: item.contentType,
+          cid: item.cid,
+          contentDisposition:
+            item.contentDisposition ?? (item.cid ? ('inline' as const) : ('attachment' as const)),
         })),
       });
       logger.info('email.sent', {

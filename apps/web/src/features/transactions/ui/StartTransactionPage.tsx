@@ -25,6 +25,7 @@ import {
   type ChecklistDraftItem,
 } from './ChecklistEditor';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
+import { FeePayerFields } from './FeePayerFields';
 import '../styles/transactions.css';
 
 const DEFAULT_DELIVERY: DeliveryLocationValue = { mode: 'MAP' };
@@ -53,8 +54,13 @@ export function StartTransactionPage() {
       category: 'OTHER',
       amount: undefined as unknown as number,
       currency: defaultPaymentCurrency(preferredCurrency),
+      feePayer: 'BUYER',
     },
   });
+
+  const watchedAmount = form.watch('amount');
+  const watchedCurrency = form.watch('currency');
+  const watchedFeePayer = form.watch('feePayer');
 
   const onSubmit = form.handleSubmit(async (values: CreateTransactionValues) => {
     setError(null);
@@ -90,6 +96,7 @@ export function StartTransactionPage() {
         checklist,
         amount: values.amount,
         currency: values.currency,
+        feePayer: values.feePayer,
         inviteExpiresInDays: values.inviteExpiresInDays,
         meetingLocationMode: delivery.mode,
         meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,
@@ -280,6 +287,19 @@ export function StartTransactionPage() {
                 </Form.Select>
               </Form.Group>
             </div>
+
+            <FeePayerFields
+              controlId="tx-fee-payer"
+              feePayer={watchedFeePayer}
+              onFeePayerChange={(value) =>
+                form.setValue('feePayer', value, { shouldValidate: true })
+              }
+              priceMajor={Number(watchedAmount) || null}
+              currency={watchedCurrency}
+              error={form.formState.errors.feePayer?.message}
+              disabled={create.isPending}
+              viewerHint="buyer"
+            />
           </fieldset>
 
           <div className="ca-tx-delivery-wrap">

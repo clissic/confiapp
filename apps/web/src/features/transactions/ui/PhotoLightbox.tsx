@@ -2,6 +2,8 @@ import { useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
+import '../styles/photo-lightbox.css';
+
 type GalleryImage = {
   url: string;
   alt?: string;

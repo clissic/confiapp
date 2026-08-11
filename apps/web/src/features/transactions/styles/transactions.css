@@ -210,6 +210,22 @@
   border-left: 2px solid color-mix(in srgb, var(--brand-secondary, #55c5b5) 50%, transparent);
 }
 
+.ca-tx-timeline__item--pending {
+  border-left-style: dashed;
+  border-left-color: color-mix(in srgb, var(--text-muted) 45%, transparent);
+  opacity: 0.72;
+}
+
+.ca-tx-timeline__item--pending .ca-tx-timeline__status {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ca-tx-timeline__item--pending .ca-tx-timeline__note {
+  color: color-mix(in srgb, var(--text-muted) 85%, transparent);
+}
+
 .ca-tx-timeline__row {
   display: flex;
   flex-wrap: wrap;
@@ -539,6 +555,200 @@
   flex-wrap: wrap;
   gap: 0.65rem;
   padding-top: 0.15rem;
+}
+
+.ca-tx-pay-cta {
+  display: grid;
+  gap: 1rem;
+  align-items: center;
+  background:
+    radial-gradient(
+      ellipse 55% 70% at 100% 0%,
+      color-mix(in srgb, var(--brand-secondary, #55c5b5) 18%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--surface-elevated) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-secondary, #55c5b5) 28%, transparent);
+}
+
+.ca-tx-agent-exit,
+.ca-tx-agent-search {
+  display: grid;
+  gap: 1rem;
+  align-items: center;
+  background:
+    radial-gradient(
+      ellipse 55% 70% at 100% 0%,
+      color-mix(in srgb, var(--brand-secondary, #55c5b5) 14%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--surface-elevated) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-secondary, #55c5b5) 24%, transparent);
+}
+
+.ca-tx-agent-exit {
+  border-color: color-mix(in srgb, #c45c5c 28%, transparent);
+  background:
+    radial-gradient(
+      ellipse 55% 70% at 100% 0%,
+      color-mix(in srgb, #c45c5c 12%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--surface-elevated) 94%, transparent);
+}
+
+.ca-tx-agent-search {
+  border-style: dashed;
+}
+
+.ca-tx-agent-exit__copy,
+.ca-tx-agent-search__copy {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.ca-tx-agent-exit__kicker,
+.ca-tx-agent-search__kicker {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-secondary-600, #2a9d8f);
+}
+
+.ca-tx-agent-exit__kicker {
+  color: #a84848;
+}
+
+.ca-tx-agent-exit__title,
+.ca-tx-agent-search__title {
+  margin: 0;
+  font-size: clamp(1.05rem, 2vw, 1.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.ca-tx-agent-exit__lead,
+.ca-tx-agent-search__lead {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+  font-size: 0.92rem;
+  max-width: 36rem;
+}
+
+.ca-tx-agent-exit__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.ca-tx-agent-exit__actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+
+.ca-tx-badge-search {
+  background: color-mix(in srgb, var(--brand-secondary, #55c5b5) 22%, transparent) !important;
+  color: var(--color-primary-700, #01285d) !important;
+  border: 1px solid color-mix(in srgb, var(--brand-secondary, #55c5b5) 40%, transparent);
+}
+
+[data-theme='dark'] .ca-tx-badge-search {
+  color: #e8f7f4 !important;
+}
+
+@media (min-width: 768px) {
+  .ca-tx-agent-exit {
+    grid-template-columns: 1fr auto;
+    gap: 1.25rem;
+  }
+}
+
+.ca-tx-pay-cta__copy {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.ca-tx-pay-cta__kicker {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-secondary-600, #2a9d8f);
+}
+
+.ca-tx-pay-cta__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.2vw, 1.35rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.ca-tx-pay-cta__lead {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
+  font-size: 0.92rem;
+  max-width: 36rem;
+}
+
+.ca-tx-pay-cta__amount {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary, var(--text-primary));
+}
+
+.ca-tx-pay-cta__amount strong {
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.ca-tx-pay-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.ca-tx-pay-cta--waiting {
+  border-style: dashed;
+  opacity: 0.95;
+}
+
+@media (min-width: 768px) {
+  .ca-tx-pay-cta:not(.ca-tx-pay-cta--waiting) {
+    grid-template-columns: 1fr auto;
+    gap: 1.25rem;
+  }
+}
+
+[data-theme='dark'] .ca-tx-pay-cta {
+  background:
+    radial-gradient(
+      ellipse 55% 70% at 100% 0%,
+      color-mix(in srgb, var(--brand-secondary, #55c5b5) 12%, transparent),
+      transparent 60%
+    ),
+    color-mix(in srgb, var(--surface-raised, var(--surface-elevated)) 94%, #000);
+  border-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 28%, transparent);
+}
+
+[data-theme='dark'] .ca-tx-pay-cta__kicker {
+  color: var(--color-secondary-300, #7dd5c4);
 }
 
 [data-theme='dark'] .ca-tx-reconfirm {
@@ -1598,27 +1808,28 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .ca-tx-pipeline__item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 44px;
-  padding: 0 10px;
+  min-width: 0;
+  padding: 0 6px;
   border-radius: 10px;
   border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.12));
   background: color-mix(in srgb, var(--surface-base) 70%, transparent);
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
 }
 
 .ca-tx-pipeline__num {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -1626,13 +1837,16 @@
   flex-shrink: 0;
   background: color-mix(in srgb, var(--brand-primary, #01285d) 12%, transparent);
   color: var(--text-primary);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 700;
 }
 
 .ca-tx-pipeline__label {
   min-width: 0;
-  line-height: 1.2;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ca-tx-pipeline__current {
@@ -1657,29 +1871,33 @@
   color: var(--text-primary);
 }
 
-/* Tablet: número arriba, nombre debajo */
 @media (min-width: 768px) and (max-width: 991.98px) {
   .ca-tx-pipeline__item {
     flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
-    gap: 6px;
-    min-height: 4.25rem;
-    padding: 10px 6px;
+    gap: 5px;
+    min-height: 4.1rem;
+    padding: 8px 4px;
   }
 
   .ca-tx-pipeline__label {
-    font-size: 0.72rem;
-    line-height: 1.15;
+    font-size: 0.68rem;
+    line-height: 1.1;
     text-align: center;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    text-overflow: ellipsis;
   }
 }
 
 @media (max-width: 767.98px) {
   .ca-tx-pipeline {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 0.5rem;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.35rem;
   }
 
   .ca-tx-pipeline__item {
@@ -1880,6 +2098,18 @@
   font-weight: 750;
   line-height: 1.25;
   color: var(--text-primary);
+}
+
+.ca-tx-detail-media__heading--with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ca-tx-detail-invite .ca-tx-detail-media__heading,
+.ca-tx-detail-history .ca-tx-detail-media__heading {
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .ca-tx-detail-media__visual {
@@ -2157,6 +2387,7 @@
 }
 
 .ca-tx-detail-invite__hint {
+  margin: 0.15rem 0 0;
   color: var(--text-muted) !important;
 }
 
@@ -2485,4 +2716,178 @@
   .ca-tx-delivery__modes {
     grid-template-columns: 1fr;
   }
+}
+
+.ca-tx-fee-payer {
+  margin-top: var(--space-3);
+}
+
+.ca-tx-fee-preview {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-secondary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-secondary) 22%, transparent);
+}
+
+.ca-tx-fee-preview__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+}
+
+.ca-tx-fee-preview__hint {
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 0.82em;
+}
+
+.ca-tx-fee-preview__split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-muted, #6c757d);
+}
+
+.ca-tx-detail-hero__fee {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* Checkout resumen (paso antes de Mercado Pago) */
+.ca-tx-pay-hero {
+  margin-bottom: var(--space-3);
+}
+
+.ca-tx-pay-hero__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted, #6c757d);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.ca-tx-pay-hero__back:hover {
+  color: var(--brand-secondary, #01285d);
+}
+
+.ca-tx-pay-hero__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.35rem;
+  color: var(--brand-secondary, #01285d);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ca-tx-pay-hero__title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.45rem, 2.5vw, 1.85rem);
+  color: var(--text-primary);
+}
+
+.ca-tx-pay-hero__lead {
+  margin: 0 0 0.75rem;
+  max-width: 38rem;
+  color: var(--text-muted, #6c757d);
+}
+
+.ca-tx-pay-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  align-items: center;
+  font-size: 0.88rem;
+  color: var(--text-muted, #6c757d);
+}
+
+.ca-tx-pay-summary__heading {
+  margin: 0 0 var(--space-2);
+  font-size: 1.05rem;
+}
+
+.ca-tx-pay-summary__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ca-tx-pay-summary__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+  font-size: 0.95rem;
+}
+
+.ca-tx-pay-summary__total {
+  margin-top: 0.35rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--brand-secondary, #01285d) 18%, transparent);
+  font-size: 1.05rem;
+}
+
+.ca-tx-pay-summary__hint {
+  font-style: normal;
+  font-weight: 500;
+  opacity: 0.7;
+  font-size: 0.82em;
+}
+
+.ca-tx-pay-summary__fees {
+  margin-top: var(--space-3);
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand-secondary, #01285d) 7%, transparent);
+}
+
+.ca-tx-pay-summary__fees p {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted, #6c757d);
+}
+
+.ca-tx-pay-summary__fees-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.88rem;
+}
+
+.ca-tx-pay-mock-card__amount {
+  display: grid;
+  gap: 0.25rem;
+  margin: var(--space-3) 0;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--brand-secondary, #01285d) 8%, transparent);
+}
+
+.ca-tx-pay-mock-card__amount span:first-child {
+  font-size: 0.85rem;
+  color: var(--text-muted, #6c757d);
+}
+
+.ca-tx-pay-mock-card__amount strong {
+  font-size: 1.45rem;
+  color: var(--text-primary);
+}
+
+.ca-tx-pay-mock-card__code {
+  font-size: 0.8rem;
+  opacity: 0.75;
 }

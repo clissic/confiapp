@@ -3,6 +3,8 @@ import { Types } from 'mongoose';
 import {
   DistanceUnit,
   IdentityVerificationStatus,
+  NotificationChannel,
+  NotificationType,
   PlatformRole,
   ProfileVisibility,
   ThemePreference,
@@ -21,6 +23,7 @@ import {
   pushAuditChange,
   type AuditFieldChange,
 } from '../audit/diff';
+import { notificationsService } from '../notifications/service';
 import { computeReputationScore } from '../reviews/scoring';
 
 import type { RegisterUserDto, UpdateUserDto, UserPublicDto } from './dto';
@@ -393,6 +396,7 @@ export class UsersService {
       email: input.email,
       password: input.password,
       fullName: input.fullName,
+      documentNumber: input.documentNumber,
       phone: input.phone,
     });
   }
@@ -475,11 +479,17 @@ export class UsersService {
     }
 
     if (input.submitKyc && reviewToken) {
-      const kycPhotos = (user.photos ?? []).filter((photo) =>
+      const requiredKinds = [UserPhotoKind.ID_FRONT, UserPhotoKind.SELFIE];
+      const fromPayload = (input.photos ?? []).filter((photo) =>
+        requiredKinds.includes(photo.kind as UserPhotoKind),
+      );
+      const fromUser = (user.photos ?? []).filter((photo) =>
         [UserPhotoKind.ID_FRONT, UserPhotoKind.ID_BACK, UserPhotoKind.SELFIE].includes(
           photo.kind as UserPhotoKind,
         ),
       );
+      // Preferir el payload del request (data URLs intactas) para adjuntar al mail.
+      const kycPhotos = fromPayload.length >= 2 ? fromPayload : fromUser;
       await sendKycReviewEmail({
         userId: String(user._id),
         fullName: user.fullName,
@@ -634,6 +644,32 @@ export class UsersService {
         ],
       },
     });
+
+    if (decision.action === 'approve') {
+      await notificationsService.notify({
+        userId: String(user._id),
+        type: NotificationType.SYSTEM,
+        title: 'Identidad verificada',
+        body: 'Tu verificación de identidad fue aprobada. Ya podés operar con más confianza en ConfiApp.',
+        data: { href: '/perfil' },
+        entityType: 'User',
+        entityId: String(user._id),
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      });
+    } else {
+      await notificationsService.notify({
+        userId: String(user._id),
+        type: NotificationType.SYSTEM,
+        title: 'No pudimos verificar tu identidad',
+        body: `Revisá la documentación y volvé a intentarlo. Motivo: ${
+          user.kyc?.rejectionReason ?? 'Documentación insuficiente'
+        }.`,
+        data: { href: '/perfil' },
+        entityType: 'User',
+        entityId: String(user._id),
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      });
+    }
 
     return toPublicDto(user);
   }

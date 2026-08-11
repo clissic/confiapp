@@ -10,6 +10,7 @@ describe('diffBuyerProposalVsSellerConfirm', () => {
     currency: 'UYU',
     condition: undefined as string | undefined,
     category: undefined as string | undefined,
+    feePayer: 'BUYER' as const,
   };
 
   it('sin diferencias de campos comparables → vacío (aunque haya fotos)', () => {
@@ -20,6 +21,7 @@ describe('diffBuyerProposalVsSellerConfirm', () => {
       currency: 'UYU',
       condition: '',
       category: '',
+      feePayer: 'BUYER',
     });
     expect(changes).toEqual([]);
   });
@@ -32,6 +34,7 @@ describe('diffBuyerProposalVsSellerConfirm', () => {
       currency: 'UYU',
       condition: '',
       category: '',
+      feePayer: 'BUYER',
     });
     expect(changes.find((c) => c.field === 'images')).toBeUndefined();
   });
@@ -46,6 +49,7 @@ describe('diffBuyerProposalVsSellerConfirm', () => {
         currency: 'UYU',
         condition: 'GOOD',
         category: 'ELECTRONICS',
+        feePayer: 'BUYER',
       },
     );
     expect(changes.map((c) => c.field)).toEqual(['title', 'price', 'condition', 'category']);
@@ -63,7 +67,26 @@ describe('diffBuyerProposalVsSellerConfirm', () => {
       currency: 'UYU',
       condition: 'GOOD',
       category: 'ELECTRONICS',
+      feePayer: 'BUYER',
     });
     expect(changes).toEqual([]);
+  });
+
+  it('detecta cambio de quién paga la comisión', () => {
+    const changes = diffBuyerProposalVsSellerConfirm(baseBuyer, {
+      title: 'iPhone 13',
+      description: 'Buen estado',
+      amountCents: 50_000,
+      currency: 'UYU',
+      condition: '',
+      category: '',
+      feePayer: 'SPLIT_50_50',
+    });
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      field: 'feePayer',
+      from: 'La paga el comprador',
+      to: '50 % comprador / 50 % vendedor',
+    });
   });
 });

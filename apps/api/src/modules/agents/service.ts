@@ -16,6 +16,10 @@ import {
 } from '../audit';
 
 import {
+  countActiveAgentJobs,
+  listActiveAgentJobs,
+} from './agent-jobs';
+import {
   agentActivationSummary,
   agentDraftAuditNote,
   collectAgentDraftChanges,
@@ -40,7 +44,9 @@ function buildSummary(user: HydratedDocument<IUser> | UserDocument): string {
   return `${area} · ${radius ?? '?'} km · ${franjaLabel} · ${rateLabel}`;
 }
 
-function toDto(user: HydratedDocument<IUser> | UserDocument): AgentOnboardingDto {
+async function toDto(
+  user: HydratedDocument<IUser> | UserDocument,
+): Promise<AgentOnboardingDto> {
   const agent = user.agent ?? {
     status: AgentOnboardingStatus.NONE,
     termsAccepted: false,
@@ -52,6 +58,10 @@ function toDto(user: HydratedDocument<IUser> | UserDocument): AgentOnboardingDto
   const registered =
     agent.status === AgentOnboardingStatus.ACTIVE ||
     agent.status === AgentOnboardingStatus.INACTIVE;
+
+  const userId = String(user._id);
+  const activeJobsCount = registered ? await countActiveAgentJobs(userId) : 0;
+  const activeJobs = registered ? await listActiveAgentJobs(userId, 10) : [];
 
   return {
     status: agent.status,
@@ -78,6 +88,8 @@ function toDto(user: HydratedDocument<IUser> | UserDocument): AgentOnboardingDto
     isAgent: registered,
     submittedAt: agent.submittedAt?.toISOString?.(),
     activatedAt: agent.activatedAt?.toISOString?.(),
+    activeJobsCount,
+    activeJobs,
     preview: {
       fullName: user.fullName,
       email: user.email,
@@ -92,7 +104,7 @@ export class AgentsService {
   async getOnboarding(userId: string): Promise<AgentOnboardingDto> {
     const user = await this.repository.findUserById(userId);
     if (!user) throw new NotFoundError('User not found');
-    return toDto(user);
+    return await toDto(user);
   }
 
   async saveDraft(userId: string, input: SaveAgentOnboardingDto): Promise<AgentOnboardingDto> {
@@ -126,7 +138,7 @@ export class AgentsService {
       });
     }
 
-    return toDto(user);
+    return await toDto(user);
   }
 
   async submit(userId: string, input: SubmitAgentOnboardingBody): Promise<AgentOnboardingDto> {
@@ -205,7 +217,7 @@ export class AgentsService {
       },
     });
 
-    return toDto(user);
+    return await toDto(user);
   }
 
   async suspend(userId: string): Promise<AgentOnboardingDto> {
@@ -243,7 +255,7 @@ export class AgentsService {
       },
     });
 
-    return toDto(user);
+    return await toDto(user);
   }
 
   async resume(userId: string): Promise<AgentOnboardingDto> {
@@ -276,7 +288,7 @@ export class AgentsService {
       },
     });
 
-    return toDto(user);
+    return await toDto(user);
   }
 
   async closeAgency(userId: string): Promise<AgentOnboardingDto> {
@@ -286,6 +298,18 @@ export class AgentsService {
     if (status !== AgentOnboardingStatus.ACTIVE && status !== AgentOnboardingStatus.INACTIVE) {
       throw new AppError(409, 'No tenés una agencia abierta para cerrar', undefined, 'INVALID_STATUS');
     }
+
+    const activeJobsCount = await countActiveAgentJobs(userId);
+    if (activeJobsCount > 0) {
+      const jobs = await listActiveAgentJobs(userId, 20);
+      throw new AppError(
+        409,
+        `No podés cerrar la agencia: tenés ${activeJobsCount} operación${activeJobsCount === 1 ? '' : 'es'} activa${activeJobsCount === 1 ? '' : 's'}. Solicitá la salida de cada una o completá el trabajo.`,
+        { count: activeJobsCount, jobs },
+        'ACTIVE_JOBS',
+      );
+    }
+
     const fromRole = existing.role;
     const fromRoles = existing.roles?.length ? existing.roles : [existing.role];
     const user = await this.repository.closeAgency(userId);
@@ -320,6 +344,6 @@ export class AgentsService {
       },
     });
 
-    return toDto(user);
+    return await toDto(user);
   }
 }

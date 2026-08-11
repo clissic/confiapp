@@ -34,10 +34,12 @@ export class PaymentsController {
     const data = await this.service.confirmMockCheckout(paymentId);
     const accept = req.headers.accept ?? '';
     if (accept.includes('text/html') || req.method === 'GET') {
-      const code = data.transactionCode
-        ? `&code=${encodeURIComponent(data.transactionCode)}`
-        : '';
-      res.redirect(302, `${env.APP_URL}/pagos?status=success${code}`);
+      const code = data.transactionCode;
+      if (code) {
+        res.redirect(302, `${env.APP_URL}/operaciones/${encodeURIComponent(code)}?pago=ok`);
+        return;
+      }
+      res.redirect(302, `${env.APP_URL}/pagos?status=success`);
       return;
     }
     res.status(200).json(data);

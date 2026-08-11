@@ -88,7 +88,7 @@ interface UserPreferencesContextValue {
 const UserPreferencesContext = createContext<UserPreferencesContextValue | null>(null);
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isBootstrapping } = useAuth();
+  const { user, isAuthenticated, isBootstrapping } = useAuth();
   const [localOverride, setLocalOverride] = useState<Partial<{
     language: string;
     timezone: string;
@@ -98,9 +98,9 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   }> | null>(null);
 
   const profileQuery = useQuery({
-    queryKey: profileQueryKey,
+    queryKey: profileQueryKey(user?.id),
     queryFn: fetchMyProfile,
-    enabled: isAuthenticated && !isBootstrapping,
+    enabled: isAuthenticated && !isBootstrapping && Boolean(user?.id),
     staleTime: 60_000,
   });
 

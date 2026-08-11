@@ -54,6 +54,7 @@ export class TransactionsRepository {
     };
     amountCents: number;
     currency: string;
+    feePayer: string;
     inviteTokenHash: string;
     inviteExpiresAt: Date;
   }): Promise<TransactionDocument> {
@@ -82,6 +83,7 @@ export class TransactionsRepository {
       conditions: data.conditions,
       amountCents: data.amountCents,
       currency: data.currency,
+      feePayer: data.feePayer,
       inviteTokenHash: data.inviteTokenHash,
       inviteExpiresAt: data.inviteExpiresAt,
       status: TransactionStatus.WAITING_PARTICIPANT,
@@ -185,8 +187,11 @@ export class TransactionsRepository {
       outcome: AuditOutcome.SUCCESS,
       correlationId: saved.code,
       metadata: {
+        code: saved.code,
+        step: 'counterparty_joined',
         role: ParticipantRole.COUNTERPARTY,
         note: note ?? 'join_invite',
+        status: saved.status,
       },
     });
 
@@ -231,7 +236,13 @@ export class TransactionsRepository {
       entityId: String(saved._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: saved.code,
-      metadata: { from, to, note: data.note, code: saved.code },
+      metadata: {
+        code: saved.code,
+        step: 'status_change',
+        from,
+        to,
+        note: data.note,
+      },
     });
 
     return saved;
@@ -242,6 +253,7 @@ export class TransactionsRepository {
     userId: string,
     partyBuyer: TransactionPartyInstructions | undefined,
     operationDeadlineAt: Date,
+    feePayer?: string,
   ): Promise<TransactionDocument> {
     const now = new Date();
     const userOid = new Types.ObjectId(userId);
@@ -265,6 +277,10 @@ export class TransactionsRepository {
       transaction.markModified('party');
     }
 
+    if (feePayer) {
+      transaction.feePayer = feePayer as ITransaction['feePayer'];
+    }
+
     transaction.operationDeadlineAt = operationDeadlineAt;
 
     assertTransition(transaction.status, TransactionStatus.ACCEPTED);
@@ -274,7 +290,7 @@ export class TransactionsRepository {
       status: TransactionStatus.ACCEPTED,
       changedAt: now,
       changedBy: userOid,
-      note: 'Comprador aceptó la compra — acuerdo cerrado, pendiente de fondeo',
+      note: 'Comprador aceptó la compra — acuerdo cerrado, pendiente de pago',
     });
     const saved = await transaction.save();
     const { auditService, AuditAction, AuditOutcome } = await import('../audit');
@@ -286,10 +302,13 @@ export class TransactionsRepository {
       outcome: AuditOutcome.SUCCESS,
       correlationId: saved.code,
       metadata: {
+        code: saved.code,
+        step: 'accept_purchase',
         from,
         to: TransactionStatus.ACCEPTED,
         note: 'accept_purchase',
         participantAdded: !alreadyParticipant,
+        operationDeadlineAt: operationDeadlineAt.toISOString(),
       },
     });
     if (!alreadyParticipant) {
@@ -300,7 +319,11 @@ export class TransactionsRepository {
         entityId: String(saved._id),
         outcome: AuditOutcome.SUCCESS,
         correlationId: saved.code,
-        metadata: { role: ParticipantRole.COUNTERPARTY },
+        metadata: {
+          code: saved.code,
+          step: 'accept_purchase',
+          role: ParticipantRole.COUNTERPARTY,
+        },
       });
     }
     return saved;
@@ -313,6 +336,7 @@ export class TransactionsRepository {
       productId: string;
       amountCents: number;
       currency: string;
+      feePayer: string;
       alreadyParticipant: boolean;
       partySeller?: TransactionPartyInstructions;
       returnInstructions?: string;
@@ -337,6 +361,7 @@ export class TransactionsRepository {
     transaction.product = new Types.ObjectId(data.productId);
     transaction.amountCents = data.amountCents;
     transaction.currency = data.currency;
+    transaction.feePayer = data.feePayer as ITransaction['feePayer'];
     transaction.operationDeadlineAt = data.operationDeadlineAt;
 
     if (data.partySeller) {
@@ -366,11 +391,31 @@ export class TransactionsRepository {
       note:
         to === TransactionStatus.PENDING_BUYER_CONFIRM
           ? 'Vendedor confirmó con cambios — pendiente de reconfirmación del comprador'
-          : 'Vendedor confirmó la venta — acuerdo cerrado, pendiente de fondeo',
+          : 'Vendedor confirmó la venta — acuerdo cerrado, pendiente de pago',
     });
 
     const saved = await transaction.save();
     const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+
+    auditService.track({
+      actor: data.userId,
+      action: AuditAction.UPDATE,
+      entityType: 'Transaction',
+      entityId: String(saved._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: saved.code,
+      metadata: {
+        code: saved.code,
+        step: 'confirm_seller_sale',
+        productId: data.productId,
+        amountCents: data.amountCents,
+        currency: data.currency,
+        hasVariation: Boolean(data.pendingBuyerChanges?.length),
+        changes: data.pendingBuyerChanges,
+        operationDeadlineAt: data.operationDeadlineAt.toISOString(),
+      },
+    });
+
     auditService.track({
       actor: data.userId,
       action: AuditAction.STATUS_CHANGE,
@@ -378,8 +423,31 @@ export class TransactionsRepository {
       entityId: String(saved._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: saved.code,
-      metadata: { from, to, note: 'confirm_seller_sale' },
+      metadata: {
+        code: saved.code,
+        step: 'confirm_seller_sale',
+        from,
+        to,
+        note: 'confirm_seller_sale',
+      },
     });
+
+    if (!data.alreadyParticipant) {
+      auditService.track({
+        actor: data.userId,
+        action: AuditAction.PARTICIPANT_ADDED,
+        entityType: 'Transaction',
+        entityId: String(saved._id),
+        outcome: AuditOutcome.SUCCESS,
+        correlationId: saved.code,
+        metadata: {
+          code: saved.code,
+          step: 'confirm_seller_sale',
+          role: ParticipantRole.COUNTERPARTY,
+        },
+      });
+    }
+
     return saved;
   }
 

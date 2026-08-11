@@ -1,30 +1,24 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
 import { MapPin, Radar } from 'lucide-react';
 
-import { useAgentSearch, useOfferAssignment } from '../hooks/useAgentOps';
+import { useAgentSearch } from '../hooks/useAgentOps';
 import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
 import { formatMoney } from '@/shared/lib/money';
 import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
-import { useAppToast } from '@/shared/ui';
 import '../styles/agent-ops.css';
 
 export function AgentSearchPage() {
   usePreferencesSnapshot();
-  const toast = useAppToast();
   const { distanceUnit } = useUserPreferences();
   // Montevideo por defecto (Mercado Pago Uruguay / MLU)
   const [lng, setLng] = useState(-56.1645);
   const [lat, setLat] = useState(-34.9011);
   const [radiusKm, setRadiusKm] = useState(10);
-  const [txCode, setTxCode] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const search = useAgentSearch({ lng, lat, radiusKm, enabled });
-  const offer = useOfferAssignment();
 
   const items = useMemo(() => search.data?.items ?? [], [search.data?.items]);
 
@@ -32,26 +26,6 @@ export function AgentSearchPage() {
     event.preventDefault();
     setEnabled(true);
     void search.refetch();
-  };
-
-  const onOffer = async () => {
-    setError(null);
-    if (!/^CONF-[A-Z0-9]{6,16}$/i.test(txCode.trim())) {
-      setError('Ingresá un código de operación válido (CONF-…)');
-      return;
-    }
-    try {
-      await offer.mutateAsync({
-        transactionCode: txCode.trim().toUpperCase(),
-        lng,
-        lat,
-        radiusKm,
-        expiresInSeconds: 120,
-      });
-      toast.success('Oferta enviada al mejor agente. Notificación push + WebSocket despachadas.');
-    } catch {
-      setError('No se pudo ofrecer la asignación. Revisá la operación y los agentes.');
-    }
   };
 
   return (
@@ -65,9 +39,6 @@ export function AgentSearchPage() {
             activa.
           </p>
         </div>
-        <Link to="/agente/ofertas" className="btn btn-outline-secondary">
-          Ver ofertas
-        </Link>
       </header>
 
       <section className="ca-agent-ops-panel">
@@ -108,7 +79,7 @@ export function AgentSearchPage() {
         </Form>
       </section>
 
-      {error ? <Alert variant="danger">{error}</Alert> : null}
+      {search.isError ? <Alert variant="danger">No se pudo buscar agentes.</Alert> : null}
 
       <section className="ca-agent-ops-panel">
         <div className="ca-agent-ops-list__row">
@@ -156,28 +127,6 @@ export function AgentSearchPage() {
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="ca-agent-ops-panel">
-        <h3 className="mb-0">Ofrecer asignación</h3>
-        <p className="ca-agent-ops__lead">
-          Envía la oferta al mejor score. Si expira o rechaza, se reasignará automáticamente.
-        </p>
-        <div className="ca-form-actions">
-          <Form.Control
-            style={{ maxWidth: 220 }}
-            placeholder="CONF-XXXXXXXX"
-            value={txCode}
-            onChange={(e) => setTxCode(e.target.value.toUpperCase())}
-          />
-          <Button
-            className="ca-btn-cta"
-            disabled={offer.isPending}
-            onClick={() => void onOffer()}
-          >
-            {offer.isPending ? <Spinner size="sm" animation="border" /> : 'Ofrecer al top agente'}
-          </Button>
-        </div>
       </section>
     </div>
   );

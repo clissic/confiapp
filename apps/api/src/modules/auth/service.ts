@@ -1,9 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import { PlatformRole, UserStatus, type IUser } from '@confiapp/database';
+import { PlatformRole, UserStatus, NotificationChannel, NotificationType, type IUser } from '@confiapp/database';
 import type { HydratedDocument } from 'mongoose';
 import type { CookieOptions, Request, Response } from 'express';
 
+import {
+  buildBrandedEmail,
+  emailParagraphs,
+} from '../../infrastructure/email/email-layout';
 import { emailSender } from '../../infrastructure/email/email.sender';
 import {
   getRefreshExpiresAt,
@@ -25,6 +29,7 @@ import {
   AuditOutcome,
   auditService,
 } from '../audit';
+import { notificationsService } from '../notifications/service';
 
 import type { AuthSessionDto, AuthUserDto, MessageDto } from './dto';
 import { AuthRepository, type UserDocument } from './repository';
@@ -124,7 +129,8 @@ export class AuthService {
     email: string;
     password: string;
     fullName: string;
-    phone?: string;
+    documentNumber: string;
+    phone: string;
   }): Promise<{ user: AuthUserDto; message: string; needsVerification: true }> {
     const existing = await this.repository.findByEmail(input.email);
     if (existing) {
@@ -137,8 +143,9 @@ export class AuthService {
     const user = await this.repository.createUser({
       email: input.email.toLowerCase(),
       passwordHash,
-      fullName: input.fullName,
-      phone: input.phone,
+      fullName: input.fullName.trim().replace(/\s+/g, ' '),
+      phone: input.phone.trim(),
+      documentNumber: input.documentNumber.trim(),
       emailVerificationTokenHash: hashToken(verificationToken),
       emailVerificationExpires: new Date(Date.now() + VERIFY_TTL_MS),
     });
@@ -372,12 +379,23 @@ export class AuthService {
       outcome: AuditOutcome.SUCCESS,
     });
 
+    await notificationsService.notify({
+      userId,
+      type: NotificationType.SYSTEM,
+      title: 'Contraseña actualizada',
+      body: 'Tu contraseña de ConfiApp se cambió correctamente. Si no fuiste vos, recuperá el acceso de inmediato.',
+      data: { href: '/perfil' },
+      entityType: 'User',
+      entityId: userId,
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+    });
+
     return { message: 'Password changed successfully' };
   }
 
   async forgotPassword(email: string): Promise<MessageDto> {
     const generic = {
-      message: 'If an account exists for that email, a reset link was sent.',
+      message: 'Si existe una cuenta con ese email, enviamos un enlace para restablecer la contraseña.',
     };
 
     const user = await this.repository.findByEmail(email);
@@ -391,11 +409,21 @@ export class AuthService {
     await this.repository.saveUser(user);
 
     const resetUrl = `${env.APP_URL}/reset-password?token=${token}`;
+    const branded = buildBrandedEmail({
+      title: 'Restablecé tu contraseña',
+      preheader: 'El enlace vence en 1 hora.',
+      bodyHtml: emailParagraphs(
+        'Pediste restablecer tu contraseña en ConfiApp.\n\nEl enlace vence en 1 hora. Si no fuiste vos, ignorá este mensaje.',
+      ),
+      cta: { label: 'Restablecer contraseña', href: resetUrl },
+      footnote: 'Por seguridad, este enlace solo funciona una vez.',
+    });
     await emailSender.send({
       to: user.email,
-      subject: 'ConfiApp — Password reset',
-      text: `Reset your password (expires in 1 hour): ${resetUrl}`,
-      html: `<p>Reset your password (expires in 1 hour):</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+      subject: 'ConfiApp — Restablecé tu contraseña',
+      text: `Pediste restablecer tu contraseña. El enlace vence en 1 hora:\n\n${resetUrl}\n\nSi no fuiste vos, ignorá este mensaje.`,
+      html: branded.html,
+      attachments: branded.attachments,
     });
 
     return generic;
@@ -422,6 +450,17 @@ export class AuthService {
       entityType: 'User',
       entityId: String(user._id),
       outcome: AuditOutcome.SUCCESS,
+    });
+
+    await notificationsService.notify({
+      userId: String(user._id),
+      type: NotificationType.SYSTEM,
+      title: 'Contraseña restablecida',
+      body: 'Tu contraseña se restableció correctamente. Si no fuiste vos, contactá soporte.',
+      data: { href: '/ingresar' },
+      entityType: 'User',
+      entityId: String(user._id),
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
     });
 
     return { message: 'Password reset successfully' };
@@ -453,12 +492,12 @@ export class AuthService {
       outcome: AuditOutcome.SUCCESS,
     });
 
-    return { message: 'Email verified successfully' };
+    return { message: 'Tu email quedó confirmado. Ya podés ingresar a ConfiApp.' };
   }
 
   async resendVerification(email: string): Promise<MessageDto> {
     const generic = {
-      message: 'If an unverified account exists for that email, a link was sent.',
+      message: 'Si hay una cuenta sin verificar con ese email, enviamos un nuevo enlace.',
     };
 
     const user = await this.repository.findByEmail(email);
@@ -485,6 +524,15 @@ export class AuthService {
 
   private async sendVerificationEmail(email: string, token: string): Promise<void> {
     const verifyUrl = `${env.APP_URL}/verificar-email?token=${encodeURIComponent(token)}`;
+    const branded = buildBrandedEmail({
+      title: 'Confirmá tu email',
+      preheader: 'Activá tu cuenta de ConfiApp para empezar a operar.',
+      bodyHtml: emailParagraphs(
+        'Gracias por registrarte en ConfiApp.\n\nTocá el botón para activar tu cuenta y poder ingresar.',
+      ),
+      cta: { label: 'Confirmar email', href: verifyUrl },
+      footnote: 'El enlace vence en 24 horas. Si no creaste esta cuenta, ignorá este mensaje.',
+    });
     await emailSender.send({
       to: email,
       subject: 'ConfiApp — Confirmá tu email',
@@ -496,20 +544,8 @@ export class AuthService {
         '',
         'El enlace vence en 24 horas. Si no creaste esta cuenta, ignorá este mensaje.',
       ].join('\n'),
-      html: `
-        <div style="font-family:sans-serif;line-height:1.5;color:#0f172a">
-          <h2 style="color:#01285d;margin:0 0 12px">Confirmá tu email</h2>
-          <p>Gracias por registrarte en <strong>ConfiApp</strong>. Tocá el botón para activar tu cuenta:</p>
-          <p style="margin:24px 0">
-            <a href="${verifyUrl}"
-               style="display:inline-block;background:#01285d;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">
-              Confirmar email
-            </a>
-          </p>
-          <p style="font-size:14px;color:#64748b">O abrí este enlace:<br/><a href="${verifyUrl}">${verifyUrl}</a></p>
-          <p style="font-size:13px;color:#94a3b8">El enlace vence en 24 horas. Si no creaste esta cuenta, ignorá este mensaje.</p>
-        </div>
-      `,
+      html: branded.html,
+      attachments: branded.attachments,
     });
   }
 }

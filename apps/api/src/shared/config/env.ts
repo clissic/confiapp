@@ -45,10 +45,15 @@ const envSchema = z.object({
   MERCADOPAGO_SITE_ID: z.string().default('MLU'),
   /** Moneda por defecto de la app. */
   PAYMENTS_DEFAULT_CURRENCY: z.enum(['UYU', 'USD']).default('UYU'),
-  /** Comisión plataforma en basis points (2000 = 20%). */
+  /**
+   * UYU por 1 USD — clasificar escalones de comisión de agente cuando el monto
+   * de la operación no está en USD.
+   */
+  USD_UYU_RATE: z.coerce.number().positive().default(40),
+  /** % de la comisión de intermediación para la plataforma (2000 = 20%). */
   PAYMENTS_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
-  /** Pago al agente en basis points sobre el bruto (500 = 5% ejemplo). */
-  PAYMENTS_AGENT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(500),
+  /** % de la comisión de intermediación para el agente (8000 = 80%). */
+  PAYMENTS_AGENT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(8000),
   /** SMTP — si SMTP_HOST está vacío, se usa el mailer de consola (dev). */
   SMTP_HOST: z.string().optional().default(''),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

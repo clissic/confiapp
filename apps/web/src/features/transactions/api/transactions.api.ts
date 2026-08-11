@@ -91,6 +91,7 @@ function createDemoTransaction(payload: CreateTransactionPayload): Transaction {
     },
     amountCents: Math.round(payload.amount * 100),
     currency: payload.currency ?? 'UYU',
+    feePayer: payload.feePayer,
     meetingLocation,
     party: {
       buyer: {
@@ -465,7 +466,7 @@ function applyAcceptPurchaseDemo(
       {
         status: 'ACCEPTED',
         changedAt: now,
-        note: 'Comprador aceptó la compra — acuerdo cerrado, pendiente de fondeo',
+        note: 'Comprador aceptó la compra — acuerdo cerrado, pendiente de pago',
       },
     ],
     updatedAt: now,
@@ -612,7 +613,7 @@ function applyConfirmSaleDemo(
       {
         status: 'ACCEPTED',
         changedAt: now,
-        note: 'Vendedor confirmó la venta — acuerdo cerrado, pendiente de fondeo',
+        note: 'Vendedor confirmó la venta — acuerdo cerrado, pendiente de pago',
       },
     ],
     updatedAt: now,

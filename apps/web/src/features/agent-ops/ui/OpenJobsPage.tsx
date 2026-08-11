@@ -1,17 +1,40 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import {
+  Alert,
+  Badge,
+  Button,
+  Form,
+  OverlayTrigger,
+  Popover,
+  Spinner,
+} from 'react-bootstrap';
 import { motion } from 'framer-motion';
-import { BriefcaseBusiness, MapPin, Star } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { BriefcaseBusiness, CircleHelp, MapPin, Star } from 'lucide-react';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Circle,
+  useMap,
+  useMapEvents,
+} from 'react-leaflet';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
+import {
+  AGENT_FEE_TIERS,
+  amountCentsToUsd,
+  commissionForProductUsd,
+  formatFeeTierPopoverLine,
+  formatFeeTierSelectLabel,
+} from '@confiapp/shared';
 
 import { useAcceptOpenJob, useOpenJobs } from '../hooks/useAgentOps';
-import type { OpenJob } from '../model/open-jobs.types';
+import type { OpenJob, OpenJobsFilters } from '../model/open-jobs.types';
 import '../styles/agent-ops.css';
 import '../styles/open-jobs.css';
 
@@ -28,6 +51,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const MONTEVIDEO: [number, number] = [-34.9011, -56.1645];
+
 function MapFocus({
   center,
   zoom,
@@ -42,45 +67,114 @@ function MapFocus({
   return null;
 }
 
+function MapClickHandler({
+  onPick,
+}: {
+  onPick: (lat: number, lng: number) => void;
+}) {
+  useMapEvents({
+    click(event) {
+      onPick(event.latlng.lat, event.latlng.lng);
+    },
+  });
+  return null;
+}
+
+function CommissionHelpPopover() {
+  return (
+    <Popover id="ca-open-jobs-commission-help">
+      <Popover.Header as="h3">Tarifas de intermediación</Popover.Header>
+      <Popover.Body>
+        <ul className="ca-open-jobs__fee-list mb-0">
+          {AGENT_FEE_TIERS.map((tier) => (
+            <li key={tier.commissionUsd}>{formatFeeTierPopoverLine(tier)}</li>
+          ))}
+        </ul>
+      </Popover.Body>
+    </Popover>
+  );
+}
+
 export function OpenJobsPage() {
   usePreferencesSnapshot();
   const toast = useAppToast();
   const navigate = useNavigate();
   const { distanceUnit } = useUserPreferences();
-  const [lng, setLng] = useState(-56.1645);
-  const [lat, setLat] = useState(-34.9011);
+
+  const [pinLng, setPinLng] = useState(MONTEVIDEO[1]);
+  const [pinLat, setPinLat] = useState(MONTEVIDEO[0]);
   const [radiusKm, setRadiusKm] = useState(15);
-  const [minPay, setMinPay] = useState(0);
+  const [minCommissionUsd, setMinCommissionUsd] = useState<number | ''>('');
   const [minBuyerRating, setMinBuyerRating] = useState(0);
+  const [maxBuyerRating, setMaxBuyerRating] = useState(5);
   const [minSellerRating, setMinSellerRating] = useState(0);
-  const [maxDistanceKm, setMaxDistanceKm] = useState(15);
+  const [maxSellerRating, setMaxSellerRating] = useState(5);
+
+  const [applied, setApplied] = useState<OpenJobsFilters>(() => ({
+    lng: MONTEVIDEO[1],
+    lat: MONTEVIDEO[0],
+    radiusKm: 15,
+  }));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filterError, setFilterError] = useState<string | null>(null);
 
-  const filters = useMemo(
-    () => ({
-      lng,
-      lat,
-      radiusKm,
-      minPay: minPay > 0 ? minPay : undefined,
-      minBuyerRating: minBuyerRating > 0 ? minBuyerRating : undefined,
-      minSellerRating: minSellerRating > 0 ? minSellerRating : undefined,
-      maxDistanceKm,
-    }),
-    [lng, lat, radiusKm, minPay, minBuyerRating, minSellerRating, maxDistanceKm],
-  );
-
-  const { data, isFetching, isError, refetch } = useOpenJobs(filters);
+  const { data, isFetching, isError } = useOpenJobs(applied);
   const accept = useAcceptOpenJob();
 
   const items = data?.items ?? [];
   const selected = items.find((job) => job.id === selectedId) ?? items[0] ?? null;
 
   useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lng = Number(pos.coords.longitude.toFixed(5));
+        const lat = Number(pos.coords.latitude.toFixed(5));
+        setPinLng(lng);
+        setPinLat(lat);
+        setApplied((prev) => ({ ...prev, lng, lat }));
+      },
+      () => {
+        /* Mantener Montevideo */
+      },
+      { maximumAge: 60_000, timeout: 8_000 },
+    );
+  }, []);
+
+  useEffect(() => {
     if (selected && selectedId !== selected.id) {
       setSelectedId(selected.id);
     }
   }, [selected, selectedId]);
+
+  const radiusDisplay = useMemo(
+    () => Number(fromKm(radiusKm, distanceUnit).toFixed(2)),
+    [radiusKm, distanceUnit],
+  );
+
+  const onApplyFilters = () => {
+    if (minBuyerRating > maxBuyerRating) {
+      setFilterError('La calificación mín. del comprador no puede superar la máx.');
+      return;
+    }
+    if (minSellerRating > maxSellerRating) {
+      setFilterError('La calificación mín. del vendedor no puede superar la máx.');
+      return;
+    }
+    setFilterError(null);
+    setError(null);
+    setApplied({
+      lng: pinLng,
+      lat: pinLat,
+      radiusKm,
+      minCommissionUsd: minCommissionUsd === '' ? undefined : minCommissionUsd,
+      minBuyerRating: minBuyerRating > 0 ? minBuyerRating : undefined,
+      maxBuyerRating: maxBuyerRating < 5 ? maxBuyerRating : undefined,
+      minSellerRating: minSellerRating > 0 ? minSellerRating : undefined,
+      maxSellerRating: maxSellerRating < 5 ? maxSellerRating : undefined,
+    });
+  };
 
   const onAccept = async (job: OpenJob) => {
     setError(null);
@@ -100,11 +194,17 @@ export function OpenJobsPage() {
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLng(Number(pos.coords.longitude.toFixed(5)));
-        setLat(Number(pos.coords.latitude.toFixed(5)));
+        setPinLng(Number(pos.coords.longitude.toFixed(5)));
+        setPinLat(Number(pos.coords.latitude.toFixed(5)));
       },
       () => setError('No se pudo obtener tu ubicación'),
     );
+  };
+
+  const estimatedCommissionLabel = (job: OpenJob) => {
+    const usd = amountCentsToUsd(job.amountCents, job.currency);
+    const fee = commissionForProductUsd(usd);
+    return `Comisión ~ USD $${fee}`;
   };
 
   return (
@@ -114,95 +214,148 @@ export function OpenJobsPage() {
           <p className="ca-agent-ops__kicker">Agente</p>
           <h2 className="ca-agent-ops__title">Trabajos abiertos</h2>
           <p className="ca-agent-ops__lead">
-            Mapa y listado de operaciones sin intermediario. Filtrá por distancia, pago y
-            calificaciones.
+            Poné el pin en el mapa, elegí el radio y filtrá por comisión y calificaciones.
           </p>
         </div>
-        <div className="d-flex gap-2 flex-wrap">
-          <Badge bg="light" text="dark">
-            {items.length}
-          </Badge>
-          <Link to="/agente/ofertas" className="btn btn-outline-secondary">
-            Ofertas
-          </Link>
-        </div>
+        <Badge bg="light" text="dark">
+          {items.length}
+        </Badge>
       </header>
 
       <section className="ca-agent-ops-panel">
         <h3 className="mb-0">Filtros</h3>
-        <Form className="ca-open-jobs__filters">
-          <Form.Group>
-            <Form.Label>Lng</Form.Label>
-            <Form.Control
-              type="number"
-              step="0.0001"
-              value={lng}
-              onChange={(e) => setLng(Number(e.target.value))}
-            />
-          </Form.Group>
-          <Form.Group>
-            <Form.Label>Lat</Form.Label>
-            <Form.Control
-              type="number"
-              step="0.0001"
-              value={lat}
-              onChange={(e) => setLat(Number(e.target.value))}
-            />
-          </Form.Group>
+        <Form
+          className="ca-open-jobs__filters"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onApplyFilters();
+          }}
+        >
           <Form.Group>
             <Form.Label>Radio ({distanceUnitLabel(distanceUnit)})</Form.Label>
             <Form.Control
               type="number"
               min={1}
               max={distanceUnit === 'MI' ? 62 : 100}
-              value={Number(fromKm(radiusKm, distanceUnit).toFixed(2))}
+              step={0.5}
+              value={radiusDisplay}
               onChange={(e) => {
-                const value = toKm(Number(e.target.value), distanceUnit);
-                setRadiusKm(value);
-                setMaxDistanceKm(value);
+                setRadiusKm(toKm(Number(e.target.value), distanceUnit));
               }}
             />
           </Form.Group>
+
           <Form.Group>
-            <Form.Label>Pago mín.</Form.Label>
-            <Form.Control
-              type="number"
-              min={0}
-              value={minPay}
-              onChange={(e) => setMinPay(Number(e.target.value))}
-            />
+            <Form.Label className="ca-open-jobs__label-with-help">
+              <span>Comisión mín.</span>
+              <OverlayTrigger
+                trigger={['click', 'focus']}
+                placement="auto"
+                overlay={<CommissionHelpPopover />}
+                rootClose
+              >
+                <button
+                  type="button"
+                  className="ca-open-jobs__help-btn"
+                  aria-label="Ver tarifas de comisión"
+                >
+                  <CircleHelp size={16} strokeWidth={1.75} />
+                </button>
+              </OverlayTrigger>
+            </Form.Label>
+            <Form.Select
+              value={minCommissionUsd === '' ? '' : String(minCommissionUsd)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setMinCommissionUsd(raw === '' ? '' : Number(raw));
+              }}
+            >
+              <option value="">Cualquiera</option>
+              {AGENT_FEE_TIERS.map((tier) => (
+                <option key={tier.commissionUsd} value={tier.commissionUsd}>
+                  {formatFeeTierSelectLabel(tier)}
+                </option>
+              ))}
+            </Form.Select>
           </Form.Group>
-          <Form.Group>
-            <Form.Label>★ Comprador</Form.Label>
-            <Form.Control
-              type="number"
-              min={0}
-              max={5}
-              step={0.1}
-              value={minBuyerRating}
-              onChange={(e) => setMinBuyerRating(Number(e.target.value))}
-            />
+
+          <Form.Group className="ca-open-jobs__rating-group">
+            <Form.Label>
+              <Star size={14} className="me-1" aria-hidden />
+              Comprador
+            </Form.Label>
+            <div className="ca-open-jobs__rating-range">
+              <Form.Control
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={minBuyerRating}
+                aria-label="Calificación mínima comprador"
+                onChange={(e) => setMinBuyerRating(Number(e.target.value))}
+              />
+              <span className="ca-open-jobs__rating-sep" aria-hidden>
+                –
+              </span>
+              <Form.Control
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={maxBuyerRating}
+                aria-label="Calificación máxima comprador"
+                onChange={(e) => setMaxBuyerRating(Number(e.target.value))}
+              />
+            </div>
           </Form.Group>
-          <Form.Group>
-            <Form.Label>★ Vendedor</Form.Label>
-            <Form.Control
-              type="number"
-              min={0}
-              max={5}
-              step={0.1}
-              value={minSellerRating}
-              onChange={(e) => setMinSellerRating(Number(e.target.value))}
-            />
+
+          <Form.Group className="ca-open-jobs__rating-group">
+            <Form.Label>
+              <Star size={14} className="me-1" aria-hidden />
+              Vendedor
+            </Form.Label>
+            <div className="ca-open-jobs__rating-range">
+              <Form.Control
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={minSellerRating}
+                aria-label="Calificación mínima vendedor"
+                onChange={(e) => setMinSellerRating(Number(e.target.value))}
+              />
+              <span className="ca-open-jobs__rating-sep" aria-hidden>
+                –
+              </span>
+              <Form.Control
+                type="number"
+                min={0}
+                max={5}
+                step={0.1}
+                value={maxSellerRating}
+                aria-label="Calificación máxima vendedor"
+                onChange={(e) => setMaxSellerRating(Number(e.target.value))}
+              />
+            </div>
           </Form.Group>
+
           <div className="ca-form-actions align-self-end">
             <Button type="button" variant="outline-secondary" onClick={useMyLocation}>
               Mi ubicación
             </Button>
-            <Button type="button" className="ca-btn-primary" onClick={() => void refetch()}>
+            <Button type="submit" className="ca-btn-primary">
               Aplicar
             </Button>
           </div>
         </Form>
+        {filterError ? (
+          <Alert variant="warning" className="mb-0 mt-2">
+            {filterError}
+          </Alert>
+        ) : null}
+        <p className="ca-open-jobs__hint mb-0 mt-2">
+          Tocá el mapa para mover el pin de búsqueda. El círculo muestra el radio.
+        </p>
       </section>
 
       {error || isError ? (
@@ -212,23 +365,40 @@ export function OpenJobsPage() {
       <div className="ca-open-jobs__layout">
         <section className="ca-open-jobs__map ca-agent-ops-panel">
           <MapContainer
-            center={[lat, lng]}
+            center={[pinLat, pinLng]}
             zoom={12}
             scrollWheelZoom
             className="ca-open-jobs__map-canvas"
           >
-            <MapFocus center={[lat, lng]} zoom={12} />
+            <MapFocus center={[pinLat, pinLng]} zoom={12} />
+            <MapClickHandler
+              onPick={(lat, lng) => {
+                setPinLat(Number(lat.toFixed(5)));
+                setPinLng(Number(lng.toFixed(5)));
+              }}
+            />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <Circle
-              center={[lat, lng]}
+              center={[pinLat, pinLng]}
               radius={radiusKm * 1000}
               pathOptions={{ color: '#01285D', fillColor: '#55C5B5', fillOpacity: 0.12 }}
             />
-            <Marker position={[lat, lng]}>
-              <Popup>Tu posición de búsqueda</Popup>
+            <Marker
+              position={[pinLat, pinLng]}
+              draggable
+              eventHandlers={{
+                dragend: (event) => {
+                  const marker = event.target as L.Marker;
+                  const { lat, lng } = marker.getLatLng();
+                  setPinLat(Number(lat.toFixed(5)));
+                  setPinLng(Number(lng.toFixed(5)));
+                },
+              }}
+            >
+              <Popup>Punto de búsqueda — arrastrá o tocá el mapa</Popup>
             </Marker>
             {items.map((job) => (
               <Marker
@@ -280,12 +450,17 @@ export function OpenJobsPage() {
                   >
                     <div className="ca-agent-ops-list__row">
                       <strong>{job.title}</strong>
-                      <Badge bg="primary">{formatOperationMoney(job.amountCents, job.currency)}</Badge>
+                      <Badge bg="primary">
+                        {formatOperationMoney(job.amountCents, job.currency)}
+                      </Badge>
                     </div>
                     <div className="ca-agent-ops-list__meta">
                       <MapPin size={14} className="me-1" />
                       {formatDistance(job.distanceKm, distanceUnit, 2)} ·{' '}
                       {job.meeting.label || job.code}
+                    </div>
+                    <div className="ca-open-jobs__commission-hint">
+                      {estimatedCommissionLabel(job)}
                     </div>
                     <div className="ca-open-jobs__ratings">
                       <span>

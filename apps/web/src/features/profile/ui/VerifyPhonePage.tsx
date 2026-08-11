@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Smartphone } from 'lucide-react';
 
 import { setLocalVerifiedPhone } from '../model/phone-verification';
+import { useAuth } from '@/features/auth/ui/AuthProvider';
 
 import '../styles/profile.css';
 
@@ -24,6 +25,7 @@ function formatCountdown(totalSeconds: number): string {
 export function VerifyPhonePage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const phone = (location.state as VerifyPhoneLocationState | null)?.phone?.trim() || null;
 
   const [digits, setDigits] = useState<string[]>(() => Array(CODE_LENGTH).fill(''));
@@ -90,7 +92,7 @@ export function VerifyPhonePage() {
     event.preventDefault();
     // Stub: no hay envío al backend; solo marca el número como verificado en esta sesión.
     if (!canVerify) return;
-    if (phone) setLocalVerifiedPhone(phone);
+    if (phone && user?.id) setLocalVerifiedPhone(user.id, phone);
     navigate('/perfil?tab=settings');
   };
 

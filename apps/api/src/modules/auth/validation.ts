@@ -14,12 +14,24 @@ const strongPassword = z
 export const registerBodySchema = z.object({
   email: z.string().email().max(320),
   password: strongPassword,
-  fullName: z.string().trim().min(2).max(120),
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'El nombre completo debe tener al menos 2 caracteres')
+    .max(120, 'El nombre completo es demasiado largo'),
+  documentNumber: z
+    .string()
+    .trim()
+    .min(5, 'Documento demasiado corto')
+    .max(32, 'Documento demasiado largo')
+    .regex(
+      /^[A-Za-z0-9][A-Za-z0-9.\-\s/]*$/,
+      'Usá solo letras, números y separadores (. - /)',
+    ),
   phone: z
     .string()
     .trim()
-    .regex(/^\+?[0-9\s()-]{7,32}$/)
-    .optional(),
+    .regex(/^\+?[0-9\s()-]{7,32}$/, 'Teléfono inválido'),
 });
 
 export const loginBodySchema = z.object({

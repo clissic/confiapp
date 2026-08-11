@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
 import {
+  FeePayer,
   ProductCategory,
   ProductCondition,
 } from '@confiapp/database';
 
+const feePayerSchema = z.nativeEnum(FeePayer);
 const appCurrencySchema = z
   .string()
   .trim()
@@ -77,6 +79,7 @@ export const createTransactionBodySchema = z
     description: z.string().trim().max(5000).optional(),
     amount: z.coerce.number().positive('El monto debe ser mayor a 0').max(100_000_000),
     currency: appCurrencySchema.default('UYU'),
+    feePayer: feePayerSchema,
     inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
     productTitle: z.string().trim().min(3).max(200),
     productDescription: z.string().trim().min(10).max(10_000),
@@ -89,6 +92,7 @@ export const createSellerTransactionBodySchema = z
   .object({
     title: z.string().trim().min(3).max(200),
     description: z.string().trim().max(5000).optional(),
+    feePayer: feePayerSchema,
     inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
     returnInstructions: z
       .string()
@@ -103,6 +107,7 @@ export const createSellerTransactionBodySchema = z
 
 export const confirmSaleBodySchema = productPayloadSchema
   .extend({
+    feePayer: feePayerSchema,
     returnInstructions: z
       .string()
       .trim()
@@ -115,6 +120,7 @@ export const confirmSaleBodySchema = productPayloadSchema
 
 export const acceptPurchaseBodySchema = agentInstructionsFieldsSchema
   .extend({
+    feePayer: feePayerSchema.optional(),
     productTitle: z.string().trim().min(3).max(200).optional(),
     productDescription: z.string().trim().min(10).max(10_000).optional(),
   })

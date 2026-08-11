@@ -88,39 +88,51 @@ export function NotificationsInboxPage() {
                 className={`ca-notifications__item${unreadItem ? ' ca-notifications__item--unread' : ''}`}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
+                transition={{ delay: Math.min(index * 0.03, 0.24) }}
               >
-                <div className="ca-notifications__row">
-                  <strong>{n.title}</strong>
-                  <Badge bg="secondary" className="ca-notifications__type">
+                <div className="ca-notifications__main">
+                  <div className="ca-notifications__row">
+                    <div className="ca-notifications__heading">
+                      {unreadItem ? (
+                        <span className="ca-notifications__dot" aria-hidden />
+                      ) : null}
+                      <p className="ca-notifications__title-text">{n.title}</p>
+                    </div>
+                  </div>
+                  <p className="ca-notifications__body">{n.body}</p>
+                </div>
+
+                <div className="ca-notifications__aside">
+                  <Badge bg="secondary" pill className="ca-notifications__type">
                     {TYPE_LABELS[n.type] ?? n.type}
                   </Badge>
-                </div>
-                <p className="ca-notifications__body">{n.body}</p>
-                <div className="ca-notifications__meta">
-                  <time dateTime={n.createdAt}>{formatDateTime(n.createdAt)}</time>
-                  <div className="ca-notifications__actions">
-                    {href ? (
-                      <Link
-                        to={href}
-                        className="ca-notifications__link"
-                        onClick={() => {
-                          if (unreadItem) void markRead.mutateAsync(n.id);
-                        }}
-                      >
-                        Abrir
-                      </Link>
-                    ) : null}
-                    {unreadItem ? (
-                      <button
-                        type="button"
-                        className="ca-notifications__mark"
-                        disabled={markRead.isPending}
-                        onClick={() => void markRead.mutateAsync(n.id)}
-                      >
-                        Marcar leída
-                      </button>
-                    ) : null}
+                  <div className="ca-notifications__footer">
+                    <time className="ca-notifications__time" dateTime={n.createdAt}>
+                      {formatDateTime(n.createdAt)}
+                    </time>
+                    <div className="ca-notifications__actions">
+                      {href ? (
+                        <Link
+                          to={href}
+                          className="ca-notifications__link"
+                          onClick={() => {
+                            if (unreadItem) void markRead.mutateAsync(n.id);
+                          }}
+                        >
+                          Abrir
+                        </Link>
+                      ) : null}
+                      {unreadItem ? (
+                        <button
+                          type="button"
+                          className="ca-notifications__mark"
+                          disabled={markRead.isPending}
+                          onClick={() => void markRead.mutateAsync(n.id)}
+                        >
+                          Marcar leída
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </motion.li>

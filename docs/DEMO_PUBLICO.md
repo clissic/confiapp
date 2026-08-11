@@ -2,6 +2,8 @@
 
 Exponé la versión de **desarrollo** a un cliente con una sola URL HTTPS, sin deploy.
 
+Documentación general del repo: [`README.md`](../README.md) · producto web: [`WEB_APP.md`](./WEB_APP.md).
+
 En `vite`/`pnpm` el front usa **same-origin automático**: Local, link Network (IP LAN) y túneles funcionan sin cambiar IPs en `.env`. En producción el build usa `VITE_API_URL` absoluta del backend; este flujo no aplica.
 
 El front (Vite `:3001`) proxyea la API (`:3000`). El túnel solo apunta al front.

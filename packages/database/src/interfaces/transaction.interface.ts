@@ -1,6 +1,7 @@
 import type { Types } from 'mongoose';
 
 import type {
+  FeePayer,
   ParticipantRole,
   ParticipantStatus,
   TransactionInitiator,
@@ -96,6 +97,8 @@ export interface ITransaction {
   amountCents?: number;
   /** ISO 4217 */
   currency?: string;
+  /** Quién asume la comisión de intermediación. */
+  feePayer?: FeePayer;
   /** Hash del token de invitación compartible (nunca en claro). */
   inviteTokenHash?: string;
   inviteExpiresAt?: Date;

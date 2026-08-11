@@ -1,5 +1,6 @@
 import {
   NotificationActionStatus,
+  NotificationChannel,
   NotificationType,
   ParticipantRole,
   ParticipantStatus,
@@ -12,6 +13,7 @@ import { NotificationModel, TransactionModel } from '../../database/models';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { realtimeServer } from '../../infrastructure/realtime/socket-realtime.server';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
+import { notificationsService } from '../notifications/service';
 
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { AgentSearchRepository, type AgentSearchHit } from './search.repository';
@@ -179,6 +181,8 @@ export class AgentAssignmentService {
       outcome: AuditOutcome.SUCCESS,
       correlationId: tx.code,
       metadata: {
+        code: tx.code,
+        step: 'agent_offered',
         agentId: agent.id,
         notificationId: String(notification._id),
         expiresAt: expiresAt.toISOString(),
@@ -275,23 +279,65 @@ export class AgentAssignmentService {
       transactionCode: tx.code,
     });
 
+    const partyUserIds = [
+      String(tx.createdBy),
+      ...tx.participants
+        .filter(
+          (p) =>
+            p.role !== ParticipantRole.INTERMEDIARY &&
+            p.status === ParticipantStatus.ACCEPTED &&
+            p.user,
+        )
+        .map((p) => String(p.user)),
+    ].filter((id, idx, arr) => id !== userId && arr.indexOf(id) === idx);
+
+    await Promise.all(
+      partyUserIds.map((uid) =>
+        notificationsService.notify({
+          userId: uid,
+          type: NotificationType.TRANSACTION_UPDATE,
+          title: 'Ya tenés agente asignado',
+          body: `Un agente aceptó mediar la operación ${tx.code}.`,
+          data: {
+            href: `/operaciones/${tx.code}`,
+            code: tx.code,
+            status: tx.status,
+          },
+          entityType: 'Transaction',
+          entityId: String(tx._id),
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        }),
+      ),
+    );
+
     auditService.track({
       actor: userId,
+      actorRole: ParticipantRole.INTERMEDIARY,
       action: AuditAction.AGENT_ACCEPTED,
       entityType: 'Transaction',
       entityId: String(tx._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: tx.code,
-      metadata: { notificationId: String(notification._id), source: 'offer' },
+      metadata: {
+        code: tx.code,
+        step: 'agent_accept_offer',
+        notificationId: String(notification._id),
+        source: 'offer',
+      },
     });
     auditService.track({
       actor: userId,
+      actorRole: ParticipantRole.INTERMEDIARY,
       action: AuditAction.PARTICIPANT_ADDED,
       entityType: 'Transaction',
       entityId: String(tx._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: tx.code,
-      metadata: { role: ParticipantRole.INTERMEDIARY },
+      metadata: {
+        code: tx.code,
+        step: 'agent_accept_offer',
+        role: ParticipantRole.INTERMEDIARY,
+      },
     });
 
     return this.toDto(notification);
@@ -326,6 +372,8 @@ export class AgentAssignmentService {
       entityId: String(notification._id),
       outcome: AuditOutcome.SUCCESS,
       metadata: {
+        code: notification.entityId ? String(notification.entityId) : undefined,
+        step: 'agent_rejected',
         transactionId: notification.entityId ? String(notification.entityId) : undefined,
       },
     });

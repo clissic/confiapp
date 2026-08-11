@@ -102,12 +102,40 @@ describe('notifications/resolve-delivery', () => {
     }
   });
 
-  it('no envía email de seguridad si email === false', () => {
-    const result = resolveDelivery(
-      { email: false, inApp: false, push: false },
-      NotificationType.SYSTEM,
-      [],
+  it('TRANSACTION_UPDATE y PAYMENT agregan EMAIL aunque el caller no lo pida', () => {
+    const tx = resolveDelivery(
+      { transactionUpdates: true, inApp: true, push: true, email: true },
+      NotificationType.TRANSACTION_UPDATE,
+      [NotificationChannel.IN_APP, NotificationChannel.PUSH],
     );
-    expect(result).toEqual({ skip: true, reason: 'no_channels' });
+    expect(tx.skip).toBe(false);
+    if (!tx.skip) {
+      expect(tx.channels).toContain(NotificationChannel.EMAIL);
+    }
+
+    const pay = resolveDelivery(
+      { paymentAlerts: true, inApp: true, push: false, email: true },
+      NotificationType.PAYMENT,
+      [NotificationChannel.IN_APP],
+    );
+    expect(pay.skip).toBe(false);
+    if (!pay.skip) {
+      expect(pay.channels).toEqual([
+        NotificationChannel.IN_APP,
+        NotificationChannel.EMAIL,
+      ]);
+    }
+  });
+
+  it('MESSAGE no fuerza EMAIL', () => {
+    const result = resolveDelivery(
+      { messageAlerts: true, inApp: true, push: true, email: true },
+      NotificationType.MESSAGE,
+      [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+    );
+    expect(result.skip).toBe(false);
+    if (!result.skip) {
+      expect(result.channels).not.toContain(NotificationChannel.EMAIL);
+    }
   });
 });

@@ -174,6 +174,8 @@ function formatDetails(details: ApiErrorBody['details'] | undefined): string | n
           }
           if (field === 'email') return `Email: ${msg}`;
           if (field === 'fullName') return `Nombre: ${msg}`;
+          if (field === 'documentNumber') return `Documento: ${msg}`;
+          if (field === 'phone') return `Teléfono: ${msg}`;
           return humanizeValidationMessage(field, msg);
         }),
       )

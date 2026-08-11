@@ -1,4 +1,6 @@
 import {
+  NotificationChannel,
+  NotificationType,
   ParticipantRole,
   ParticipantStatus,
   PaymentProvider,
@@ -29,10 +31,30 @@ import { assertTransition } from '../transactions/state-machine';
 import { assertNotPastDeadline } from '../transactions/operation-deadline';
 import { walletLedger } from '../wallet/service';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
-import { computeEscrowSplit, type EscrowSplit } from './split';
+import { notificationsService } from '../notifications/service';
+import {
+  computeEscrowSplit,
+  IntermediationFeeError,
+  type EscrowSplit,
+  type FeePayer,
+} from './split';
 
 export type PaymentDocument = HydratedDocument<IPayment>;
 type TransactionDocument = HydratedDocument<ITransaction>;
+
+function feesAuditMeta(split: EscrowSplit) {
+  return {
+    feePayer: split.feePayer,
+    productCents: split.productCents,
+    commissionCents: split.commissionCents,
+    commissionUsd: split.commissionUsd,
+    buyerPaysCents: split.buyerPaysCents,
+    sellerNetCents: split.sellerNetCents,
+    platformFeeCents: split.platformFeeCents,
+    agentFeeCents: split.agentFeeCents,
+    currency: split.currency,
+  };
+}
 function partyRoles(initiatedBy: TransactionInitiator): {
   buyerRole: 'creator' | 'counterparty';
   sellerRole: 'creator' | 'counterparty';
@@ -142,21 +164,42 @@ function toPaymentDto(p: {
 }
 
 export class PaymentsService {
-  splitForAmount(grossCents: number): EscrowSplit {
-    return computeEscrowSplit(
-      grossCents,
-      env.PAYMENTS_PLATFORM_FEE_BPS,
-      env.PAYMENTS_AGENT_FEE_BPS,
-    );
+  splitForTransaction(tx: {
+    amountCents?: number;
+    currency?: string;
+    feePayer?: FeePayer | string | null;
+  }): EscrowSplit {
+    const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
+    const productCents =
+      tx.amountCents && tx.amountCents > 0 ? tx.amountCents : exampleGrossCents(currency);
+    const feePayer = (tx.feePayer ?? 'BUYER') as FeePayer;
+    try {
+      return computeEscrowSplit({
+        productCents,
+        currency,
+        feePayer,
+        uyuPerUsd: env.USD_UYU_RATE,
+        platformCommissionBps: env.PAYMENTS_PLATFORM_FEE_BPS,
+        agentCommissionBps: env.PAYMENTS_AGENT_FEE_BPS,
+      });
+    } catch (error) {
+      if (error instanceof IntermediationFeeError) {
+        throw new ValidationError(error.message);
+      }
+      throw error;
+    }
+  }
+
+  /** @deprecated Preferir splitForTransaction */
+  splitForAmount(grossCents: number, currency = defaultCurrency(), feePayer: FeePayer = 'BUYER'): EscrowSplit {
+    return this.splitForTransaction({ amountCents: grossCents, currency, feePayer });
   }
 
   async getTransactionEscrow(userId: string, code: string) {
     const tx = await this.loadTxForParticipant(userId, code);
     const parties = resolveParties(tx);
     const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
-    const gross =
-      tx.amountCents && tx.amountCents > 0 ? tx.amountCents : exampleGrossCents(currency);
-    const split = this.splitForAmount(gross);
+    const split = this.splitForTransaction(tx);
     const payments = await PaymentModel.find({
       transaction: tx._id,
       deletedAt: null,
@@ -172,7 +215,10 @@ export class PaymentsService {
       currency,
       country: env.MERCADOPAGO_COUNTRY,
       siteId: env.MERCADOPAGO_SITE_ID,
-      grossCents: split.grossCents,
+      grossCents: split.buyerPaysCents,
+      productCents: split.productCents,
+      commissionCents: split.commissionCents,
+      feePayer: split.feePayer,
       split,
       parties,
       providerMode: mercadoPagoClient.isMock() ? 'MOCK' : 'MERCADOPAGO',
@@ -209,7 +255,7 @@ export class PaymentsService {
       );
     }
     if (tx.status === TransactionStatus.FUNDED) {
-      throw new ValidationError('La operación ya está fondeada');
+      throw new ValidationError('La operación ya tiene el pago protegido');
     }
     assertNotPastDeadline(tx);
 
@@ -228,22 +274,26 @@ export class PaymentsService {
     }).exec();
 
     if (existingHold?.status === PaymentStatus.CAPTURED) {
-      throw new ValidationError('Ya existe un hold capturado para esta operación');
+      throw new ValidationError('Ya existe un pago protegido capturado para esta operación');
     }
 
     const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
-    const gross =
-      tx.amountCents && tx.amountCents > 0 ? tx.amountCents : exampleGrossCents(currency);
+    const split = this.splitForTransaction(tx);
+    const productCents = split.productCents;
+    const buyerPays = split.buyerPaysCents;
     if (!tx.amountCents || tx.amountCents <= 0) {
-      tx.amountCents = gross;
+      tx.amountCents = productCents;
       tx.currency = currency;
       await tx.save();
     } else if (!tx.currency) {
       tx.currency = currency;
       await tx.save();
     }
+    if (!tx.feePayer) {
+      tx.feePayer = split.feePayer as ITransaction['feePayer'];
+      await tx.save();
+    }
 
-    const split = this.splitForAmount(gross);
     const idempotencyKey = `hold:${String(tx._id)}`;
 
     let hold =
@@ -257,7 +307,7 @@ export class PaymentsService {
         provider: mercadoPagoClient.isMock()
           ? PaymentProvider.MOCK
           : PaymentProvider.MERCADOPAGO,
-        amountCents: gross,
+        amountCents: buyerPays,
         currency,
         idempotencyKey,
         metadata: {
@@ -268,26 +318,31 @@ export class PaymentsService {
         },
       }));
 
+    if (existingHold && hold.amountCents !== buyerPays) {
+      hold.amountCents = buyerPays;
+    }
+
     const externalReference = String(hold._id);
     const notificationUrl = `${env.API_PUBLIC_URL}/payments/webhooks/mercadopago`;
-    const backBase = `${env.APP_URL}/pagos?code=${encodeURIComponent(tx.code)}`;
+    const backBase = `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}`;
 
     const preference = await mercadoPagoClient.createPreference({
       items: [
         {
-          title: `Escrow ConfiApp ${tx.code} — ${tx.title}`.slice(0, 250),
+          title: `Pago protegido ConfiApp ${tx.code} — ${tx.title}`.slice(0, 250),
           quantity: 1,
-          unitPriceCents: gross,
+          unitPriceCents: buyerPays,
           currency,
         },
       ],
       externalReference,
       notificationUrl,
       backUrls: {
-        success: `${backBase}&status=success`,
-        failure: `${backBase}&status=failure`,
-        pending: `${backBase}&status=pending`,
+        success: `${backBase}?pago=ok`,
+        failure: `${backBase}?pago=failure`,
+        pending: `${backBase}?pago=pending`,
       },
+      mockBridgeUrl: `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}/pagar/simular?paymentId=${encodeURIComponent(externalReference)}`,
     });
 
     hold.externalId = preference.id;
@@ -308,7 +363,7 @@ export class PaymentsService {
     await persistLog({
       source: 'checkout',
       event: 'checkout.created',
-      message: 'Checkout comprador creado (retención escrow)',
+      message: 'Checkout comprador creado (pago protegido)',
       transactionId: String(tx._id),
       paymentId: String(hold._id),
       externalId: preference.id,
@@ -324,11 +379,12 @@ export class PaymentsService {
       correlationId: tx.code,
       metadata: {
         phase: 'checkout_created',
-        amountCents: gross,
-        currency,
+        code: tx.code,
+        amountCents: buyerPays,
         provider: hold.provider,
         preferenceId: preference.id,
         reusedExisting: Boolean(existingHold),
+        ...feesAuditMeta(split),
       },
     });
 
@@ -408,6 +464,7 @@ export class PaymentsService {
         : undefined,
     });
 
+    let justFunded = false;
     if (tx.status === TransactionStatus.ACCEPTED) {
       assertTransition(tx.status, TransactionStatus.FUNDED);
       tx.status = TransactionStatus.FUNDED;
@@ -416,9 +473,10 @@ export class PaymentsService {
         status: TransactionStatus.FUNDED,
         changedAt: now,
         changedBy: hold.payer,
-        note: 'Escrow fondeado vía Mercado Pago (retención)',
+        note: 'Pago protegido confirmado con Mercado Pago',
       });
       await tx.save();
+      justFunded = true;
     }
 
     await persistLog({
@@ -431,6 +489,7 @@ export class PaymentsService {
       payload: { status: hold.status, amountCents: hold.amountCents },
     });
 
+    const feeSnap = this.splitForTransaction(tx);
     auditService.track({
       actor: String(hold.payer),
       action: AuditAction.PAYMENT_UPDATED,
@@ -440,13 +499,14 @@ export class PaymentsService {
       correlationId: tx.code,
       metadata: {
         phase: 'hold_captured',
+        code: tx.code,
         amountCents: hold.amountCents,
-        currency: hold.currency,
         transactionId: String(tx._id),
         status: hold.status,
+        ...feesAuditMeta(feeSnap),
       },
     });
-    if (tx.status === TransactionStatus.FUNDED || tx.fundedAt) {
+    if (justFunded) {
       auditService.track({
         actor: String(hold.payer),
         action: AuditAction.STATUS_CHANGE,
@@ -454,8 +514,36 @@ export class PaymentsService {
         entityId: String(tx._id),
         outcome: AuditOutcome.SUCCESS,
         correlationId: tx.code,
-        metadata: { to: TransactionStatus.FUNDED, note: 'escrow_funded' },
+        metadata: {
+          code: tx.code,
+          step: 'escrow_funded',
+          to: TransactionStatus.FUNDED,
+          note: 'pago_protegido',
+          ...feesAuditMeta(feeSnap),
+        },
       });
+
+      const href = `/operaciones/${tx.code}`;
+      const notifyIds = [parties.buyerId, parties.sellerId].filter(
+        (id, idx, arr) => Boolean(id) && arr.indexOf(id) === idx,
+      );
+      await Promise.all(
+        notifyIds.map((uid) =>
+          notificationsService.notify({
+            userId: uid,
+            type: NotificationType.PAYMENT,
+            title: 'Pago protegido confirmado',
+            body:
+              uid === parties.buyerId
+                ? `Tu pago de ${tx.code} quedó en resguardo hasta confirmar la entrega.`
+                : `El comprador pagó ${tx.code}. El monto está en resguardo hasta confirmar la entrega.`,
+            data: { href, code: tx.code, status: TransactionStatus.FUNDED },
+            entityType: 'Transaction',
+            entityId: String(tx._id),
+            channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+          }),
+        ),
+      );
     }
 
     return { payment: toPaymentDto(hold.toObject()), alreadyConfirmed: false };
@@ -595,7 +683,7 @@ export class PaymentsService {
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        `Solo se puede liberar en FUNDED/IN_PROGRESS (actual: ${tx.status})`,
+        `Solo se puede liberar con pago protegido o en curso (actual: ${tx.status})`,
       );
     }
     assertNotPastDeadline(tx);
@@ -616,14 +704,17 @@ export class PaymentsService {
       deletedAt: null,
     }).lean();
     if (alreadyReleased) {
-      throw new ValidationError('El escrow ya fue liberado');
+      throw new ValidationError('El pago protegido ya fue liberado');
     }
 
-    const gross = hold.amountCents;
-    const split = this.splitForAmount(gross);
+    const split = this.splitForTransaction(tx);
+    const heldCents = hold.amountCents;
     const currency = hold.currency;
     const now = new Date();
     const provider = hold.provider;
+    const sellerNet = Math.max(0, split.sellerNetCents);
+    const platformFee = Math.max(0, split.platformFeeCents);
+    const agentFee = Math.max(0, split.agentFeeCents);
 
     const release = await PaymentModel.create({
       transaction: tx._id,
@@ -632,7 +723,7 @@ export class PaymentsService {
       type: PaymentType.ESCROW_RELEASE,
       status: PaymentStatus.RELEASED,
       provider,
-      amountCents: Math.max(1, split.sellerCents || 1),
+      amountCents: Math.max(1, sellerNet || 1),
       currency,
       idempotencyKey: `release:${String(tx._id)}`,
       releasedAt: now,
@@ -646,7 +737,7 @@ export class PaymentsService {
       type: PaymentType.PLATFORM_FEE,
       status: PaymentStatus.CAPTURED,
       provider,
-      amountCents: Math.max(1, split.platformFeeCents || 1),
+      amountCents: Math.max(1, platformFee || 1),
       currency,
       idempotencyKey: `fee:${String(tx._id)}`,
       capturedAt: now,
@@ -654,7 +745,7 @@ export class PaymentsService {
     });
 
     let agentPayment = null as PaymentDocument | null;
-    if (parties.agentId && split.agentFeeCents > 0) {
+    if (parties.agentId && agentFee > 0) {
       agentPayment = await PaymentModel.create({
         transaction: tx._id,
         payer: hold.payer,
@@ -662,7 +753,7 @@ export class PaymentsService {
         type: PaymentType.AGENT_PAYOUT,
         status: PaymentStatus.RELEASED,
         provider,
-        amountCents: split.agentFeeCents,
+        amountCents: agentFee,
         currency,
         idempotencyKey: `agent:${String(tx._id)}`,
         releasedAt: now,
@@ -674,8 +765,8 @@ export class PaymentsService {
         { _id: parties.agentId },
         {
           $inc: {
-            'wallet.availableCents': split.agentFeeCents,
-            'wallet.lifetimeEarnedCents': split.agentFeeCents,
+            'wallet.availableCents': agentFee,
+            'wallet.lifetimeEarnedCents': agentFee,
           },
           $set: { 'wallet.lastMovementAt': now },
         },
@@ -686,7 +777,7 @@ export class PaymentsService {
         userId: parties.agentId,
         type: WalletMovementType.AGENT_PAYOUT,
         direction: WalletMovementDirection.CREDIT,
-        amountCents: split.agentFeeCents,
+        amountCents: agentFee,
         currency,
         description: `Pago agente · ${tx.code}`,
         paymentId: String(agentPayment._id),
@@ -701,14 +792,14 @@ export class PaymentsService {
       });
     }
 
-    // Vendedor: sale de held el bruto, entra available el neto.
+    // Vendedor: sale de held lo pagado por el comprador, entra available el neto.
     await UserModel.updateOne(
       { _id: parties.sellerId },
       {
         $inc: {
-          'wallet.heldCents': -gross,
-          'wallet.availableCents': split.sellerCents,
-          'wallet.lifetimeEarnedCents': split.sellerCents,
+          'wallet.heldCents': -heldCents,
+          'wallet.availableCents': sellerNet,
+          'wallet.lifetimeEarnedCents': sellerNet,
         },
         $set: { 'wallet.lastMovementAt': now },
       },
@@ -719,9 +810,9 @@ export class PaymentsService {
       userId: parties.sellerId,
       type: WalletMovementType.ESCROW_RELEASE,
       direction: WalletMovementDirection.CREDIT,
-      amountCents: split.sellerCents,
+      amountCents: sellerNet,
       currency,
-      description: `Liberación escrow neto · ${tx.code}`,
+      description: `Liberación neto · ${tx.code}`,
       paymentId: String(release._id),
       transactionId: String(tx._id),
       balanceAfter: sellerAfter
@@ -731,19 +822,22 @@ export class PaymentsService {
             heldCents: sellerAfter.wallet?.heldCents ?? 0,
           }
         : undefined,
-      metadata: { grossCents: gross, platformFeeCents: split.platformFeeCents },
+      metadata: {
+        heldCents,
+        ...feesAuditMeta(split),
+      },
     });
 
     await walletLedger.record({
       userId: parties.sellerId,
       type: WalletMovementType.PLATFORM_FEE,
       direction: WalletMovementDirection.DEBIT,
-      amountCents: Math.max(1, split.platformFeeCents || 1),
+      amountCents: Math.max(1, platformFee || 1),
       currency,
-      description: `Comisión plataforma 20% · ${tx.code}`,
+      description: `Comisión ConfiApp (20% de la intermediación) · ${tx.code}`,
       paymentId: String(fee._id),
       transactionId: String(tx._id),
-      metadata: { informational: true },
+      metadata: { informational: true, ...feesAuditMeta(split) },
     });
 
     hold.status = PaymentStatus.RELEASED;
@@ -758,14 +852,14 @@ export class PaymentsService {
       status: TransactionStatus.COMPLETED,
       changedAt: now,
       changedBy: new Types.ObjectId(userId),
-      note: 'Escrow liberado: neto vendedor, fee 20% plataforma, pago agente',
+      note: 'Fondos liberados al vendedor',
     });
     await tx.save();
 
     await persistLog({
       source: 'release',
       event: 'escrow.released',
-      message: 'Escrow liberado con descuento 20% y pago al agente',
+      message: 'Pago protegido liberado (neto vendedor + comisión)',
       transactionId: String(tx._id),
       paymentId: String(release._id),
       payload: {
@@ -785,9 +879,10 @@ export class PaymentsService {
       correlationId: tx.code,
       metadata: {
         phase: 'escrow_released',
-        split,
+        code: tx.code,
         platformFeeId: String(fee._id),
         agentPaymentId: agentPayment ? String(agentPayment._id) : null,
+        ...feesAuditMeta(split),
       },
     });
     auditService.track({
@@ -797,7 +892,13 @@ export class PaymentsService {
       entityId: String(tx._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: tx.code,
-      metadata: { to: TransactionStatus.COMPLETED, note: 'escrow_released' },
+      metadata: {
+        code: tx.code,
+        step: 'escrow_released',
+        to: TransactionStatus.COMPLETED,
+        note: 'escrow_released',
+        ...feesAuditMeta(split),
+      },
     });
 
     try {
@@ -806,6 +907,33 @@ export class PaymentsService {
     } catch (error) {
       logger.error('reputation onTransactionCompleted failed', { error, code: tx.code });
     }
+
+    const href = `/operaciones/${tx.code}`;
+    const releaseNotifyIds = [
+      parties.buyerId,
+      parties.sellerId,
+      parties.agentId,
+    ].filter((id, idx, arr): id is string => Boolean(id) && arr.indexOf(id) === idx);
+
+    await Promise.all(
+      releaseNotifyIds.map((uid) =>
+        notificationsService.notify({
+          userId: uid,
+          type: NotificationType.PAYMENT,
+          title: 'Operación completada',
+          body:
+            uid === parties.sellerId
+              ? `Se liberaron los fondos de ${tx.code}. Ya podés verlos en tu wallet.`
+              : uid === parties.agentId
+                ? `Se acreditó tu pago de intermediación en ${tx.code}.`
+                : `La operación ${tx.code} se completó y los fondos fueron liberados al vendedor.`,
+          data: { href, code: tx.code, status: TransactionStatus.COMPLETED },
+          entityType: 'Transaction',
+          entityId: String(tx._id),
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        }),
+      ),
+    );
 
     return {
       transactionStatus: tx.status,

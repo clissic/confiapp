@@ -7,9 +7,14 @@ import {
 import { Types, type HydratedDocument } from 'mongoose';
 
 import { NotificationModel, UserModel } from '../../database/models';
+import {
+  buildBrandedEmail,
+  emailParagraphs,
+} from '../../infrastructure/email/email-layout';
 import { emailSender } from '../../infrastructure/email/email.sender';
 import { pushProvider } from '../../infrastructure/notifications/push.provider';
 import { publishRealtimeToUser } from '../../infrastructure/realtime/realtime-bus';
+import { env } from '../../shared/config/env';
 import { NotFoundError } from '../../shared/errors/app-error';
 import { logger } from '../../utils/logger';
 
@@ -108,11 +113,29 @@ export class NotificationsService {
 
     if (delivery.channels.includes(NotificationChannel.EMAIL) && user?.email) {
       try {
+        const href =
+          typeof input.data?.href === 'string' ? input.data.href.trim() : '';
+        const appBase = env.APP_URL.replace(/\/$/, '');
+        const absoluteHref =
+          href && (href.startsWith('http://') || href.startsWith('https://'))
+            ? href
+            : href
+              ? `${appBase}${href.startsWith('/') ? href : `/${href}`}`
+              : '';
+        const branded = buildBrandedEmail({
+          title: input.title,
+          preheader: input.body.slice(0, 120),
+          bodyHtml: emailParagraphs(input.body),
+          cta: absoluteHref
+            ? { label: 'Ver en ConfiApp', href: absoluteHref }
+            : undefined,
+        });
         await emailSender.send({
           to: user.email,
           subject: input.title,
-          text: input.body,
-          html: `<p>${escapeHtml(input.body)}</p>`,
+          text: absoluteHref ? `${input.body}\n\n${absoluteHref}` : input.body,
+          html: branded.html,
+          attachments: branded.attachments,
         });
       } catch (error) {
         logger.warn('notification.email_failed', {
@@ -248,11 +271,3 @@ export class NotificationsService {
 }
 
 export const notificationsService = new NotificationsService();
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}

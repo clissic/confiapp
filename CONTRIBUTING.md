@@ -8,6 +8,8 @@ Documentación relacionada:
 - [Arquitectura de sistema](./docs/SYSTEM_ARCHITECTURE.md)
 - [Estructura del repositorio](./docs/ARCHITECTURE.md)
 - [Design system](./docs/design-system/GUIDE.md)
+- [Testing](./TESTING.md)
+- [Notificaciones (skill)](./.cursor/skills/notifications/SKILL.md)
 
 ---
 

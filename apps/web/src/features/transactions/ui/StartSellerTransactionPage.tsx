@@ -23,6 +23,7 @@ import {
   type ProductCondition,
 } from '../model/types';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
+import { FeePayerFields } from './FeePayerFields';
 import '../styles/transactions.css';
 
 function isHttpUrl(value: string): boolean {
@@ -53,10 +54,15 @@ export function StartSellerTransactionPage() {
       category: 'OTHER',
       price: undefined as unknown as number,
       currency: defaultPaymentCurrency(preferredCurrency),
+      feePayer: 'BUYER',
       imageUrl: '',
       returnInstructions: '',
     },
   });
+
+  const watchedPrice = form.watch('price');
+  const watchedCurrency = form.watch('currency');
+  const watchedFeePayer = form.watch('feePayer');
 
   const addImage = () => {
     setError(null);
@@ -137,6 +143,7 @@ export function StartSellerTransactionPage() {
         meetingLocationMode: delivery.mode,
         meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,
         returnInstructions: values.returnInstructions,
+        feePayer: values.feePayer,
         product: {
           title: values.productTitle,
           description: values.productDescription,
@@ -327,6 +334,19 @@ export function StartSellerTransactionPage() {
                 </Form.Select>
               </Form.Group>
             </div>
+
+            <FeePayerFields
+              controlId="seller-fee-payer"
+              feePayer={watchedFeePayer}
+              onFeePayerChange={(value) =>
+                form.setValue('feePayer', value, { shouldValidate: true })
+              }
+              priceMajor={Number(watchedPrice) || null}
+              currency={watchedCurrency}
+              error={form.formState.errors.feePayer?.message}
+              disabled={create.isPending}
+              viewerHint="seller"
+            />
           </fieldset>
 
           <fieldset className="ca-tx-fieldset ca-tx-photos">

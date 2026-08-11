@@ -11,7 +11,7 @@ Gate en módulos críticos (`coverage.include`):
 - Statements / Lines / Functions: **≥ 90%**
 - Branches: **≥ 80%**
 
-Última corrida local:
+Última corrida local (referencia histórica):
 - API: stmts **98.8%**, lines **99.1%**, funcs **100%**, branches **84.3%**
 - Web: stmts **94.7%**, lines **94.4%**, funcs **100%**, branches **90.9%**
 
@@ -21,8 +21,12 @@ Gate en módulos críticos (`coverage.include`):
 pnpm test                 # unit (turbo)
 pnpm test:coverage        # unit + thresholds
 pnpm --filter @confiapp/api test:integration   # HTTP + Mongo memory
+pnpm --filter @confiapp/api test:unit          # alias unit API
 pnpm test:e2e             # Playwright (Vite :3001)
 ```
+
+Tests de dominio recientes (API unit):
+- `apps/api/src/modules/agents/agent-exit.test.ts` — close bloqueado (`ACTIVE_JOBS`), withdraw → `REMOVED`, suspend sin mutar participants.
 
 Primera vez E2E:
 ```bash
@@ -44,3 +48,5 @@ apps/web/
   src/**/*.test.ts(x)
   e2e/*.spec.ts + fixtures/
 ```
+
+Documentación de producto/arquitectura: [`README.md`](./README.md), [`docs/WEB_APP.md`](./docs/WEB_APP.md).

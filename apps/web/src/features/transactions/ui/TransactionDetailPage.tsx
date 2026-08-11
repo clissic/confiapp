@@ -1,18 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Badge, Button, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
-import { Copy, Link2, MapPin, RefreshCw, Share2 } from 'lucide-react';
+import { Copy, Link2, LogOut, MapPin, RefreshCw, Search, Share2, ShieldCheck } from 'lucide-react';
 
 import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
+import { getApiErrorMessage } from '@/shared/api/client';
 import { useAuth } from '@/features/auth/ui/AuthProvider';
+import { withdrawFromJob } from '@/features/agent-ops/api/agent-ops.api';
 import { useAppToast } from '@/shared/ui';
+import {
+  computeIntermediationFees,
+  DEFAULT_UYU_PER_USD,
+  type FeePayer as SharedFeePayer,
+} from '@confiapp/shared';
 import { useRefreshInvite, useToggleChecklistItem, useTransaction, useBuyerConfirmChanges, useBuyerRejectChanges } from '../hooks/useTransactions';
 import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
+  FEE_PAYER_LABELS,
   INITIATOR_LABELS,
   STATUS_LABELS,
+  type FeePayer,
   type ProductCategory,
   type ProductCondition,
   type TransactionStatus,
@@ -37,7 +46,7 @@ const PIPELINE_SHORT_LABELS: Record<(typeof STATE_PIPELINE)[number], string> = {
   WAITING_PARTICIPANT: 'Esperando',
   PENDING_BUYER_CONFIRM: 'Reconfirmación',
   ACCEPTED: 'Aceptada',
-  FUNDED: 'Fondeada',
+  FUNDED: 'Pago protegido',
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Completada',
 };
@@ -49,6 +58,7 @@ const CHANGE_FIELD_LABELS: Record<string, string> = {
   condition: 'Condición',
   category: 'Categoría',
   images: 'Fotos',
+  feePayer: 'Quién paga la comisión',
 };
 
 function formatChangeValue(field: string, raw: string): string {
@@ -68,6 +78,44 @@ function formatChangeValue(field: string, raw: string): string {
   return value;
 }
 
+/** Notas técnicas guardadas → copy amigable en el historial (incluye ops ya creadas). */
+const HISTORY_NOTE_LABELS: Record<string, string> = {
+  'Escrow fondeado vía Mercado Pago (retención)':
+    'Pago protegido confirmado con Mercado Pago',
+  'Comprador aceptó la compra — acuerdo cerrado, pendiente de fondeo':
+    'Comprador aceptó la compra — acuerdo cerrado, pendiente de pago',
+  'Vendedor confirmó la venta — acuerdo cerrado, pendiente de fondeo':
+    'Vendedor confirmó la venta — acuerdo cerrado, pendiente de pago',
+  'Pago liberado: neto al vendedor, comisión ConfiApp/agente':
+    'Fondos liberados al vendedor',
+  'Escrow liberado: neto vendedor, fee 20% plataforma, pago agente':
+    'Fondos liberados al vendedor',
+};
+
+function friendlyHistoryNote(note?: string): string | undefined {
+  if (!note) return undefined;
+  return HISTORY_NOTE_LABELS[note] ?? note;
+}
+
+/** Label del historial: aceptación de agente ≠ “Aceptada” del acuerdo. */
+function historyStatusLabel(event: { status: TransactionStatus; note?: string }): string {
+  const note = (event.note ?? '').toLowerCase();
+  if (
+    note.includes('agente solicitó salida') ||
+    note.includes('salida / reasignación')
+  ) {
+    return 'Agente saliente';
+  }
+  if (
+    note.includes('agente aceptó el trabajo') ||
+    note.includes('agente intermediario aceptó') ||
+    note.includes('desde el tablero de trabajos abiertos')
+  ) {
+    return 'Agenciada';
+  }
+  return STATUS_LABELS[event.status];
+}
+
 function sameText(a?: string | null, b?: string | null): boolean {
   return (
     (a ?? '').trim().replace(/\s+/g, ' ').toLowerCase() ===
@@ -80,8 +128,85 @@ function pipelineIndex(status: TransactionStatus): number {
   return (STATE_PIPELINE as readonly TransactionStatus[]).indexOf(status);
 }
 
+/** Siguiente estado esperado en el flujo feliz (sin incluir pasos opcionales ya pasados). */
+function nextExpectedStatus(status: TransactionStatus): TransactionStatus | null {
+  switch (status) {
+    case 'CREATED':
+      return 'WAITING_PARTICIPANT';
+    case 'WAITING_PARTICIPANT':
+      return 'ACCEPTED';
+    case 'PENDING_BUYER_CONFIRM':
+      return 'ACCEPTED';
+    case 'ACCEPTED':
+      return 'FUNDED';
+    case 'FUNDED':
+      return 'IN_PROGRESS';
+    case 'IN_PROGRESS':
+      return 'COMPLETED';
+    default:
+      return null;
+  }
+}
+
+/** Texto legible del siguiente paso pendiente en el historial. */
+function upcomingStepCopy(
+  next: TransactionStatus,
+  initiatedBy: 'BUYER' | 'SELLER',
+): { title: string; detail: string } {
+  const title =
+    next in PIPELINE_SHORT_LABELS
+      ? PIPELINE_SHORT_LABELS[next as (typeof STATE_PIPELINE)[number]]
+      : STATUS_LABELS[next];
+
+  const counterparty = initiatedBy === 'SELLER' ? 'comprador' : 'vendedor';
+
+  switch (next) {
+    case 'WAITING_PARTICIPANT':
+      return {
+        title,
+        detail: `A la espera de que el ${counterparty} se una a la operación con el enlace de invitación.`,
+      };
+    case 'ACCEPTED':
+      return {
+        title,
+        detail:
+          initiatedBy === 'SELLER'
+            ? 'A la espera de que el comprador acepte las condiciones de la transacción.'
+            : 'A la espera de que el vendedor confirme la venta y las condiciones de la transacción.',
+      };
+    case 'FUNDED':
+      return {
+        title,
+        detail:
+          'A la espera de que el comprador pague. El dinero queda en resguardo hasta confirmar la entrega.',
+      };
+    case 'IN_PROGRESS':
+      return {
+        title,
+        detail: 'A la espera de que el Agente inicie la entrega y la verificación del producto.',
+      };
+    case 'COMPLETED':
+      return {
+        title,
+        detail: 'A la espera de confirmar la entrega y cerrar la operación.',
+      };
+    case 'PENDING_BUYER_CONFIRM':
+      return {
+        title,
+        detail: 'A la espera de que el comprador reconfirme o rechace los cambios del vendedor.',
+      };
+    default:
+      return {
+        title,
+        detail: `A la espera de: ${STATUS_LABELS[next]}.`,
+      };
+  }
+}
+
 export function TransactionDetailPage() {
   const toast = useAppToast();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { code } = useParams<{ code: string }>();
   const location = useLocation();
@@ -94,7 +219,7 @@ export function TransactionDetailPage() {
     initiatedBySeller?: boolean;
     agentAccepted?: boolean;
   } | null;
-  const { data, isLoading, isError } = useTransaction(code);
+  const { data, isLoading, isError, refetch } = useTransaction(code);
   const refresh = useRefreshInvite();
   const toggleChecklist = useToggleChecklistItem(code);
   const buyerConfirm = useBuyerConfirmChanges(code);
@@ -102,17 +227,33 @@ export function TransactionDetailPage() {
   const [shareUrl, setShareUrl] = useState<string | undefined>(state?.shareUrl);
   const [error, setError] = useState<string | null>(null);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+
+  useEffect(() => {
+    const pago = searchParams.get('pago') ?? searchParams.get('status');
+    if (!pago) return;
+    if (pago === 'ok' || pago === 'success') {
+      toast.success('Pago confirmado. El monto quedó en resguardo.');
+      void refetch();
+    } else if (pago === 'failure') {
+      setError('El pago falló o fue cancelado en Mercado Pago.');
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('pago');
+    next.delete('status');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, toast, refetch]);
 
   useEffect(() => {
     if (state?.agentAccepted) {
       toast.success('Oferta aceptada. Usá el checklist como guía de la entrega.');
     } else if (state?.buyerAccepted) {
-      toast.success('Compra aceptada. Estado actualizado a Aceptada — pendiente de fondeo.');
+      toast.success('Compra aceptada. Estado actualizado a Aceptada — pendiente de pago.');
     } else if (state?.sellerConfirmed) {
       toast.success(
         state.pendingBuyerConfirm
           ? 'Venta enviada. El comprador debe aceptar los cambios.'
-          : 'Venta confirmada. Estado actualizado a Aceptada — pendiente de fondeo.',
+          : 'Venta confirmada. Estado actualizado a Aceptada — pendiente de pago.',
       );
     } else if (state?.justCreated) {
       toast.success(
@@ -140,6 +281,20 @@ export function TransactionDetailPage() {
       })),
     [tx?.product?.images, tx?.product?.title, tx?.title],
   );
+
+  const feePreview = useMemo(() => {
+    if (!tx?.amountCents || tx.amountCents <= 0) return null;
+    try {
+      return computeIntermediationFees({
+        productCents: tx.amountCents,
+        currency: tx.currency || 'UYU',
+        feePayer: (tx.feePayer ?? 'BUYER') as SharedFeePayer,
+        uyuPerUsd: DEFAULT_UYU_PER_USD,
+      });
+    } catch {
+      return null;
+    }
+  }, [tx?.amountCents, tx?.currency, tx?.feePayer]);
 
   if (isLoading) {
     return (
@@ -171,11 +326,63 @@ export function TransactionDetailPage() {
           p.status === 'ACCEPTED',
       ),
   );
+  const hasAcceptedAgent = tx.participants.some(
+    (p) => p.role === 'INTERMEDIARY' && p.status === 'ACCEPTED',
+  );
+  const lookingForAgent =
+    !hasAcceptedAgent &&
+    tx.participants.some((p) => p.role === 'INTERMEDIARY' && p.status === 'REMOVED') &&
+    (tx.status === 'WAITING_PARTICIPANT' ||
+      tx.status === 'ACCEPTED' ||
+      tx.status === 'FUNDED' ||
+      tx.status === 'IN_PROGRESS' ||
+      tx.status === 'DISPUTED');
+  const canWithdrawAsAgent =
+    isAssignedAgent &&
+    (tx.status === 'WAITING_PARTICIPANT' ||
+      tx.status === 'ACCEPTED' ||
+      tx.status === 'FUNDED' ||
+      tx.status === 'IN_PROGRESS' ||
+      tx.status === 'DISPUTED');
+  /** El agente marca el checklist en la entrega (después del pago). */
+  const canToggleChecklist =
+    isAssignedAgent && (tx.status === 'FUNDED' || tx.status === 'IN_PROGRESS');
+  const checklistAgentLead = isAssignedAgent
+    ? canToggleChecklist
+      ? 'Marcá cada paso a medida que lo verifiques en la entrega.'
+      : 'El checklist se marca en la entrega, después del pago protegido.'
+    : undefined;
+  const showInvitePanel =
+    !hasCounterparty &&
+    (tx.status === 'CREATED' || tx.status === 'WAITING_PARTICIPANT');
   const currentPipeline = pipelineIndex(tx.status);
   const currentStepLabel =
     currentPipeline >= 0
       ? PIPELINE_SHORT_LABELS[STATE_PIPELINE[currentPipeline]!]
       : STATUS_LABELS[tx.status];
+  const upcomingStatus = nextExpectedStatus(tx.status);
+  const upcomingCopy = upcomingStatus
+    ? upcomingStepCopy(upcomingStatus, tx.initiatedBy)
+    : null;
+
+  const onWithdrawAsAgent = async () => {
+    if (!tx?.code) return;
+    const ok = window.confirm(
+      '¿Solicitar salida de esta operación? El dinero en resguardo no se libera; buscaremos otro agente.',
+    );
+    if (!ok) return;
+    setError(null);
+    setWithdrawing(true);
+    try {
+      await withdrawFromJob(tx.code);
+      toast.success('Salida registrada. Las partes fueron avisadas.');
+      await refetch();
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'No se pudo solicitar la salida.'));
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   const copyLink = async () => {
     if (!shareUrl) return;
@@ -234,6 +441,11 @@ export function TransactionDetailPage() {
     }
   };
 
+  const onPayNow = () => {
+    if (!tx?.code) return;
+    navigate(`/operaciones/${tx.code}/pagar`);
+  };
+
   return (
     <div className="ca-tx ca-tx--detail">
       <header className="ca-tx-detail-hero">
@@ -243,6 +455,11 @@ export function TransactionDetailPage() {
           <div className="ca-tx-detail-hero__badges">
             <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
             <Badge bg="secondary">{INITIATOR_LABELS[tx.initiatedBy ?? 'BUYER']}</Badge>
+            {lookingForAgent ? (
+              <Badge bg="secondary" className="ca-tx-badge-search">
+                Buscando nuevo agente
+              </Badge>
+            ) : null}
           </div>
           {tx.description ? (
             <p className="ca-tx-detail-hero__desc">{tx.description}</p>
@@ -254,12 +471,100 @@ export function TransactionDetailPage() {
           ) : null}
         </div>
         <div className="ca-tx-detail-hero__amount">
-          <span>Monto</span>
+          <span>Precio acordado</span>
           <strong>{formatOperationMoney(tx.amountCents, tx.currency)}</strong>
+          {tx.feePayer ? (
+            <span className="ca-tx-detail-hero__fee">
+              Comisión: {FEE_PAYER_LABELS[tx.feePayer as FeePayer] ?? tx.feePayer}
+            </span>
+          ) : null}
         </div>
       </header>
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
+
+      {canWithdrawAsAgent ? (
+        <section className="ca-tx-panel ca-tx-agent-exit">
+          <div className="ca-tx-agent-exit__copy">
+            <p className="ca-tx-agent-exit__kicker">
+              <LogOut size={15} strokeWidth={1.75} aria-hidden />
+              Mediación
+            </p>
+            <h2 className="ca-tx-agent-exit__title">¿No podés continuar?</h2>
+            <p className="ca-tx-agent-exit__lead">
+              Pedí la reasignación y avisamos a las partes. El dinero en resguardo no se mueve.
+            </p>
+          </div>
+          <div className="ca-tx-agent-exit__actions">
+            <Button
+              type="button"
+              variant="outline-danger"
+              disabled={withdrawing}
+              onClick={() => void onWithdrawAsAgent()}
+            >
+              <LogOut size={16} strokeWidth={1.75} aria-hidden />
+              {withdrawing ? 'Procesando…' : 'Solicitar salida'}
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      {lookingForAgent && !isAssignedAgent ? (
+        <section className="ca-tx-panel ca-tx-agent-search">
+          <div className="ca-tx-agent-search__copy">
+            <p className="ca-tx-agent-search__kicker">
+              <Search size={15} strokeWidth={1.75} aria-hidden />
+              Reasignación
+            </p>
+            <h2 className="ca-tx-agent-search__title">Buscando nuevo agente</h2>
+            <p className="ca-tx-agent-search__lead mb-0">
+              El intermediario anterior solicitó salir. El dinero en resguardo sigue protegido.
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      {tx.status === 'ACCEPTED' && tx.viewerRole === 'BUYER' ? (
+        <section className="ca-tx-panel ca-tx-pay-cta">
+          <div className="ca-tx-pay-cta__copy">
+            <p className="ca-tx-pay-cta__kicker">
+              <ShieldCheck size={16} strokeWidth={1.75} aria-hidden />
+              Pago protegido
+            </p>
+            <h2 className="ca-tx-pay-cta__title">Listo para pagar</h2>
+            <p className="ca-tx-pay-cta__lead">
+              Revisá el resumen de montos y después continuá a Mercado Pago. El dinero queda
+              en resguardo hasta confirmar la entrega.
+            </p>
+            <p className="ca-tx-pay-cta__amount">
+              Total a pagar:{' '}
+              <strong>
+                {formatOperationMoney(
+                  feePreview?.buyerPaysCents ?? tx.amountCents,
+                  tx.currency,
+                )}
+              </strong>
+            </p>
+          </div>
+          <div className="ca-tx-pay-cta__actions">
+            <Button className="ca-btn-cta" onClick={onPayNow}>
+              Pagar ahora
+            </Button>
+          </div>
+        </section>
+      ) : null}
+
+      {tx.status === 'ACCEPTED' && tx.viewerRole === 'SELLER' ? (
+        <section className="ca-tx-panel ca-tx-pay-cta ca-tx-pay-cta--waiting">
+          <div className="ca-tx-pay-cta__copy">
+            <p className="ca-tx-pay-cta__kicker">Pago protegido</p>
+            <h2 className="ca-tx-pay-cta__title">Esperando el pago del comprador</h2>
+            <p className="ca-tx-pay-cta__lead mb-0">
+              Cuando pague, el dinero quedará en resguardo hasta confirmar la entrega.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {tx.status === 'PENDING_BUYER_CONFIRM' ? (
         <section className="ca-tx-panel ca-tx-reconfirm">
@@ -688,7 +993,8 @@ export function TransactionDetailPage() {
                     <AgentChecklistPanel
                       title="Checklist — comprador"
                       items={buyerItems}
-                      canToggle={isAssignedAgent}
+                      canToggle={canToggleChecklist}
+                      lead={checklistAgentLead}
                       pendingItemId={
                         toggleChecklist.isPending
                           ? (toggleChecklist.variables?.itemId ?? null)
@@ -697,8 +1003,10 @@ export function TransactionDetailPage() {
                       onToggle={(itemId, done) => {
                         void toggleChecklist
                           .mutateAsync({ itemId, done, side: 'buyer' })
-                          .catch(() => {
-                            toast.error('No se pudo actualizar el checklist.');
+                          .catch((err) => {
+                            toast.error(
+                              getApiErrorMessage(err, 'No se pudo actualizar el checklist.'),
+                            );
                           });
                       }}
                     />
@@ -725,7 +1033,8 @@ export function TransactionDetailPage() {
                     <AgentChecklistPanel
                       title="Checklist — vendedor"
                       items={sellerItems}
-                      canToggle={isAssignedAgent}
+                      canToggle={canToggleChecklist}
+                      lead={checklistAgentLead}
                       pendingItemId={
                         toggleChecklist.isPending
                           ? (toggleChecklist.variables?.itemId ?? null)
@@ -734,8 +1043,10 @@ export function TransactionDetailPage() {
                       onToggle={(itemId, done) => {
                         void toggleChecklist
                           .mutateAsync({ itemId, done, side: 'seller' })
-                          .catch(() => {
-                            toast.error('No se pudo actualizar el checklist.');
+                          .catch((err) => {
+                            toast.error(
+                              getApiErrorMessage(err, 'No se pudo actualizar el checklist.'),
+                            );
                           });
                       }}
                     />
@@ -761,15 +1072,18 @@ export function TransactionDetailPage() {
                   <div className="ca-tx-detail-media__body">
                     <AgentChecklistPanel
                       items={legacyItems}
-                      canToggle={isAssignedAgent}
+                      canToggle={canToggleChecklist}
+                      lead={checklistAgentLead}
                       pendingItemId={
                         toggleChecklist.isPending
                           ? (toggleChecklist.variables?.itemId ?? null)
                           : null
                       }
                       onToggle={(itemId, done) => {
-                        void toggleChecklist.mutateAsync({ itemId, done }).catch(() => {
-                          toast.error('No se pudo actualizar el checklist.');
+                        void toggleChecklist.mutateAsync({ itemId, done }).catch((err) => {
+                          toast.error(
+                            getApiErrorMessage(err, 'No se pudo actualizar el checklist.'),
+                          );
                         });
                       }}
                     />
@@ -809,51 +1123,52 @@ export function TransactionDetailPage() {
         );
       })()}
 
-      <motion.section
-        className="ca-tx-panel ca-tx-detail-media ca-tx-detail-invite"
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.04 }}
-      >
-        <div className="ca-tx-detail-media__visual" aria-hidden="true">
-          <img
-            src="/landing/Idea.png"
-            alt=""
-            width={512}
-            height={512}
-            decoding="async"
-          />
-        </div>
-        <div className="ca-tx-detail-media__body">
-          <div className="ca-tx-detail-section">
-            <h2>
-              <Link2 size={18} aria-hidden />
-              Enlace de invitación
-            </h2>
-            <p className="ca-tx-detail-invite__hint">
-              {tx.initiatedBy === 'SELLER'
-                ? 'Compartilo con el comprador.'
-                : 'Compartilo con el vendedor.'}
-              {tx.invite.expiresAt
-                ? ` Vence ${formatDateTime(tx.invite.expiresAt)}.`
-                : ''}
-              {tx.invite.isExpired ? ' Expirado.' : ''}
-            </p>
-          </div>
-
-          {shareUrl ? (
-            <div className="ca-tx-share">
-              <p className="ca-tx-share__url">{shareUrl}</p>
-              <div className="ca-tx-share__actions">
-                <Button className="ca-btn-primary" onClick={() => void copyLink()}>
-                  <Copy size={16} className="me-1" />
-                  Copiar
-                </Button>
-                <Button variant="outline-primary" onClick={() => void shareNative()}>
-                  <Share2 size={16} className="me-1" />
-                  Compartir
-                </Button>
-                {!hasCounterparty ? (
+      {showInvitePanel ? (
+        <motion.section
+          className="ca-tx-panel ca-tx-detail-media ca-tx-detail-invite"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+        >
+          <header className="ca-tx-detail-media__top">
+            <div className="ca-tx-detail-media__intro">
+              <h2 className="ca-tx-detail-media__heading ca-tx-detail-media__heading--with-icon">
+                <Link2 size={18} aria-hidden />
+                Enlace de invitación
+              </h2>
+              <p className="ca-tx-detail-invite__hint">
+                {tx.initiatedBy === 'SELLER'
+                  ? 'Compartilo con el comprador.'
+                  : 'Compartilo con el vendedor.'}
+                {tx.invite.expiresAt
+                  ? ` Vence ${formatDateTime(tx.invite.expiresAt)}.`
+                  : ''}
+                {tx.invite.isExpired ? ' Expirado.' : ''}
+              </p>
+            </div>
+            <div className="ca-tx-detail-media__visual" aria-hidden="true">
+              <img
+                src="/landing/Idea.png"
+                alt=""
+                width={512}
+                height={512}
+                decoding="async"
+              />
+            </div>
+          </header>
+          <div className="ca-tx-detail-media__body">
+            {shareUrl ? (
+              <div className="ca-tx-share">
+                <p className="ca-tx-share__url">{shareUrl}</p>
+                <div className="ca-tx-share__actions">
+                  <Button className="ca-btn-primary" onClick={() => void copyLink()}>
+                    <Copy size={16} className="me-1" />
+                    Copiar
+                  </Button>
+                  <Button variant="outline-primary" onClick={() => void shareNative()}>
+                    <Share2 size={16} className="me-1" />
+                    Compartir
+                  </Button>
                   <Button
                     variant="outline-secondary"
                     disabled={refresh.isPending}
@@ -866,15 +1181,13 @@ export function TransactionDetailPage() {
                     )}
                     Regenerar
                   </Button>
-                ) : null}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="ca-tx-detail-invite__empty">
-              <Alert variant="info" className="mb-0">
-                El enlace solo se muestra al crearlo o regenerarlo.
-              </Alert>
-              {!hasCounterparty ? (
+            ) : (
+              <div className="ca-tx-detail-invite__empty">
+                <Alert variant="info" className="mb-0">
+                  El enlace solo se muestra al crearlo o regenerarlo.
+                </Alert>
                 <Button
                   variant="outline-secondary"
                   disabled={refresh.isPending}
@@ -887,40 +1200,52 @@ export function TransactionDetailPage() {
                   )}
                   Regenerar enlace
                 </Button>
-              ) : null}
-            </div>
-          )}
-        </div>
-      </motion.section>
+              </div>
+            )}
+          </div>
+        </motion.section>
+      ) : null}
 
       <section className="ca-tx-panel ca-tx-detail-media ca-tx-detail-history">
-        <div className="ca-tx-detail-media__visual" aria-hidden="true">
-          <img
-            src="/landing/WorldTravel.png"
-            alt=""
-            width={512}
-            height={512}
-            decoding="async"
-          />
-        </div>
-        <div className="ca-tx-detail-media__body">
-          <div className="ca-tx-detail-section">
-            <h2>Historial</h2>
+        <header className="ca-tx-detail-media__top">
+          <div className="ca-tx-detail-media__intro">
+            <h2 className="ca-tx-detail-media__heading">Historial</h2>
           </div>
+          <div className="ca-tx-detail-media__visual" aria-hidden="true">
+            <img
+              src="/landing/WorldTravel.png"
+              alt=""
+              width={512}
+              height={512}
+              decoding="async"
+            />
+          </div>
+        </header>
+        <div className="ca-tx-detail-media__body">
           <ul className="ca-tx-timeline">
             {tx.statusHistory.map((event, idx) => (
               <li key={`${event.status}-${idx}`} className="ca-tx-timeline__item">
                 <div className="ca-tx-timeline__row">
                   <span className="ca-tx-timeline__status">
-                    {STATUS_LABELS[event.status]}
+                    {historyStatusLabel(event)}
                   </span>
                   <time dateTime={event.changedAt}>
                     {formatDateTime(event.changedAt)}
                   </time>
                 </div>
-                {event.note ? <p className="ca-tx-timeline__note">{event.note}</p> : null}
+                {event.note ? (
+                  <p className="ca-tx-timeline__note">{friendlyHistoryNote(event.note)}</p>
+                ) : null}
               </li>
             ))}
+            {upcomingCopy ? (
+              <li className="ca-tx-timeline__item ca-tx-timeline__item--pending" aria-disabled="true">
+                <div className="ca-tx-timeline__row">
+                  <span className="ca-tx-timeline__status">{upcomingCopy.title}</span>
+                </div>
+                <p className="ca-tx-timeline__note">{upcomingCopy.detail}</p>
+              </li>
+            ) : null}
           </ul>
           <div className="ca-tx-detail-footer">
             <Link to="/operaciones" className="btn btn-link px-0">

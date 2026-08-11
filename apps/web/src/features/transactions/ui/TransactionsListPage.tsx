@@ -40,8 +40,8 @@ export function TransactionsListPage() {
             </p>
           </div>
         </div>
-        <div className="ca-tx__meta">
-          <Link to="/operaciones/nueva" className="btn ca-btn-cta">
+        <div className="ca-tx__meta col-12 col-md-auto px-0">
+          <Link to="/operaciones/nueva" className="btn ca-btn-cta w-100 w-md-auto">
             <Plus size={16} className="me-1" />
             Iniciar operación
           </Link>

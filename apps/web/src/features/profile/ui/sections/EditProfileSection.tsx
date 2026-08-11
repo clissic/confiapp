@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { useZodForm } from '@/shared/lib/form';
 import { useAppToast } from '@/shared/ui';
 
+import { useAuth } from '@/features/auth/ui/AuthProvider';
+
 import { useUpdateProfile } from '../../hooks/useProfile';
 import {
   composePhoneNumber,
@@ -65,6 +67,7 @@ export function EditProfileSection({
   const update = useUpdateProfile();
   const toast = useAppToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const form = useZodForm(editProfileSchema, {
     defaultValues: profileToFormValues(profile),
@@ -82,6 +85,7 @@ export function EditProfileSection({
       : '';
 
   const phoneVerifiedUi = isPhoneCurrentlyVerified({
+    userId: user?.id ?? profile.id,
     currentPhone,
     savedPhone: profile.phone,
     profilePhoneVerified: profile.phoneVerified,

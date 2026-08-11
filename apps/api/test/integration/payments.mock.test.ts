@@ -4,9 +4,16 @@ import { computeEscrowSplit } from '../../src/modules/payments/split';
 import { mercadoPagoMockPreference, stubMercadoPagoClient } from '../mocks/mercadopago.client';
 
 describe('integration/payments.split+mock', () => {
-  it('split de ejemplo Uruguay coincide con fees default', () => {
-    const split = computeEscrowSplit(5_000_000, 2000, 500);
-    expect(split.sellerCents / split.grossCents).toBeCloseTo(0.75, 5);
+  it('comisión por franja: USD 1500 → $25 y split 20/80 sobre la comisión', () => {
+    const split = computeEscrowSplit({
+      productCents: 150_000,
+      currency: 'USD',
+      feePayer: 'BUYER',
+      uyuPerUsd: 40,
+    });
+    expect(split.commissionUsd).toBe(25);
+    expect(split.platformFeeCents + split.agentFeeCents).toBe(split.commissionCents);
+    expect(split.platformFeeCents / split.commissionCents).toBeCloseTo(0.2, 5);
   });
 
   it('mock de MP responde preference', async () => {

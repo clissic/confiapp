@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api/client';
+import { ApiClientError, apiClient } from '@/shared/api/client';
 import { formatDistance } from '@/shared/lib/distance';
 import { getPreferencesSnapshot } from '@/shared/preferences';
 
@@ -33,6 +33,8 @@ function createDemoOnboarding(): AgentOnboarding {
     ratesAccepted: false,
     draftStep: 1,
     isAgent: false,
+    activeJobsCount: 0,
+    activeJobs: [],
     preview: {
       fullName: 'Joaquín Creator',
       email: 'joaquin@confiapp.demo',
@@ -218,14 +220,38 @@ export async function resumeAgentActivity(
 export async function closeAgentAgency(
   current?: AgentOnboarding,
 ): Promise<{ data: AgentOnboarding; source: 'api' | 'demo' }> {
-  return postOnboardingAction('/agents/onboarding/close', current, (base) => {
+  if (!hasAccessToken()) {
+    const base = current ?? loadDemo();
     const reset = createDemoOnboarding();
-    return saveDemo({
-      ...reset,
-      preview: {
-        ...base.preview,
-        summary: 'Completá el flujo para ver la vista previa',
-      },
-    });
-  });
+    return {
+      data: saveDemo({
+        ...reset,
+        preview: {
+          ...base.preview,
+          summary: 'Completá el flujo para ver la vista previa',
+        },
+      }),
+      source: 'demo',
+    };
+  }
+  try {
+    const { data } = await apiClient.post<AgentOnboarding>('/agents/onboarding/close');
+    return { data, source: 'api' };
+  } catch (err) {
+    if (err instanceof ApiClientError && err.code === 'ACTIVE_JOBS') {
+      throw err;
+    }
+    const base = current ?? loadDemo();
+    const reset = createDemoOnboarding();
+    return {
+      data: saveDemo({
+        ...reset,
+        preview: {
+          ...base.preview,
+          summary: 'Completá el flujo para ver la vista previa',
+        },
+      }),
+      source: 'demo',
+    };
+  }
 }

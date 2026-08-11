@@ -15,35 +15,3 @@ export interface AgentSearchHit {
   score: number;
   locationLabel?: string;
 }
-
-export type OfferActionStatus =
-  | 'PENDING'
-  | 'ACCEPTED'
-  | 'REJECTED'
-  | 'EXPIRED'
-  | 'REASSIGNED'
-  | 'SUPERSEDED';
-
-export interface AgentOffer {
-  id: string;
-  type: string;
-  title: string;
-  body: string;
-  actionStatus?: OfferActionStatus;
-  expiresAt?: string;
-  respondedAt?: string;
-  data?: Record<string, unknown>;
-  entityId?: string;
-  readAt?: string;
-  createdAt: string;
-  isExpired: boolean;
-}
-
-export const OFFER_STATUS_LABELS: Record<OfferActionStatus, string> = {
-  PENDING: 'Pendiente',
-  ACCEPTED: 'Aceptada',
-  REJECTED: 'Rechazada',
-  EXPIRED: 'Expirada',
-  REASSIGNED: 'Reasignada',
-  SUPERSEDED: 'Reemplazada',
-};

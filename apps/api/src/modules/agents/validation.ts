@@ -115,18 +115,56 @@ export const transactionCodeParamsSchema = z.object({
     .regex(/^CONF-[A-Z0-9]{6,16}$/),
 });
 
-export const openJobsQuerySchema = z.object({
-  lng: z.coerce.number().min(-180).max(180),
-  lat: z.coerce.number().min(-90).max(90),
-  radiusKm: z.coerce.number().min(0.5).max(100).default(15),
-  minPay: z.coerce.number().min(0).max(100_000_000).optional(),
-  minBuyerRating: z.coerce.number().min(0).max(5).optional(),
-  minSellerRating: z.coerce.number().min(0).max(5).optional(),
-  maxDistanceKm: z.coerce.number().min(0.5).max(100).optional(),
-  limit: z.coerce.number().int().min(1).max(80).default(40),
-});
+export const withdrawJobBodySchema = z
+  .object({
+    reason: z.string().trim().max(200).optional(),
+  })
+  .default({});
+
+export const openJobsQuerySchema = z
+  .object({
+    lng: z.coerce.number().min(-180).max(180),
+    lat: z.coerce.number().min(-90).max(90),
+    radiusKm: z.coerce.number().min(0.5).max(100).default(15),
+    minCommissionUsd: z.coerce
+      .number()
+      .refine((v) => [10, 15, 20, 25, 35].includes(v), {
+        message: 'minCommissionUsd must be one of 10, 15, 20, 25, 35',
+      })
+      .optional(),
+    minBuyerRating: z.coerce.number().min(0).max(5).optional(),
+    maxBuyerRating: z.coerce.number().min(0).max(5).optional(),
+    minSellerRating: z.coerce.number().min(0).max(5).optional(),
+    maxSellerRating: z.coerce.number().min(0).max(5).optional(),
+    limit: z.coerce.number().int().min(1).max(80).default(40),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.minBuyerRating != null &&
+      value.maxBuyerRating != null &&
+      value.minBuyerRating > value.maxBuyerRating
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'minBuyerRating no puede ser mayor que maxBuyerRating',
+        path: ['minBuyerRating'],
+      });
+    }
+    if (
+      value.minSellerRating != null &&
+      value.maxSellerRating != null &&
+      value.minSellerRating > value.maxSellerRating
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'minSellerRating no puede ser mayor que maxSellerRating',
+        path: ['minSellerRating'],
+      });
+    }
+  });
 
 export type AgentSearchQuery = z.infer<typeof agentSearchQuerySchema>;
 export type OfferAssignmentBody = z.infer<typeof offerAssignmentBodySchema>;
 export type OpenJobsQuery = z.infer<typeof openJobsQuerySchema>;
+export type WithdrawJobBody = z.infer<typeof withdrawJobBodySchema>;
 

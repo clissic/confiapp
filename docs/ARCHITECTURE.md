@@ -41,32 +41,51 @@ infrastructure ───────┘
 > Estado actual: los módulos en `apps/api/src/modules/*` implementan
 > controller → service → repository. Las carpetas `domain/`, `application/`,
 > `infrastructure/` y `presentation/` son el **target** Clean Architecture;
-> se migrará módulo a módulo sin romper lo existente.
+> se migrará módulo a módulo sin romper lo existente. Ver
+> [`apps/api/src/CLEAN_ARCHITECTURE.md`](../apps/api/src/CLEAN_ARCHITECTURE.md).
 
 ---
 
 ## `apps/api` — Backend
 
-### Módulos implementados (`src/modules/`)
+### Módulos (`src/modules/`)
 
 | Módulo | Rol |
 |--------|-----|
 | `auth` | Registro, login, verify email, reset password |
-| `users` | Perfil, KYC, preferencias, payout methods |
-| `transactions` | Ciclo de vida escrow + invites (`WAITING_PARTICIPANT`, …) |
-| `payments` | Checkout / hold / webhooks (Mercado Pago / stub) |
+| `users` | Perfil, KYC (review admin), preferencias, payout methods |
+| `transactions` | Ciclo de vida escrow + invites + checklist |
+| `payments` | Checkout / hold / webhooks (Mercado Pago / mock) |
 | `wallet` | Saldos, retiros, comisiones, export |
 | `notifications` | Inbox + `NotificationsService.notify` + gating prefs |
 | `chats` | Mensajería + realtime |
-| `agents` | Ofertas, open jobs, asignación |
-| `reviews` | Calificaciones |
+| `agents` | Onboarding, búsqueda, open jobs, ofertas, salida de op |
+| `reviews` | Calificaciones / reputación |
 | `audit` | Append-only log de actividad |
 | `health` | Healthcheck |
+| `evidence` | Stub (`/status`) — dominio preparado, UX pendiente |
+| `disputes` | Stub (`/status`) — dominio preparado, UX pendiente |
 
 Estructura típica por feature: `{controller,service,repository,routes,dto,validation}.ts`.
 
-Persistencia actual: `src/database/` (Mongoose schemas/models/indexes).  
-Realtime: Socket.io cableado en el bootstrap del server (chat + notificaciones).
+### Agentes — endpoints relevantes (`/agents`)
+
+| Método | Ruta | Notas |
+|--------|------|--------|
+| GET/PUT | `/onboarding` | Estado + `activeJobsCount` / lista corta |
+| POST | `/onboarding/submit` | Alta como agente |
+| POST | `/onboarding/suspend` \| `/resume` \| `/close` | Soft pause / hard close (`409 ACTIVE_JOBS` si hay ops) |
+| GET | `/search` | Ranking geo + capacidad |
+| GET | `/jobs/open` | Trabajos sin intermediario ACCEPTED (incl. post-withdraw) |
+| POST | `/jobs/:code/accept` | Tomar trabajo abierto |
+| POST | `/jobs/:code/withdraw` | Agente sale (`REMOVED`); escrow intacto; reabre oferta/open-jobs |
+| POST | `/assignments/offer` \| `…/reassign` | Cola de ofertas |
+| GET/POST | `/offers…` | Inbox de ofertas del agente (API; web usa open jobs como entry) |
+
+Helper compartido de carga: `modules/agents/agent-jobs.ts` (solo `INTERMEDIARY` + `ACCEPTED` en statuses activos).
+
+Persistencia: `src/database/` (Mongoose schemas/models/indexes).  
+Realtime: Socket.io (chat + notificaciones + eventos de agente en room de tx).
 
 ---
 
@@ -79,15 +98,15 @@ apps/web/src/
 ├── pages/               # re-exports lazy por ruta
 ├── features/            # UI por dominio
 │   ├── landing/
-│   ├── auth/
-│   ├── profile/         # edición, KYC, wallet section, verify phone stub
-│   ├── transactions/    # listado, hub, comprador/vendedor, join, detalle
+│   ├── auth/            # RequireAuth, RequireAdmin, RequireAgent
+│   ├── profile/
+│   ├── transactions/
 │   ├── payments/
 │   ├── wallet/
-│   ├── notifications/   # inbox
+│   ├── notifications/
 │   ├── chat/
-│   ├── agent-ops/
-│   ├── agent-onboarding/
+│   ├── agent-ops/       # búsqueda, open jobs
+│   ├── agent-onboarding/# alta + panel suspend/cerrar
 │   ├── audit/
 │   ├── reputation/
 │   ├── admin/
@@ -95,7 +114,7 @@ apps/web/src/
 └── shared/              # api client, toast, form helpers, preferences
 ```
 
-Detalle de rutas, copy vs estados internos y patrones UI: [`WEB_APP.md`](./WEB_APP.md).
+Detalle de rutas y patrones UI: [`WEB_APP.md`](./WEB_APP.md).
 
 ---
 
@@ -103,10 +122,12 @@ Detalle de rutas, copy vs estados internos y patrones UI: [`WEB_APP.md`](./WEB_A
 
 | Package | Responsabilidad |
 |---|---|
-| `@confiapp/shared` | Enums, contratos DTO compartidos, constantes de dominio |
+| `@confiapp/shared` | Enums, contratos DTO compartidos, fees / constantes |
 | `@confiapp/database` | Tipos/seed/helpers de Mongo (compartidos con API) |
 | `@confiapp/config` | Tooling TS/ESLint/Prettier del monorepo |
 | `@confiapp/ui` | Design system React reutilizable (preparado) |
+
+Modelo de datos: [`packages/database/ARCHITECTURE.md`](../packages/database/ARCHITECTURE.md).
 
 ---
 
@@ -116,25 +137,29 @@ Detalle de rutas, copy vs estados internos y patrones UI: [`WEB_APP.md`](./WEB_A
 |-----|-----------|
 | [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | Diseño SaaS a escala |
 | [`WEB_APP.md`](./WEB_APP.md) | Estado del producto web / UI |
+| [`BACKEND_BOOTSTRAP.md`](./BACKEND_BOOTSTRAP.md) | Snapshot histórico del bootstrap Express |
 | [`DEMO_PUBLICO.md`](./DEMO_PUBLICO.md) | Túnel Cloudflare para demos |
 | [`design-system/GUIDE.md`](./design-system/GUIDE.md) | Tokens y componentes |
-| [`BACKEND_BOOTSTRAP.md`](./BACKEND_BOOTSTRAP.md) | Snapshot histórico del bootstrap Express |
-| `.cursor/skills/notifications/` | Cómo emitir notificaciones |
+| [`.cursor/skills/notifications/`](../.cursor/skills/notifications/) | Cómo emitir notificaciones |
+| [`../TESTING.md`](../TESTING.md) | Tests |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Contribución |
 
 ---
 
 ## Qué ya está implementado (no rehacer)
 
 - Monorepo pnpm + Turborepo
-- API Express con auth, users, transactions, payments, wallet, notifications, chats, agents, reviews, audit, health
+- API Express con auth, users, transactions, payments, wallet, notifications, chats, agents (incl. salida/cierre), reviews, audit, health
 - Web Vite con landing + app autenticada (perfil, operaciones, pagos, wallet, chat, notificaciones, auditoría, agentes)
+- Salvaguardas de salida de agente: suspend soft, close hard, withdraw por operación
 - Persistencia Mongoose + `@confiapp/database` + seed
 - Toasts Bootstrap globales (`useAppToast`)
 - Design tokens + Bootstrap como UI primaria
 
 ## Próximos pasos naturales
 
-1. Completar cableado de eventos de notificación (P0–P2 en skill `notifications/reference.md`).
+1. Completar cableado de eventos de notificación restantes (P0–P2 en skill `notifications/reference.md`).
 2. Verificación de teléfono real (hoy stub UI + limpieza de `phoneVerified` al cambiar número).
-3. Migrar módulos API hacia carpetas Clean Architecture target.
-4. Workers/outbox para email/push reales a escala.
+3. UI/API reales de **evidence** y **disputes** (hoy stubs `/status`).
+4. Migrar módulos API hacia carpetas Clean Architecture target.
+5. Workers/outbox para email/push reales a escala.

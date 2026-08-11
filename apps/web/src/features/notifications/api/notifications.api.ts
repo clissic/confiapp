@@ -38,7 +38,7 @@ export function notificationHref(n: AppNotification): string | null {
   const code = n.data?.transactionCode;
   if (typeof code === 'string') return `/operaciones/${code}`;
 
-  if (n.type === 'AGENT_ASSIGNMENT') return '/agente/ofertas';
+  if (n.type === 'AGENT_ASSIGNMENT') return '/agente/trabajos';
   if (n.entityType === 'Transaction' && typeof n.data?.transactionId === 'string') {
     return '/operaciones';
   }

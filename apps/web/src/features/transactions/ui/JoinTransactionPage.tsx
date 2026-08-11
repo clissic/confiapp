@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
@@ -40,6 +40,7 @@ import {
   type ChecklistDraftItem,
 } from './ChecklistEditor';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
+import { FeePayerFields } from './FeePayerFields';
 import { PhotoLightbox } from './PhotoLightbox';
 import '../styles/transactions.css';
 
@@ -108,6 +109,7 @@ export function JoinTransactionPage() {
       category: 'OTHER',
       price: undefined as unknown as number,
       currency: defaultPaymentCurrency(preferredCurrency),
+      feePayer: 'BUYER',
       imageUrl: '',
       conditionsSummary: '',
       returnInstructions: '',
@@ -117,6 +119,7 @@ export function JoinTransactionPage() {
   const acceptForm = useZodForm(acceptPurchaseSchema, {
     defaultValues: {
       conditionsSummary: '',
+      feePayer: 'BUYER',
       productTitle: '',
       productDescription: '',
     },
@@ -124,7 +127,14 @@ export function JoinTransactionPage() {
 
   const preview = data?.data;
   const values = form.watch();
+  const acceptFeePayer = acceptForm.watch('feePayer');
   const isSellerInitiated = preview?.initiatedBy === 'SELLER';
+
+  useEffect(() => {
+    if (!preview?.feePayer) return;
+    acceptForm.setValue('feePayer', preview.feePayer);
+    form.setValue('feePayer', preview.feePayer);
+  }, [preview?.feePayer, acceptForm, form]);
 
   const summaryPrice = useMemo(() => {
     const price = Number(values.price);
@@ -214,6 +224,9 @@ export function JoinTransactionPage() {
       'currency',
       preview.currency === 'USD' || preview.currency === 'UYU' ? preview.currency : 'UYU',
     );
+    if (preview.feePayer) {
+      form.setValue('feePayer', preview.feePayer);
+    }
     setStep(2);
   };
 
@@ -262,6 +275,7 @@ export function JoinTransactionPage() {
           category: parsed.data.category as ProductCategory,
           price: parsed.data.price,
           currency: parsed.data.currency,
+          feePayer: parsed.data.feePayer,
           images,
           conditionsSummary: parsed.data.conditionsSummary,
           meetingLocationMode: delivery.mode,
@@ -300,6 +314,7 @@ export function JoinTransactionPage() {
             buyerDelivery.mode === 'CHAT' ? undefined : buyerDelivery.meetingLocation,
           productTitle: values.productTitle,
           productDescription: values.productDescription,
+          feePayer: values.feePayer,
         },
       });
       navigate(`/operaciones/${result.data.code}`, {
@@ -483,6 +498,22 @@ export function JoinTransactionPage() {
                       {acceptForm.formState.errors.conditionsSummary?.message}
                     </Form.Control.Feedback>
                   </Form.Group>
+                  <div className="col-12">
+                    <FeePayerFields
+                      controlId="buy-fee-payer"
+                      feePayer={acceptFeePayer}
+                      onFeePayerChange={(value) =>
+                        acceptForm.setValue('feePayer', value, { shouldValidate: true })
+                      }
+                      priceMajor={
+                        preview.amountCents != null ? preview.amountCents / 100 : null
+                      }
+                      currency={preview.currency || 'UYU'}
+                      error={acceptForm.formState.errors.feePayer?.message}
+                      disabled={acceptPurchase.isPending}
+                      viewerHint="buyer"
+                    />
+                  </div>
                   <div className="col-12">
                     <ChecklistEditor
                       items={buyerChecklistItems}
@@ -736,6 +767,19 @@ export function JoinTransactionPage() {
                   </Form.Select>
                 </Form.Group>
               </div>
+
+              <FeePayerFields
+                controlId="sale-fee-payer"
+                feePayer={values.feePayer}
+                onFeePayerChange={(value) =>
+                  form.setValue('feePayer', value, { shouldValidate: true })
+                }
+                priceMajor={Number(values.price) || null}
+                currency={values.currency}
+                error={form.formState.errors.feePayer?.message}
+                disabled={confirm.isPending}
+                viewerHint="seller"
+              />
             </fieldset>
 
             <fieldset className="ca-tx-fieldset ca-tx-photos">

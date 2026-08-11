@@ -1,3 +1,8 @@
+import {
+  buildBrandedEmail,
+  escapeEmailHtml,
+  mergeEmailAttachments,
+} from '../../infrastructure/email/email-layout';
 import type { EmailAttachment } from '../../infrastructure/email/email.sender';
 import { emailSender } from '../../infrastructure/email/email.sender';
 import { env } from '../../shared/config/env';
@@ -9,6 +14,8 @@ const KYC_KIND_FILENAME: Record<string, string> = {
   SELFIE: 'selfie.jpg',
 };
 
+const KYC_KINDS = new Set(['ID_FRONT', 'ID_BACK', 'SELFIE']);
+
 function parseNotifyEmail(): string {
   const explicit = env.PLATFORM_NOTIFY_EMAIL.trim();
   if (explicit) return explicit;
@@ -19,14 +26,51 @@ function parseNotifyEmail(): string {
   return env.SMTP_USER || 'noreply@confiapp.local';
 }
 
-function dataUrlToAttachment(dataUrl: string, filename: string): EmailAttachment | null {
-  const match = /^data:([^;]+);base64,(.+)$/i.exec(dataUrl);
+function extensionForContentType(contentType: string): string {
+  if (contentType.includes('png')) return 'png';
+  if (contentType.includes('webp')) return 'webp';
+  if (contentType.includes('gif')) return 'gif';
+  return 'jpg';
+}
+
+function dataUrlToAttachment(dataUrl: string, baseFilename: string): EmailAttachment | null {
+  const match = /^data:([^;]+);base64,([\s\S]+)$/i.exec(dataUrl.trim());
   if (!match?.[1] || !match[2]) return null;
-  return {
-    filename,
-    contentType: match[1],
-    content: Buffer.from(match[2], 'base64'),
-  };
+  const contentType = match[1].trim();
+  const base64 = match[2].replace(/\s+/g, '');
+  try {
+    const content = Buffer.from(base64, 'base64');
+    if (content.length < 32) return null;
+    const ext = extensionForContentType(contentType);
+    const filename = baseFilename.replace(/\.(jpg|jpeg|png|webp|gif)$/i, `.${ext}`);
+    return {
+      filename,
+      contentType,
+      content,
+      contentDisposition: 'attachment',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function urlToAttachment(url: string, filename: string): Promise<EmailAttachment | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length < 32) return null;
+    const ext = extensionForContentType(contentType);
+    return {
+      filename: filename.replace(/\.(jpg|jpeg|png|webp|gif)$/i, `.${ext}`),
+      contentType,
+      content: buffer,
+      contentDisposition: 'attachment',
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function sendKycReviewEmail(input: {
@@ -41,18 +85,40 @@ export async function sendKycReviewEmail(input: {
 
   const attachments: EmailAttachment[] = [];
   const linkLines: string[] = [];
+  const failedKinds: string[] = [];
 
   for (const photo of input.photos) {
     const kind = photo.kind ?? 'OTHER';
-    if (!['ID_FRONT', 'ID_BACK', 'SELFIE'].includes(kind)) continue;
+    if (!KYC_KINDS.has(kind)) continue;
     const filename = KYC_KIND_FILENAME[kind] ?? `${kind.toLowerCase()}.jpg`;
-    if (photo.url.startsWith('data:image/')) {
-      const attachment = dataUrlToAttachment(photo.url, filename);
-      if (attachment) attachments.push(attachment);
-      else linkLines.push(`- ${kind}: (no se pudo adjuntar)`);
-    } else if (/^https?:\/\//i.test(photo.url)) {
-      linkLines.push(`- ${kind}: ${photo.url}`);
+    const url = (photo.url ?? '').trim();
+    if (!url) {
+      failedKinds.push(kind);
+      continue;
     }
+
+    if (url.startsWith('data:image/') || url.startsWith('data:application/octet-stream')) {
+      const attachment = dataUrlToAttachment(url, filename);
+      if (attachment) attachments.push(attachment);
+      else {
+        failedKinds.push(kind);
+        linkLines.push(`- ${kind}: (no se pudo adjuntar la imagen)`);
+      }
+      continue;
+    }
+
+    if (/^https?:\/\//i.test(url)) {
+      const attachment = await urlToAttachment(url, filename);
+      if (attachment) attachments.push(attachment);
+      else {
+        failedKinds.push(kind);
+        linkLines.push(`- ${kind}: ${url}`);
+      }
+      continue;
+    }
+
+    failedKinds.push(kind);
+    linkLines.push(`- ${kind}: (formato de imagen no soportado)`);
   }
 
   const text = [
@@ -65,54 +131,75 @@ export async function sendKycReviewEmail(input: {
     'Revisá la identidad (solo ADMIN) en:',
     reviewUrl,
     '',
-    linkLines.length > 0 ? `Enlaces de imágenes:\n${linkLines.join('\n')}` : '',
-    'Los documentos también pueden ir adjuntos a este correo.',
+    attachments.length > 0
+      ? `Adjuntos: ${attachments.map((a) => a.filename).join(', ')}`
+      : 'Sin adjuntos (revisá el enlace o los logs).',
+    linkLines.length > 0 ? `Enlaces / notas:\n${linkLines.join('\n')}` : '',
   ]
     .filter(Boolean)
     .join('\n');
 
-  const html = `
-    <p><strong>Nueva solicitud de verificación de identidad (KYC)</strong></p>
-    <p>
-      Usuario: <strong>${escapeHtml(input.fullName)}</strong><br/>
-      Email: ${escapeHtml(input.email)}<br/>
-      User ID: <code>${escapeHtml(input.userId)}</code>
+  const linksHtml = linkLines.length
+    ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.5;color:#0f172a">Notas de imágenes:</p>
+       <ul style="margin:0 0 14px;padding-left:18px;color:#334155;font-size:13px;line-height:1.5">${linkLines
+         .map((line) => `<li>${escapeEmailHtml(line.replace(/^- /, ''))}</li>`)
+         .join('')}</ul>`
+    : '';
+
+  const attachmentNote =
+    attachments.length > 0
+      ? `<p style="margin:0 0 14px;font-size:13px;line-height:1.5;color:#174740">
+          Se adjuntaron ${attachments.length} imagen(es): ${attachments
+            .map((a) => escapeEmailHtml(a.filename))
+            .join(', ')}.
+        </p>`
+      : `<p style="margin:0 0 14px;font-size:13px;line-height:1.5;color:#b91c1c">
+          No se pudieron adjuntar las imágenes automáticamente. Abrí la revisión en ConfiApp.
+        </p>`;
+
+  const bodyHtml = `
+    <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#0f172a">
+      Hay una nueva solicitud de verificación de identidad pendiente de revisión.
     </p>
-    <p>
-      <a href="${reviewUrl}">Abrir revisión de identidad</a>
-      <br/>
-      <span style="color:#666;font-size:12px">Solo usuarios con rol ADMIN pueden acceder.</span>
+    <p style="margin:0 0 14px;font-size:14px;line-height:1.55;color:#334155">
+      <strong style="color:#01285d">${escapeEmailHtml(input.fullName)}</strong><br/>
+      ${escapeEmailHtml(input.email)}<br/>
+      <span style="font-size:12px;color:#64748b">ID: ${escapeEmailHtml(input.userId)}</span>
     </p>
-    ${
-      linkLines.length
-        ? `<p>Enlaces de imágenes:</p><ul>${linkLines
-            .map((line) => `<li>${escapeHtml(line.replace(/^- /, ''))}</li>`)
-            .join('')}</ul>`
-        : ''
-    }
+    ${attachmentNote}
+    ${linksHtml}
   `;
+
+  const branded = buildBrandedEmail({
+    title: 'KYC pendiente de revisión',
+    preheader: `${input.fullName} envió documentos de identidad.`,
+    bodyHtml,
+    cta: { label: 'Abrir revisión de identidad', href: reviewUrl },
+    footnote: 'Solo usuarios con rol ADMIN pueden acceder a este enlace.',
+  });
 
   try {
     await emailSender.send({
       to,
       subject: `[ConfiApp] KYC pendiente — ${input.fullName}`,
       text,
-      html,
-      attachments,
+      html: branded.html,
+      attachments: mergeEmailAttachments(branded.attachments, attachments),
+    });
+    logger.info('kyc.email_sent', {
+      userId: input.userId,
+      to,
+      attachmentCount: attachments.length,
+      attachmentNames: attachments.map((a) => a.filename),
+      failedKinds,
     });
   } catch (error) {
     logger.error('kyc.email_failed', {
       userId: input.userId,
+      to,
+      attachmentCount: attachments.length,
       error: error instanceof Error ? error.message : String(error),
     });
     // No bloqueamos el submit: el estado PENDING ya quedó guardado.
   }
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }

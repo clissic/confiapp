@@ -12,8 +12,9 @@ Estas carpetas definen el **target** arquitectónico.
 
 La implementación activa hoy vive en:
 
-- `src/modules/*` — features
-- `src/database/*` — persistencia
+- `src/modules/*` — features (auth, users, transactions, payments, wallet, notifications, chats, agents, reviews, audit, health; stubs evidence/disputes)
+- `src/database/*` — persistencia Mongoose
+- `src/infrastructure/*` — realtime, email, payments, security (parcialmente ya extraído)
 - `src/middleware/*`, `src/shared/*`, `src/utils/*`
 
-Migración: feature por feature, sin big-bang.
+Migración: feature por feature, sin big-bang. Estado del monorepo: [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md).

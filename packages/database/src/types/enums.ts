@@ -45,6 +45,13 @@ export enum TransactionInitiator {
   SELLER = 'SELLER',
 }
 
+/** Quién asume la comisión de intermediación. */
+export enum FeePayer {
+  BUYER = 'BUYER',
+  SELLER = 'SELLER',
+  SPLIT_50_50 = 'SPLIT_50_50',
+}
+
 export enum ParticipantRole {
   CREATOR = 'CREATOR',
   COUNTERPARTY = 'COUNTERPARTY',

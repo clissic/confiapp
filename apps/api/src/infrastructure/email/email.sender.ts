@@ -7,6 +7,9 @@ export interface EmailAttachment {
   filename: string;
   content: Buffer;
   contentType?: string;
+  /** Content-ID para imágenes inline (`cid:...` en el HTML). */
+  cid?: string;
+  contentDisposition?: 'attachment' | 'inline';
 }
 
 export interface EmailMessage {

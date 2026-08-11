@@ -9,7 +9,7 @@ import { KYC_IMAGE_OPTIONS } from '../../model/image-source';
 import type { ProfilePhoto, UserPhotoKind, UserProfile } from '../../model/types';
 import { ImageSourceField } from '../ImageSourceField';
 
-const KYC_KINDS = ['ID_FRONT', 'ID_BACK', 'SELFIE'] as const satisfies readonly UserPhotoKind[];
+const KYC_KINDS = ['ID_FRONT', 'SELFIE'] as const satisfies readonly UserPhotoKind[];
 
 type KycKind = (typeof KYC_KINDS)[number];
 
@@ -18,11 +18,6 @@ const SLOTS: Array<{ kind: KycKind; title: string; hint: string }> = [
     kind: 'ID_FRONT',
     title: 'DNI (frente) / Pasaporte (datos personales)',
     hint: 'Foto nítida del frente del DNI o de la página de datos personales del pasaporte.',
-  },
-  {
-    kind: 'ID_BACK',
-    title: 'DNI (dorso)',
-    hint: 'Foto nítida del reverso del DNI (no es necesario si se optó subir foto del pasaporte).',
   },
   {
     kind: 'SELFIE',
@@ -53,7 +48,12 @@ function mergePhotos(
   kyc: Record<KycKind, string>,
 ): Array<{ url: string; kind: UserPhotoKind; isPrimary?: boolean }> {
   const kept = profile.photos
-    .filter((photo) => !(KYC_KINDS as readonly string[]).includes(photo.kind))
+    .filter(
+      (photo) =>
+        photo.kind !== 'ID_FRONT' &&
+        photo.kind !== 'ID_BACK' &&
+        photo.kind !== 'SELFIE',
+    )
     .map((photo) => ({
       url: photo.url,
       kind: photo.kind,
@@ -67,15 +67,11 @@ function mergePhotos(
     kept.unshift({ url: profile.avatar, kind: 'AVATAR', isPrimary: true });
   }
 
-  const docs: Array<{ url: string; kind: UserPhotoKind; isPrimary?: boolean }> = [
+  return [
+    ...kept,
     { url: kyc.ID_FRONT, kind: 'ID_FRONT', isPrimary: false },
     { url: kyc.SELFIE, kind: 'SELFIE', isPrimary: false },
   ];
-  if (kyc.ID_BACK) {
-    docs.splice(1, 0, { url: kyc.ID_BACK, kind: 'ID_BACK', isPrimary: false });
-  }
-
-  return [...kept, ...docs];
 }
 
 export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
@@ -84,7 +80,6 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
   const [formError, setFormError] = useState<string | null>(null);
   const [images, setImages] = useState<Record<KycKind, string>>({
     ID_FRONT: photoByKind(profile.photos, 'ID_FRONT'),
-    ID_BACK: photoByKind(profile.photos, 'ID_BACK'),
     SELFIE: photoByKind(profile.photos, 'SELFIE'),
   });
 
@@ -95,7 +90,6 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
   useEffect(() => {
     setImages({
       ID_FRONT: photoByKind(profile.photos, 'ID_FRONT'),
-      ID_BACK: photoByKind(profile.photos, 'ID_BACK'),
       SELFIE: photoByKind(profile.photos, 'SELFIE'),
     });
   }, [profile]);
@@ -108,7 +102,7 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
   const onSubmit = async () => {
     setFormError(null);
     if (!complete) {
-      setFormError('Completá las tres imágenes para enviar la verificación.');
+      setFormError('Subí el documento (frente/pasaporte) y la selfie para enviar la verificación.');
       return;
     }
     if (locked) return;
@@ -130,8 +124,8 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
         </Badge>
       </h3>
       <p className="ca-section-lead">
-        Subí el frente y el dorso de tu DNI (o la página de datos del pasaporte), más una selfie.
-        Con la verificación aprobada sumás puntos de KYC en tu reputación.
+        Subí el frente de tu DNI (o la página de datos del pasaporte) y una selfie sosteniendo el
+        documento. Con la verificación aprobada sumás puntos de KYC en tu reputación.
       </p>
 
       {status === 'REJECTED' && profile.kyc?.rejectionReason ? (

@@ -30,7 +30,7 @@ export default defineConfig({
       MERCADOPAGO_ACCESS_TOKEN: '',
       PAYMENTS_DEFAULT_CURRENCY: 'UYU',
       PAYMENTS_PLATFORM_FEE_BPS: '2000',
-      PAYMENTS_AGENT_FEE_BPS: '500',
+      PAYMENTS_AGENT_FEE_BPS: '8000',
     },
     coverage: {
       provider: 'v8',

@@ -12,7 +12,8 @@ export interface RegisterUserDto {
   email: string;
   password: string;
   fullName: string;
-  phone?: string;
+  documentNumber: string;
+  phone: string;
   avatar?: string;
 }
 

@@ -1,4 +1,5 @@
 import type {
+  FeePayer,
   ParticipantRole,
   ParticipantStatus,
   ProductCategory,
@@ -34,6 +35,7 @@ export interface CreateTransactionDto {
   checklist?: string[];
   amount: number;
   currency?: string;
+  feePayer: FeePayer;
   inviteExpiresInDays?: number;
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocationDto;
@@ -46,6 +48,7 @@ export interface CreateSellerTransactionDto {
   description?: string;
   conditionsSummary: string;
   checklist?: string[];
+  feePayer: FeePayer;
   inviteExpiresInDays?: number;
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocationDto;
@@ -68,6 +71,7 @@ export interface ConfirmSaleProductDto {
   category?: ProductCategory;
   price: number;
   currency?: string;
+  feePayer: FeePayer;
   images: Array<{ url: string; alt?: string }>;
   conditionsSummary: string;
   checklist?: string[];
@@ -78,6 +82,7 @@ export interface ConfirmSaleProductDto {
 
 export interface AcceptPurchaseDto {
   conditionsSummary: string;
+  feePayer?: FeePayer;
   checklist?: string[];
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocationDto;
@@ -137,6 +142,8 @@ export interface TransactionDto {
   };
   amountCents?: number;
   currency?: string;
+  /** Quién asume la comisión de intermediación. */
+  feePayer?: FeePayer;
   /** @deprecated Usar party.*.meetingLocation */
   meetingLocation?: MeetingLocationDto;
   party?: {
@@ -175,6 +182,7 @@ export interface InvitePreviewDto {
   productDescription?: string;
   amountCents?: number;
   currency?: string;
+  feePayer?: FeePayer;
   status: TransactionStatus;
   initiatedBy: TransactionInitiator;
   inviteExpiresAt?: string;

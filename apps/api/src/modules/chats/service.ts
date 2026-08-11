@@ -30,7 +30,13 @@ export type TransactionDocument = HydratedDocument<ITransaction>;
 export interface ChatParticipantDto {
   id: string;
   name: string;
+  identityVerified?: boolean;
+  avatar?: string;
+  /** Rol en la operación respecto del chat. */
+  role?: 'BUYER' | 'SELLER' | 'AGENT';
 }
+
+export type ChatPeerRole = 'BUYER' | 'SELLER' | 'AGENT';
 
 export interface ChatDto {
   id: string;
@@ -40,9 +46,21 @@ export interface ChatDto {
   transactionCode?: string;
   transactionTitle?: string;
   label: string;
+  /** Interlocutor (la otra persona del chat). */
+  peer?: {
+    id: string;
+    name: string;
+    role: ChatPeerRole;
+    avatar?: string;
+    identityVerified?: boolean;
+  };
   participants: ChatParticipantDto[];
   lastMessageAt?: string;
   lastMessagePreview?: string;
+  lastMessageSenderId?: string;
+  lastMessageSenderName?: string;
+  /** Si el último mensaje lo mandé yo y la contraparte ya lo leyó. */
+  lastMessageReadByPeer?: boolean;
   unreadCount: number;
   createdAt: string;
 }
@@ -98,6 +116,29 @@ function channelLabel(channel?: ChatChannel | string): string {
   if (channel === ChatChannel.BUYER_AGENT) return 'Comprador ↔ Agente';
   if (channel === ChatChannel.SELLER_AGENT) return 'Vendedor ↔ Agente';
   return 'Chat';
+}
+
+function peerRoleLabel(role: ChatPeerRole): string {
+  if (role === 'BUYER') return 'Comprador';
+  if (role === 'SELLER') return 'Vendedor';
+  return 'Agente';
+}
+
+function resolvePeerRole(
+  peerId: string,
+  channel: ChatChannel | string | undefined,
+  parties: { buyerId?: string; sellerId?: string; agentId?: string },
+): ChatPeerRole {
+  if (parties.agentId && peerId === parties.agentId) return 'AGENT';
+  if (parties.buyerId && peerId === parties.buyerId) return 'BUYER';
+  if (parties.sellerId && peerId === parties.sellerId) return 'SELLER';
+  if (channel === ChatChannel.BUYER_AGENT) {
+    return peerId === parties.agentId ? 'AGENT' : 'BUYER';
+  }
+  if (channel === ChatChannel.SELLER_AGENT) {
+    return peerId === parties.agentId ? 'AGENT' : 'SELLER';
+  }
+  return 'AGENT';
 }
 
 export class ChatsService {
@@ -203,26 +244,51 @@ export class ChatsService {
       .map((c) => c.transaction)
       .filter(Boolean)
       .map((id) => String(id));
+    const chatObjectIds = chats.map((c) => c._id);
 
-    const [users, transactions, unreadAgg] = await Promise.all([
+    const [users, transactions, unreadAgg, lastMessages] = await Promise.all([
       UserModel.find({ _id: { $in: userIds } })
-        .select('fullName displayName kyc.status verification.identity.status')
+        .select('fullName displayName avatar kyc.status verification.identity.status')
         .lean()
         .exec(),
       TransactionModel.find({ _id: { $in: txIds } })
-        .select('code title')
+        .select('code title createdBy initiatedBy participants')
         .lean()
         .exec(),
       MessageModel.aggregate<{ _id: Types.ObjectId; count: number }>([
         {
           $match: {
-            chat: { $in: chats.map((c) => c._id) },
+            chat: { $in: chatObjectIds },
             deletedAt: null,
             sender: { $ne: new Types.ObjectId(userId) },
             readBy: { $ne: new Types.ObjectId(userId) },
           },
         },
         { $group: { _id: '$chat', count: { $sum: 1 } } },
+      ]),
+      MessageModel.aggregate<{
+        _id: Types.ObjectId;
+        sender: Types.ObjectId;
+        body: string;
+        readBy: Types.ObjectId[];
+        createdAt: Date;
+      }>([
+        {
+          $match: {
+            chat: { $in: chatObjectIds },
+            deletedAt: null,
+          },
+        },
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id: '$chat',
+            sender: { $first: '$sender' },
+            body: { $first: '$body' },
+            readBy: { $first: '$readBy' },
+            createdAt: { $first: '$createdAt' },
+          },
+        },
       ]),
     ]);
 
@@ -234,17 +300,51 @@ export class ChatsService {
           {
             name: u.displayName || u.fullName || 'Usuario',
             identityVerified: status === 'VERIFIED',
+            avatar: typeof u.avatar === 'string' && u.avatar.trim() ? u.avatar.trim() : undefined,
           },
         ] as const;
       }),
     );
     const txMap = new Map(
-      transactions.map((t) => [String(t._id), { code: t.code, title: t.title }]),
+      transactions.map((t) => [
+        String(t._id),
+        {
+          code: t.code,
+          title: t.title,
+          parties: resolveParties(t),
+        },
+      ]),
     );
     const unreadMap = new Map(unreadAgg.map((row) => [String(row._id), row.count]));
+    const lastMsgMap = new Map(
+      lastMessages.map((row) => [
+        String(row._id),
+        {
+          senderId: String(row.sender),
+          body: row.body,
+          readBy: (row.readBy ?? []).map((id) => String(id)),
+          createdAt: row.createdAt,
+        },
+      ]),
+    );
 
     return chats.map((chat) => {
       const tx = chat.transaction ? txMap.get(String(chat.transaction)) : undefined;
+      const peerId = chat.participants.map((p) => String(p)).find((id) => id !== userId);
+      const peerInfo = peerId ? userMap.get(peerId) : undefined;
+      const peerRole: ChatPeerRole = peerId
+        ? resolvePeerRole(peerId, chat.channel, tx?.parties ?? {})
+        : 'AGENT';
+      const peerName = peerInfo?.name || 'Usuario';
+      const last = lastMsgMap.get(String(chat._id));
+      const lastSenderId = last?.senderId;
+      const lastFromMe = lastSenderId === userId;
+      const lastSenderName = lastSenderId
+        ? userMap.get(lastSenderId)?.name || (lastFromMe ? 'Vos' : peerName)
+        : undefined;
+      const lastMessageReadByPeer =
+        lastFromMe && peerId ? Boolean(last?.readBy.includes(peerId)) : undefined;
+
       return {
         id: String(chat._id),
         type: chat.type,
@@ -252,17 +352,32 @@ export class ChatsService {
         transactionId: chat.transaction ? String(chat.transaction) : undefined,
         transactionCode: tx?.code,
         transactionTitle: tx?.title,
-        label: channelLabel(chat.channel),
+        label: `${peerName} - ${peerRoleLabel(peerRole)}`,
+        peer: peerId
+          ? {
+              id: peerId,
+              name: peerName,
+              role: peerRole,
+              avatar: peerInfo?.avatar,
+              identityVerified: Boolean(peerInfo?.identityVerified),
+            }
+          : undefined,
         participants: chat.participants.map((p) => {
           const info = userMap.get(String(p));
+          const id = String(p);
           return {
-            id: String(p),
+            id,
             name: info?.name || 'Usuario',
             identityVerified: Boolean(info?.identityVerified),
+            avatar: info?.avatar,
+            role: resolvePeerRole(id, chat.channel, tx?.parties ?? {}),
           };
         }),
-        lastMessageAt: chat.lastMessageAt?.toISOString(),
-        lastMessagePreview: chat.lastMessagePreview,
+        lastMessageAt: last?.createdAt?.toISOString() ?? chat.lastMessageAt?.toISOString(),
+        lastMessagePreview: last?.body?.slice(0, 280) ?? chat.lastMessagePreview,
+        lastMessageSenderId: lastSenderId,
+        lastMessageSenderName: lastSenderName,
+        lastMessageReadByPeer,
         unreadCount: unreadMap.get(String(chat._id)) ?? 0,
         createdAt: chat.createdAt.toISOString(),
       };
@@ -432,16 +547,22 @@ export class ChatsService {
     chatId: string,
     messageIds?: string[],
   ): Promise<{ chatId: string; messageIds: string[]; readBy: string }> {
-    await this.getChatForUser(userId, chatId);
+    const chat = await this.getChatForUser(userId, chatId);
+    const readerId = new Types.ObjectId(userId);
+    const chatOid = new Types.ObjectId(chatId);
 
     const filter: Record<string, unknown> = {
-      chat: chatId,
+      chat: chatOid,
       deletedAt: null,
-      sender: { $ne: userId },
-      readBy: { $ne: userId },
+      sender: { $ne: readerId },
+      readBy: { $nin: [readerId] },
     };
     if (messageIds?.length) {
-      filter._id = { $in: messageIds.filter((id) => Types.ObjectId.isValid(id)) };
+      filter._id = {
+        $in: messageIds
+          .filter((id) => Types.ObjectId.isValid(id))
+          .map((id) => new Types.ObjectId(id)),
+      };
     }
 
     const messages = await MessageModel.find(filter).select('_id').lean().exec();
@@ -449,7 +570,7 @@ export class ChatsService {
     if (ids.length > 0) {
       await MessageModel.updateMany(
         { _id: { $in: ids } },
-        { $addToSet: { readBy: new Types.ObjectId(userId) } },
+        { $addToSet: { readBy: readerId } },
       ).exec();
     }
 
@@ -459,6 +580,13 @@ export class ChatsService {
       readBy: userId,
     };
     publishRealtime(chatRoom(chatId), 'message:read', payload);
+    // Asegura que el emisor vea los ticks aunque no esté en la room del chat
+    for (const participant of chat.participants) {
+      const participantId = String(participant);
+      if (participantId !== userId) {
+        publishRealtimeToUser(participantId, 'message:read', payload);
+      }
+    }
     return payload;
   }
 

@@ -1,5 +1,7 @@
 # Informe de optimización — ConfiApp
 
+> **Snapshot histórico (2026-08-02).** No es el estado vivo del producto; para rutas y features actuales ver [`README.md`](./README.md) y [`docs/WEB_APP.md`](./docs/WEB_APP.md).
+
 Fecha: 2026-08-02  
 Alcance: Performance · Mongo · React · Bundle · Lazy loading · Caching · Seguridad · Escalabilidad
 

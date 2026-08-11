@@ -72,10 +72,31 @@ export function useChatRealtime(activeChatId: string | null) {
       setTypingUserId(payload.isTyping ? payload.userId : null);
     };
 
-    const onRead = (payload: { chatId: string }) => {
+    const onRead = (payload: {
+      chatId: string;
+      messageIds?: string[];
+      readBy?: string;
+    }) => {
+      if (payload.readBy && payload.messageIds?.length) {
+        queryClient.setQueryData<{ items: ChatMessage[]; source?: string }>(
+          chatMessagesQueryKey(payload.chatId),
+          (current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              items: current.items.map((m) => {
+                if (!payload.messageIds!.includes(m.id)) return m;
+                if (m.readBy.includes(payload.readBy!)) return m;
+                return { ...m, readBy: [...m.readBy, payload.readBy!] };
+              }),
+            };
+          },
+        );
+      }
       void queryClient.invalidateQueries({
         queryKey: chatMessagesQueryKey(payload.chatId),
       });
+      void queryClient.invalidateQueries({ queryKey: chatsQueryKey });
     };
 
     const onNotify = () => {

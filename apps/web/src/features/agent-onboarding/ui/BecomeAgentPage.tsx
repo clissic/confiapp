@@ -9,6 +9,7 @@ import { useZodForm } from '@/shared/lib/form';
 import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
 import { useUserPreferences } from '@/shared/preferences';
 import { useAppToast } from '@/shared/ui';
+import { ApiClientError } from '@/shared/api/client';
 import { useProfile } from '@/features/profile/hooks/useProfile';
 import { TimezoneSelect } from '@/features/profile/ui/sections/TimezoneSelect';
 import { CountrySelect } from '@/features/profile/ui/sections/CountryDialSelect';
@@ -202,7 +203,9 @@ export function BecomeAgentPage() {
               setError(null);
               try {
                 await suspend.mutateAsync();
-                toast.success('Actividad suspendida. Estado: INACTIVE.');
+                toast.success(
+                  'Actividad suspendida. No recibís trabajos nuevos; seguís a cargo de las operaciones en curso.',
+                );
               } catch {
                 setError('No se pudo suspender la actividad.');
               }
@@ -227,7 +230,21 @@ export function BecomeAgentPage() {
                 setEditSection(null);
                 setStep(1);
                 toast.success('Agencia cerrada. Podés volver a registrarte cuando quieras.');
-              } catch {
+              } catch (err) {
+                if (err instanceof ApiClientError && err.code === 'ACTIVE_JOBS') {
+                  const count =
+                    typeof err.details === 'object' &&
+                    err.details &&
+                    'count' in err.details &&
+                    typeof (err.details as { count?: unknown }).count === 'number'
+                      ? (err.details as { count: number }).count
+                      : onboarding.activeJobsCount ?? 0;
+                  setError(
+                    `No podés cerrar la agencia: tenés ${count} operación${count === 1 ? '' : 'es'} activa${count === 1 ? '' : 's'}. Solicitá la salida desde cada operación o completá el trabajo.`,
+                  );
+                  toast.error('Cierre bloqueado: hay operaciones activas.');
+                  return;
+                }
                 setError('No se pudo cerrar la agencia.');
               }
             }}
@@ -919,78 +936,78 @@ function PreviewStep({
       .join(' · ');
   }, [onboarding.unspecifiedSchedule, onboarding.weeklySlots]);
 
+  const areaLabel = [onboarding.workAreaLabel, onboarding.workAreaCity, onboarding.workAreaCountry]
+    .filter(Boolean)
+    .join(' · ');
+
+  const radiusLabel =
+    onboarding.coverageRadiusKm != null
+      ? formatDistance(onboarding.coverageRadiusKm, distanceUnit, 0)
+      : '—';
+
+  const facts = [
+    {
+      label: 'Términos',
+      value: onboarding.termsAccepted
+        ? `Aceptados (v${onboarding.termsVersion})`
+        : 'Pendientes',
+    },
+    {
+      label: 'Horarios',
+      value: slotsLabel || 'Sin franjas',
+    },
+    {
+      label: 'Área',
+      value: areaLabel || '—',
+    },
+    {
+      label: 'Radio',
+      value: radiusLabel,
+    },
+    {
+      label: 'Tarifa',
+      value: onboarding.ratesAccepted
+        ? 'Esquema de plataforma (80% agente / 20% ConfiApp)'
+        : 'Pendiente',
+    },
+  ];
+
   return (
-    <section>
-      <h3 className="ca-section-title">Vista previa</h3>
-      <p className="ca-section-lead">Revisá todo antes de confirmar tu alta como agente.</p>
-
-      <div className="ca-agent-form-shell ca-onboarding-media">
-        <div className="ca-onboarding-media__visual" aria-hidden="true">
-          <img
-            src="/landing/Folder.png"
-            alt=""
-            width={512}
-            height={512}
-            decoding="async"
-          />
+    <section className="ca-agent-preview">
+      <header className="ca-agent-preview__header">
+        <div>
+          <h3 className="ca-section-title mb-0">Confirmá tu perfil de agente</h3>
+          <p className="ca-section-lead mb-0">Revisá los datos y confirmá el alta.</p>
         </div>
-        <div className="ca-onboarding-media__body">
-          <div className="ca-preview-card">
-            <p className="ca-preview-card__name">{onboarding.preview.fullName}</p>
-            <p className="ca-preview-card__email">{onboarding.preview.email}</p>
-            <p className="ca-preview-card__summary">{onboarding.preview.summary}</p>
-            <dl className="ca-preview-list">
-              <div>
-                <dt>Términos</dt>
-                <dd>
-                  {onboarding.termsAccepted
-                    ? `Aceptados (v${onboarding.termsVersion})`
-                    : 'Pendientes'}
-                </dd>
-              </div>
-              <div>
-                <dt>Horarios</dt>
-                <dd>{slotsLabel || 'Sin franjas'}</dd>
-              </div>
-              <div>
-                <dt>Área</dt>
-                <dd>
-                  {onboarding.workAreaLabel} · {onboarding.workAreaCity},{' '}
-                  {onboarding.workAreaCountry}
-                </dd>
-              </div>
-              <div>
-                <dt>Radio</dt>
-                <dd>
-                  {onboarding.coverageRadiusKm != null
-                    ? formatDistance(onboarding.coverageRadiusKm, distanceUnit, 0)
-                    : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt>Tarifa</dt>
-                <dd>
-                  {onboarding.ratesAccepted
-                    ? 'Esquema de plataforma aceptado (80% agente / 20% ConfiApp)'
-                    : 'Pendiente'}
-                </dd>
-              </div>
-            </dl>
-          </div>
+      </header>
 
-          <div className="ca-form-actions">
-            <Button type="button" variant="outline-secondary" onClick={onBack}>
-              Atrás
-            </Button>
-            <Button
-              type="button"
-              className="ca-btn-cta"
-              disabled={submitting}
-              onClick={() => void onSubmit()}
-            >
-              {submitting ? 'Confirmando…' : 'Confirmar y convertirme en agente'}
-            </Button>
-          </div>
+      <div className="ca-agent-preview__card">
+        <div className="ca-agent-preview__identity">
+          <p className="ca-agent-preview__name">{onboarding.preview.fullName}</p>
+          <p className="ca-agent-preview__email">{onboarding.preview.email}</p>
+        </div>
+
+        <dl className="ca-agent-preview__grid">
+          {facts.map((fact) => (
+            <div key={fact.label} className="ca-agent-preview__fact">
+              <dt>{fact.label}</dt>
+              <dd>{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="ca-agent-preview__actions">
+          <Button type="button" variant="outline-secondary" onClick={onBack}>
+            Atrás
+          </Button>
+          <Button
+            type="button"
+            className="ca-btn-cta"
+            disabled={submitting}
+            onClick={() => void onSubmit()}
+          >
+            {submitting ? 'Confirmando…' : 'Confirmar y convertirme en agente'}
+          </Button>
         </div>
       </div>
     </section>

@@ -1,9 +1,17 @@
 import { Alert, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { BriefcaseBusiness, PauseCircle, Pencil, PlayCircle, XCircle } from 'lucide-react';
+import {
+  BriefcaseBusiness,
+  Handshake,
+  PauseCircle,
+  Pencil,
+  PlayCircle,
+  XCircle,
+} from 'lucide-react';
 
 import { formatDistance } from '@/shared/lib/distance';
 import { useUserPreferences } from '@/shared/preferences';
+import { STATUS_LABELS } from '@/features/transactions/model/types';
 
 import { DAY_LABELS } from '../model/schemas';
 import type { AgentOnboarding } from '../model/types';
@@ -27,6 +35,9 @@ export function AgentAgencyPanel({
 }) {
   const { distanceUnit } = useUserPreferences();
   const isInactive = onboarding.status === 'INACTIVE';
+  const activeJobsCount = onboarding.activeJobsCount ?? 0;
+  const activeJobs = onboarding.activeJobs ?? [];
+  const canClose = activeJobsCount === 0;
 
   const slotsLabel = onboarding.unspecifiedSchedule
     ? 'Disponible 24 h'
@@ -42,7 +53,7 @@ export function AgentAgencyPanel({
       <h3 className="ca-section-title">Resumen de tu agencia</h3>
       <p className="ca-section-lead">
         {isInactive
-          ? 'Tu agencia está inactiva: no recibís trabajos nuevos. Podés reactivar cuando quieras.'
+          ? 'Tu agencia está en pausa: no recibís trabajos nuevos. Seguís a cargo de las operaciones en curso.'
           : 'Configuración actual de tu rol como Agente. Podés editar horarios y área.'}
       </p>
 
@@ -59,7 +70,7 @@ export function AgentAgencyPanel({
           </div>
           {isInactive ? (
             <Alert variant="warning" className="ca-agency-alert">
-              Estado INACTIVE — no estás aceptando asignaciones.
+              Agencia en pausa — no aceptás asignaciones nuevas.
             </Alert>
           ) : null}
         </div>
@@ -136,6 +147,47 @@ export function AgentAgencyPanel({
             </dl>
           </div>
 
+          <div className="ca-agency-active-jobs">
+            <div className="ca-agency-active-jobs__head">
+              <span className="ca-agency-active-jobs__icon" aria-hidden>
+                <Handshake size={18} strokeWidth={1.75} />
+              </span>
+              <div className="ca-agency-active-jobs__intro">
+                <p className="ca-agency-active-jobs__title">
+                  {activeJobsCount === 0
+                    ? 'Sin operaciones a tu cargo'
+                    : activeJobsCount === 1
+                      ? '1 operación a tu cargo'
+                      : `${activeJobsCount} operaciones a tu cargo`}
+                </p>
+                <p className="ca-agency-active-jobs__hint mb-0">
+                  {activeJobsCount > 0
+                    ? 'Para cerrar la agencia, terminá el trabajo o pedí la salida desde cada operación.'
+                    : 'Cuando no quede ninguna, podés cerrar la agencia.'}
+                </p>
+              </div>
+              {activeJobsCount > 0 ? (
+                <span className="ca-agency-active-jobs__chip">{activeJobsCount}</span>
+              ) : null}
+            </div>
+
+            {activeJobs.length > 0 ? (
+              <ul className="ca-agency-active-jobs__list">
+                {activeJobs.map((job) => (
+                  <li key={job.id}>
+                    <Link to={`/operaciones/${job.code}`} className="ca-agency-job-chip">
+                      <span className="ca-agency-job-chip__code">{job.code}</span>
+                      <span className="ca-agency-job-chip__title">{job.title}</span>
+                      <span className="ca-agency-job-chip__status">
+                        {STATUS_LABELS[job.status] ?? job.status}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
           <div className="ca-agency-jobs">
             <Link to="/agente/trabajos" className="ca-agency-jobs__link">
               <BriefcaseBusiness size={18} strokeWidth={1.75} aria-hidden />
@@ -163,16 +215,32 @@ export function AgentAgencyPanel({
                 variant="outline-secondary"
                 disabled={busy}
                 onClick={onSuspend}
+                title="No vas a recibir trabajos nuevos; seguís a cargo de las operaciones en curso"
               >
                 <PauseCircle size={18} strokeWidth={1.75} aria-hidden />
                 Suspender actividad
               </Button>
             )}
-            <Button type="button" variant="outline-danger" disabled={busy} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline-danger"
+              disabled={busy || !canClose}
+              onClick={onClose}
+              title={
+                canClose
+                  ? 'Cerrar agencia y quitar el rol de agente'
+                  : 'Tenés operaciones activas: no podés cerrar todavía'
+              }
+            >
               <XCircle size={18} strokeWidth={1.75} aria-hidden />
               Cerrar agencia
             </Button>
           </div>
+          {!isInactive ? (
+            <p className="ca-agency-footer-hint">
+              Al suspender no recibís trabajos nuevos; seguís a cargo de las operaciones en curso.
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

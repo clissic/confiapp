@@ -10,6 +10,7 @@ import {
   saveAgentOnboardingBodySchema,
   submitAgentOnboardingBodySchema,
   transactionCodeParamsSchema,
+  withdrawJobBodySchema,
 } from './validation';
 
 const controller = new AgentsController();
@@ -57,6 +58,16 @@ agentsRoutes.post(
   authenticate,
   validateRequest({ params: transactionCodeParamsSchema }),
   asyncHandler(controller.acceptOpenJob),
+);
+
+agentsRoutes.post(
+  '/jobs/:code/withdraw',
+  authenticate,
+  validateRequest({
+    params: transactionCodeParamsSchema,
+    body: withdrawJobBodySchema,
+  }),
+  asyncHandler(controller.withdrawFromJob),
 );
 
 agentsRoutes.post(

@@ -1,11 +1,11 @@
+import { type IUser } from '@confiapp/database';
+
+import { UserModel } from '../../database/models';
+
 import {
-  ParticipantRole,
-  TransactionStatus,
-  type IUser,
-} from '@confiapp/database';
-
-import { TransactionModel, UserModel } from '../../database/models';
-
+  countActiveAgentJobs,
+  countActiveJobsForAgents,
+} from './agent-jobs';
 import {
   computeAgentScore,
   getZonedDateParts,
@@ -41,58 +41,17 @@ export interface AgentSearchHit {
   locationLabel?: string;
 }
 
-const ACTIVE_JOB_STATUSES: TransactionStatus[] = [
-  TransactionStatus.WAITING_PARTICIPANT,
-  TransactionStatus.ACCEPTED,
-  TransactionStatus.FUNDED,
-  TransactionStatus.IN_PROGRESS,
-  TransactionStatus.DISPUTED,
-];
+/** @deprecated Usar ACTIVE_AGENT_JOB_STATUSES de agent-jobs.ts */
+export { ACTIVE_AGENT_JOB_STATUSES as ACTIVE_JOB_STATUSES } from './agent-jobs';
 
 export class AgentSearchRepository {
   async countActiveJobs(agentId: string): Promise<number> {
-    return TransactionModel.countDocuments({
-      deletedAt: null,
-      status: { $in: ACTIVE_JOB_STATUSES },
-      participants: {
-        $elemMatch: {
-          user: agentId,
-          role: ParticipantRole.INTERMEDIARY,
-        },
-      },
-    }).exec();
+    return countActiveAgentJobs(agentId);
   }
 
   /** Batch count de trabajos activos por agente (evita N+1). */
   async countActiveJobsForAgents(agentIds: string[]): Promise<Map<string, number>> {
-    const counts = new Map<string, number>(agentIds.map((id) => [id, 0]));
-    if (!agentIds.length) return counts;
-
-    const rows = await TransactionModel.aggregate<{ _id: unknown; count: number }>([
-      {
-        $match: {
-          deletedAt: null,
-          status: { $in: ACTIVE_JOB_STATUSES },
-          'participants.user': { $in: agentIds.map((id) => id) },
-          participants: {
-            $elemMatch: { role: ParticipantRole.INTERMEDIARY },
-          },
-        },
-      },
-      { $unwind: '$participants' },
-      {
-        $match: {
-          'participants.role': ParticipantRole.INTERMEDIARY,
-          'participants.user': { $in: agentIds.map((id) => id) },
-        },
-      },
-      { $group: { _id: '$participants.user', count: { $sum: 1 } } },
-    ]).exec();
-
-    for (const row of rows) {
-      counts.set(String(row._id), row.count);
-    }
-    return counts;
+    return countActiveJobsForAgents(agentIds);
   }
 
   async search(params: AgentSearchParams): Promise<AgentSearchHit[]> {

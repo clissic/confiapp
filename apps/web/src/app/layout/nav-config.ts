@@ -27,7 +27,7 @@ export interface HomeAction {
 /**
  * Acciones del inicio (grilla 2×2).
  * Transacciones y Auditoría viven en el menú de usuario; herramientas de agente
- * (trabajos, ofertas, etc.) no se listan acá.
+ * (trabajos abiertos, etc.) no se listan acá.
  */
 export const HOME_PRIMARY_ACTIONS: HomeAction[] = [
   {
@@ -41,9 +41,9 @@ export const HOME_PRIMARY_ACTIONS: HomeAction[] = [
   {
     id: 'vender',
     title: 'Vender',
-    description: 'Vendé de forma segura y protegida con un agente de confianza.',
+    description: 'Vendé de forma segura y protegida con un agente.',
     to: '/operaciones/nueva/vendedor',
-    image: '/landing/Shopping2.png',
+    image: '/landing/Sale.png',
     tone: 'secondary',
   },
   {

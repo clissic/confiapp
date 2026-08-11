@@ -4,7 +4,6 @@ import { ArrowRight, ShieldCheck } from 'lucide-react';
 
 import { HOME_PRIMARY_ACTIONS, type HomeAction } from '@/app/layout/nav-config';
 import { useAuth } from '@/features/auth/ui/AuthProvider';
-import { VerifiedName } from '@/shared/ui/VerifiedName';
 
 import './home.css';
 
@@ -14,14 +13,19 @@ function firstNameFrom(fullName: string | undefined): string {
 }
 
 function ActionCard({ action, index }: { action: HomeAction; index: number }) {
+  const isMain = action.id === 'comprar' || action.id === 'vender';
+
   return (
     <motion.div
-      className="ca-home-card-wrap"
+      className={`ca-home-card-wrap ca-home-card-wrap--${action.id}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, delay: index * 0.05, ease: [0, 0, 0.2, 1] }}
     >
-      <Link to={action.to} className={`ca-home-card ca-home-card--${action.tone}`}>
+      <Link
+        to={action.to}
+        className={`ca-home-card ca-home-card--${action.tone} ca-home-card--${isMain ? 'stack' : 'row'}`}
+      >
         <div className="ca-home-card__visual" aria-hidden>
           <span className="ca-home-card__glass" />
           <img
@@ -56,9 +60,7 @@ export function HomePage() {
     <section className="ca-home">
       <header className="ca-home__hero">
         <h1 className="ca-home__greeting">
-          Hola,{' '}
-          <VerifiedName name={firstName} verified={Boolean(user?.identityVerified)} />{' '}
-          👋
+          Hola, {firstName} 👋
         </h1>
         <p className="ca-home__lead">¿Qué querés hacer hoy?</p>
         <p className="ca-home__trust">

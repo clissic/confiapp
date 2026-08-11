@@ -1,12 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Mail } from 'lucide-react';
+import { CheckCircle2, Mail, Sparkles } from 'lucide-react';
 
 import { resendVerificationRequest, verifyEmailRequest } from '../api/auth.api';
 import { AuthBrand } from './AuthBrand';
 import '../styles/auth.css';
 
 type Phase = 'pending' | 'verifying' | 'success' | 'error';
+
+function friendlyVerifyMessage(raw?: string | null): string {
+  const value = (raw ?? '').trim();
+  if (!value || /email verified successfully/i.test(value)) {
+    return 'Tu cuenta ya está activa. Ingresá y empezá a operar con tranquilidad.';
+  }
+  return value;
+}
 
 /** Confirmación de email (link del mail o pantalla post-registro). */
 export function VerifyEmailPage() {
@@ -30,7 +38,7 @@ export function VerifyEmailPage() {
         const result = await verifyEmailRequest(token);
         if (cancelled) return;
         setPhase('success');
-        setMessage(result.message || 'Email confirmado. Ya podés ingresar.');
+        setMessage(friendlyVerifyMessage(result.message));
       } catch (err) {
         if (cancelled) return;
         setPhase('error');
@@ -62,33 +70,40 @@ export function VerifyEmailPage() {
     }
   }
 
+  const loginHref = `/ingresar?next=${encodeURIComponent(next)}`;
+
   return (
     <div className="ca-auth">
-      <div className="ca-auth__card">
-        <AuthBrand />
+      <div className={`ca-auth__card${phase === 'success' ? ' ca-auth__card--status' : ''}`}>
+        <div className={phase === 'success' ? 'ca-auth__brand-wrap' : undefined}>
+          <AuthBrand />
+        </div>
 
         {phase === 'success' ? (
-          <>
+          <div className="ca-auth__status">
             <div className="ca-auth__status-icon ca-auth__status-icon--ok" aria-hidden>
-              <CheckCircle2 size={28} strokeWidth={1.75} />
+              <CheckCircle2 size={32} strokeWidth={1.75} />
             </div>
+            <p className="ca-auth__eyebrow">
+              <Sparkles size={14} strokeWidth={2} aria-hidden />
+              Listo
+            </p>
             <h1 className="ca-auth__title">Email confirmado</h1>
-            <p className="ca-auth__lead">{message}</p>
-            <Link
-              className="ca-auth__submit"
-              to={`/ingresar?next=${encodeURIComponent(next)}`}
-              style={{ textAlign: 'center', textDecoration: 'none' }}
-            >
-              Ir a ingresar
+            <p className="ca-auth__lead">{friendlyVerifyMessage(message)}</p>
+            <Link className="ca-auth__submit ca-auth__submit--block" to={loginHref}>
+              Continuar a ingresar
             </Link>
-          </>
+          </div>
         ) : null}
 
         {phase === 'verifying' ? (
-          <>
+          <div className="ca-auth__status">
+            <div className="ca-auth__status-icon ca-auth__status-icon--pulse" aria-hidden>
+              <Mail size={28} strokeWidth={1.75} />
+            </div>
             <h1 className="ca-auth__title">Confirmando…</h1>
             <p className="ca-auth__lead">Estamos verificando tu email. Un momento.</p>
-          </>
+          </div>
         ) : null}
 
         {phase === 'error' ? (
@@ -133,16 +148,18 @@ export function VerifyEmailPage() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </label>
-              <button className="ca-auth__submit" type="submit" disabled={resending}>
+              <button className="ca-auth__submit ca-auth__submit--block" type="submit" disabled={resending}>
                 {resending ? 'Reenviando…' : 'Reenviar email de confirmación'}
               </button>
             </form>
           </>
         ) : null}
 
-        <p className="ca-auth__footer">
-          <Link to={`/ingresar?next=${encodeURIComponent(next)}`}>Volver a ingresar</Link>
-        </p>
+        {phase !== 'success' ? (
+          <p className="ca-auth__footer">
+            <Link to={loginHref}>Volver a ingresar</Link>
+          </p>
+        ) : null}
       </div>
     </div>
   );

@@ -1,10 +1,22 @@
 export interface EscrowSplit {
-  grossCents: number;
+  productCents: number;
+  commissionCents: number;
+  commissionUsd?: number;
+  buyerPaysCents: number;
+  sellerNetCents: number;
   platformFeeCents: number;
   agentFeeCents: number;
+  feePayer: string;
+  currency?: string;
+  /** Alias de buyerPaysCents */
+  grossCents: number;
+  /** Alias de sellerNetCents */
   sellerCents: number;
-  platformFeeBps: number;
-  agentFeeBps: number;
+  platformCommissionBps?: number;
+  agentCommissionBps?: number;
+  /** Legacy aliases */
+  platformFeeBps?: number;
+  agentFeeBps?: number;
 }
 
 export interface PaymentRecord {
@@ -32,6 +44,9 @@ export interface EscrowView {
   country?: string;
   siteId?: string;
   grossCents: number;
+  productCents?: number;
+  commissionCents?: number;
+  feePayer?: string;
   split: EscrowSplit;
   parties: { buyerId: string; sellerId: string; agentId?: string };
   providerMode: 'MOCK' | 'MERCADOPAGO' | string;

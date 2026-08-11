@@ -37,7 +37,7 @@ export const photoBodySchema = z.object({
   url: z
     .string()
     .trim()
-    .max(2_000_000)
+    .max(4_000_000)
     .refine(
       (value) => /^https?:\/\//i.test(value) || value.startsWith('data:image/'),
       'Se espera URL http(s) o data:image',
@@ -126,8 +126,21 @@ export const registerUserBodySchema = z.object({
       message:
         'Password must include upper, lower, number and special character (8–128 chars)',
     }),
-  fullName: z.string().trim().min(2).max(120),
-  phone: phoneSchema.optional(),
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'El nombre completo debe tener al menos 2 caracteres')
+    .max(120, 'El nombre completo es demasiado largo'),
+  documentNumber: z
+    .string()
+    .trim()
+    .min(5, 'Documento demasiado corto')
+    .max(32, 'Documento demasiado largo')
+    .regex(
+      /^[A-Za-z0-9][A-Za-z0-9.\-\s/]*$/,
+      'Usá solo letras, números y separadores (. - /)',
+    ),
+  phone: phoneSchema,
   avatar: z
     .string()
     .trim()

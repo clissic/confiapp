@@ -58,8 +58,9 @@ function channelAllowed(prefs: NotificationPrefs, channel: NotificationChannel):
 
 /**
  * Resuelve canales efectivos: categoría ON ∩ canales pedidos ∩ prefs de canal.
- * SYSTEM agrega EMAIL como candidato (seguridad) salvo que el caller no lo quiera
- * vía requestedChannels sin EMAIL y… no: SYSTEM siempre incluye EMAIL en candidatos.
+ * Tipos operativos/seguridad agregan EMAIL como candidato (el usuario puede
+ * desactivarlo con preferences.notifications.email === false).
+ * MESSAGE no fuerza email (ruido); el caller puede pedirlo.
  * SMS queda diferido (no existe en NotificationChannel).
  */
 export function resolveDelivery(
@@ -72,10 +73,15 @@ export function resolveDelivery(
   }
 
   const candidates = [...requestedChannels];
-  if (
-    type === NotificationType.SYSTEM &&
-    !candidates.includes(NotificationChannel.EMAIL)
-  ) {
+  const shouldPreferEmail =
+    type === NotificationType.SYSTEM ||
+    type === NotificationType.TRANSACTION_UPDATE ||
+    type === NotificationType.PAYMENT ||
+    type === NotificationType.AGENT_ASSIGNMENT ||
+    type === NotificationType.DISPUTE ||
+    type === NotificationType.REVIEW;
+
+  if (shouldPreferEmail && !candidates.includes(NotificationChannel.EMAIL)) {
     candidates.push(NotificationChannel.EMAIL);
   }
 

@@ -21,8 +21,8 @@ const DEFAULTS: Required<ImageProcessOptions> = {
 
 export const KYC_IMAGE_OPTIONS: Required<ImageProcessOptions> = {
   maxSourceBytes: 2 * 1024 * 1024,
-  maxEdgePx: 1600,
-  jpegQuality: 0.88,
+  maxEdgePx: 1280,
+  jpegQuality: 0.82,
 };
 
 function loadImage(src: string): Promise<HTMLImageElement> {

@@ -40,6 +40,12 @@ export function clearSession(): void {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem(USER_KEY);
+  // Evitar que el stub de verificación telefónica se filtre entre cuentas.
+  try {
+    sessionStorage.removeItem('confiapp.phone.localVerified');
+  } catch {
+    /* ignore */
+  }
 }
 
 export function getStoredUser(): AuthUser | null {
@@ -73,7 +79,8 @@ export async function registerRequest(input: {
   email: string;
   password: string;
   fullName: string;
-  phone?: string;
+  documentNumber: string;
+  phone: string;
 }): Promise<{ user: AuthUser; message: string; needsVerification: boolean }> {
   const { data } = await apiClient.post<{
     user: AuthUser;

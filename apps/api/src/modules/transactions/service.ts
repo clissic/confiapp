@@ -15,6 +15,11 @@ import {
   type TransactionMeetingLocation,
   type TransactionPartyInstructions,
 } from '@confiapp/database';
+import {
+  computeIntermediationFees,
+  IntermediationFeeError,
+  type FeePayer,
+} from '@confiapp/shared';
 import type { HydratedDocument } from 'mongoose';
 import { Types } from 'mongoose';
 
@@ -61,6 +66,28 @@ function isInviteExpired(expiresAt?: Date | null): boolean {
 
 function buildShareUrl(rawToken: string): string {
   return `${env.APP_URL.replace(/\/$/, '')}/operaciones/unirse/${encodeURIComponent(rawToken)}`;
+}
+
+function assertFeeAffordable(
+  productCents: number,
+  currency: string,
+  feePayer: FeePayer | string,
+): void {
+  try {
+    computeIntermediationFees({
+      productCents,
+      currency,
+      feePayer: feePayer as FeePayer,
+      uyuPerUsd: env.USD_UYU_RATE,
+      platformCommissionBps: env.PAYMENTS_PLATFORM_FEE_BPS,
+      agentCommissionBps: env.PAYMENTS_AGENT_FEE_BPS,
+    });
+  } catch (error) {
+    if (error instanceof IntermediationFeeError) {
+      throw new ValidationError(error.message);
+    }
+    throw error;
+  }
 }
 
 async function generateUniqueCode(
@@ -362,6 +389,7 @@ function toDto(
     conditions: legacyConditions,
     amountCents: tx.amountCents,
     currency: tx.currency,
+    feePayer: tx.feePayer,
     meetingLocation: legacyMeeting,
     party: {
       ...(partyBuyer ? { buyer: partyBuyer } : {}),
@@ -453,6 +481,7 @@ export class TransactionsService {
     if (amountCents < 100) {
       throw new ValidationError('El monto mínimo es 1.00');
     }
+    assertFeeAffordable(amountCents, (input.currency ?? 'UYU').toUpperCase(), input.feePayer);
 
     const code = await generateUniqueCode(this.repository);
     const { rawToken, inviteTokenHash } = buildInvitePair();
@@ -482,6 +511,7 @@ export class TransactionsService {
       },
       amountCents,
       currency: (input.currency ?? 'UYU').toUpperCase(),
+      feePayer: input.feePayer,
       inviteTokenHash,
       inviteExpiresAt,
     });
@@ -496,9 +526,27 @@ export class TransactionsService {
       correlationId: code,
       metadata: {
         code,
+        step: 'buyer_create',
         initiatedBy: TransactionInitiator.BUYER,
         amountCents,
         currency: (input.currency ?? 'UYU').toUpperCase(),
+        feePayer: input.feePayer,
+        status: TransactionStatus.WAITING_PARTICIPANT,
+      },
+    });
+    auditService.track({
+      actor: userId,
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Transaction',
+      entityId: String(created._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: code,
+      metadata: {
+        code,
+        step: 'buyer_create',
+        from: TransactionStatus.CREATED,
+        to: TransactionStatus.WAITING_PARTICIPANT,
+        note: 'Enlace de invitación generado — esperando contraparte',
       },
     });
 
@@ -515,6 +563,7 @@ export class TransactionsService {
     }
 
     const currency = (input.product.currency ?? 'UYU').toUpperCase();
+    assertFeeAffordable(amountCents, currency, input.feePayer);
     const code = await generateUniqueCode(this.repository);
     const { rawToken, inviteTokenHash } = buildInvitePair();
     const days = input.inviteExpiresInDays ?? 7;
@@ -573,6 +622,7 @@ export class TransactionsService {
       },
       amountCents,
       currency,
+      feePayer: input.feePayer,
       inviteTokenHash,
       inviteExpiresAt,
     });
@@ -590,10 +640,28 @@ export class TransactionsService {
       correlationId: code,
       metadata: {
         code,
+        step: 'seller_create',
         initiatedBy: TransactionInitiator.SELLER,
         amountCents,
         currency,
+        feePayer: input.feePayer,
         productId: String(product._id),
+        status: TransactionStatus.WAITING_PARTICIPANT,
+      },
+    });
+    auditService.track({
+      actor: userId,
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Transaction',
+      entityId: String(created._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: code,
+      metadata: {
+        code,
+        step: 'seller_create',
+        from: TransactionStatus.CREATED,
+        to: TransactionStatus.WAITING_PARTICIPANT,
+        note: 'Enlace generado para el comprador — esperando aceptación',
       },
     });
 
@@ -651,6 +719,18 @@ export class TransactionsService {
       throw new ForbiddenError('Solo el Agente asignado puede marcar el checklist');
     }
 
+    if (
+      tx.status !== TransactionStatus.FUNDED &&
+      tx.status !== TransactionStatus.IN_PROGRESS
+    ) {
+      throw new ValidationError(
+        tx.status === TransactionStatus.ACCEPTED
+          ? 'El checklist se marca en la entrega, después de que el comprador pague.'
+          : 'No se puede actualizar el checklist en el estado actual de la operación.',
+        { status: tx.status },
+      );
+    }
+
     assertNotPastDeadline(tx);
 
     const sides = resolvePartySides(tx);
@@ -688,28 +768,51 @@ export class TransactionsService {
     }
 
     const now = new Date();
+    const agentOid = new Types.ObjectId(userId);
     const nextChecklist = normalized.map((item) => {
       if (item.id !== itemId) {
         return {
           id: item.id,
           text: item.text,
           done: item.done,
-          doneAt: item.doneAt ? new Date(item.doneAt) : undefined,
+          ...(item.done && item.doneAt ? { doneAt: new Date(item.doneAt) } : {}),
         };
       }
       return {
         id: item.id,
         text: item.text,
         done,
-        doneAt: done ? now : undefined,
-        doneBy: done ? new Types.ObjectId(userId) : undefined,
+        ...(done ? { doneAt: now, doneBy: agentOid } : {}),
       };
     });
 
-    tx.party[resolvedSide] = {
-      ...currentSide,
-      checklist: nextChecklist,
-    };
+    // Mutar el subdoc in-place: evitar `{ ...mongooseSubdoc }` (rompe validación / geo al save).
+    const existingSide = tx.party[resolvedSide];
+    if (existingSide) {
+      existingSide.checklist = nextChecklist as NonNullable<
+        TransactionPartyInstructions['checklist']
+      >;
+    } else {
+      const seed = sides[resolvedSide];
+      const meetingLocation = toMeetingLocationDto(seed?.meetingLocation);
+      tx.party[resolvedSide] = {
+        conditionsSummary: seed?.conditionsSummary ?? '',
+        checklist: nextChecklist as NonNullable<TransactionPartyInstructions['checklist']>,
+        ...(meetingLocation
+          ? {
+              meetingLocation: {
+                type: 'Point' as const,
+                coordinates: meetingLocation.coordinates,
+                label: meetingLocation.label ?? 'Punto de entrega',
+              },
+            }
+          : {}),
+        ...(seed?.productTitle?.trim() ? { productTitle: seed.productTitle.trim() } : {}),
+        ...(seed?.productDescription?.trim()
+          ? { productDescription: seed.productDescription.trim() }
+          : {}),
+      };
+    }
     tx.markModified('party');
 
     // Mantener legacy alineado al lado del iniciador si aplica.
@@ -717,9 +820,30 @@ export class TransactionsService {
       getInitiatedBy(tx) === TransactionInitiator.SELLER ? 'seller' : 'buyer';
     if (resolvedSide === initiatorSide) {
       tx.conditions.checklist = nextChecklist as typeof tx.conditions.checklist;
+      tx.markModified('conditions');
     }
 
     await tx.save();
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      actorRole: ParticipantRole.INTERMEDIARY,
+      action: AuditAction.UPDATE,
+      entityType: 'Transaction',
+      entityId: String(tx._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        code: tx.code,
+        step: 'agent_checklist_toggle',
+        side: resolvedSide,
+        itemId,
+        done,
+        itemText: normalized[index]?.text,
+      },
+    });
+
     return toDto(tx, {
       product: await loadProductDto(tx.product),
       viewerUserId: userId,
@@ -758,7 +882,7 @@ export class TransactionsService {
       entityId: String(updated._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: updated.code,
-      metadata: { note: 'invite_refreshed' },
+      metadata: { code: updated.code, step: 'invite_refreshed', note: 'invite_refreshed' },
     });
 
     return toDto(updated, {
@@ -796,6 +920,7 @@ export class TransactionsService {
         undefined,
       amountCents: tx.amountCents,
       currency: tx.currency,
+      feePayer: tx.feePayer,
       status: tx.status,
       initiatedBy,
       inviteExpiresAt: tx.inviteExpiresAt?.toISOString(),
@@ -849,6 +974,22 @@ export class TransactionsService {
       userId,
       'Contraparte se unió mediante enlace de invitación',
     );
+
+    await notificationsService.notify({
+      userId: String(updated.createdBy),
+      type: NotificationType.TRANSACTION_UPDATE,
+      title: 'Alguien se unió a tu operación',
+      body: `Una contraparte aceptó la invitación de ${updated.code}. Revisá los siguientes pasos en ConfiApp.`,
+      data: {
+        href: `/operaciones/${updated.code}`,
+        code: updated.code,
+        status: updated.status,
+      },
+      entityType: 'Transaction',
+      entityId: String(updated._id),
+      channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+    });
+
     return toDto(updated, {
       product: await loadProductDto(updated.product),
       viewerUserId: userId,
@@ -923,13 +1064,23 @@ export class TransactionsService {
     });
 
     const deadline = computeOperationDeadline();
-    const updated = await this.repository.acceptPurchase(tx, userId, partyBuyer, deadline);
+    const feePayer = (input.feePayer ?? tx.feePayer ?? 'BUYER') as FeePayer;
+    if (tx.amountCents && tx.currency) {
+      assertFeeAffordable(tx.amountCents, tx.currency, feePayer);
+    }
+    const updated = await this.repository.acceptPurchase(
+      tx,
+      userId,
+      partyBuyer,
+      deadline,
+      feePayer,
+    );
 
     await notificationsService.notify({
       userId: String(updated.createdBy),
       type: NotificationType.TRANSACTION_UPDATE,
       title: 'El comprador aceptó la compra',
-      body: `La operación ${updated.code} quedó aceptada. Pendiente de fondeo.`,
+      body: `La operación ${updated.code} quedó aceptada. Pendiente de pago.`,
       data: {
         href: `/operaciones/${updated.code}`,
         code: updated.code,
@@ -996,6 +1147,7 @@ export class TransactionsService {
     }
 
     const currency = (input.currency ?? tx.currency ?? 'UYU').toUpperCase();
+    assertFeeAffordable(amountCents, currency, input.feePayer);
     const images = input.images.map((img, index) => ({
       url: img.url.trim(),
       alt: img.alt?.trim(),
@@ -1012,6 +1164,7 @@ export class TransactionsService {
         currency: tx.currency,
         condition: undefined,
         category: undefined,
+        feePayer: tx.feePayer,
       },
       {
         title: input.title,
@@ -1020,6 +1173,7 @@ export class TransactionsService {
         currency,
         condition: input.condition,
         category,
+        feePayer: input.feePayer,
       },
     );
     const hasVariation = changes.length > 0;
@@ -1055,6 +1209,7 @@ export class TransactionsService {
       productId: String(product._id),
       amountCents,
       currency,
+      feePayer: input.feePayer,
       alreadyParticipant,
       partySeller,
       returnInstructions: input.returnInstructions,
@@ -1087,7 +1242,7 @@ export class TransactionsService {
         userId: buyerId,
         type: NotificationType.TRANSACTION_UPDATE,
         title: 'Venta confirmada',
-        body: `El vendedor confirmó la venta en ${updated.code}. Pendiente de fondeo.`,
+        body: `El vendedor confirmó la venta en ${updated.code}. Pendiente de pago.`,
         data: {
           href: `/operaciones/${updated.code}`,
           code: updated.code,
@@ -1141,7 +1296,7 @@ export class TransactionsService {
         userId: String(sellerId.user),
         type: NotificationType.TRANSACTION_UPDATE,
         title: 'El comprador aceptó tus cambios',
-        body: `La operación ${updated.code} quedó aceptada. Pendiente de fondeo.`,
+        body: `La operación ${updated.code} quedó aceptada. Pendiente de pago.`,
         data: {
           href: `/operaciones/${updated.code}`,
           code: updated.code,

@@ -1,5 +1,6 @@
 import { Schema } from 'mongoose';
 import {
+  FeePayer,
   ParticipantRole,
   ParticipantStatus,
   TransactionInitiator,
@@ -167,6 +168,10 @@ export const transactionSchema = new Schema<ITransaction>(
       minlength: 3,
       maxlength: 3,
       match: [/^[A-Z]{3}$/, 'currency must be ISO 4217'],
+    },
+    feePayer: {
+      type: String,
+      enum: Object.values(FeePayer),
     },
     inviteTokenHash: {
       type: String,

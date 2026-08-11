@@ -8,6 +8,9 @@ Eventos derivados de lo **ya implementado** en API. Auth verification / forgot-p
 |--------|------|----------------|--------|
 | Nuevo mensaje de chat | `MESSAGE` | `messageAlerts` | `chats/service.ts` |
 | Oferta de asignación a agente | `AGENT_ASSIGNMENT` | `transactionUpdates` | `agents/notification-delivery.service.ts` |
+| Agente aceptó oferta | `TRANSACTION_UPDATE` | `transactionUpdates` | `agents/assignment.service.ts` |
+| Agente tomó open job | `TRANSACTION_UPDATE` | `transactionUpdates` | `agents/open-jobs.service.ts` |
+| Agente solicitó salida / reasignación | `TRANSACTION_UPDATE` | `transactionUpdates` | `agents/open-jobs.service.ts` `withdrawFromJob` |
 
 ## P0 — alta prioridad
 
@@ -17,7 +20,6 @@ Eventos derivados de lo **ya implementado** en API. Auth verification / forgot-p
 | Payout agente | `PAYMENT` | `paymentAlerts` | `payments/service.ts` |
 | Retiro completado | `PAYMENT` | `paymentAlerts` | `wallet/service.ts` |
 | Compra aceptada / venta confirmada | `TRANSACTION_UPDATE` | `transactionUpdates` | `transactions/service.ts` |
-| Agente aceptó oferta u open job | `TRANSACTION_UPDATE` / `AGENT_ASSIGNMENT` | `transactionUpdates` | `agents/assignment.service.ts`, `open-jobs.service.ts` |
 | KYC aprobado/rechazado al usuario | `SYSTEM` | canales (no marketing) | `users/service.ts` `decideKycReview` |
 | Password reset completado / password changed | `SYSTEM` | canales seguridad | `auth/service.ts` |
 
@@ -40,6 +42,7 @@ Eventos derivados de lo **ya implementado** en API. Auth verification / forgot-p
 | Lock de cuenta | `SYSTEM` |
 | Marketing | Solo con pref `marketing === true`; no usar para seguridad |
 | `CHAT_CREATED` | Cuando exista el flujo de creación notifiable |
+| Cierre / suspensión de agencia (self-service) | Opcional: `SYSTEM` informativo; hoy no notifica a terceros |
 
 ## Fuera de alcance actual
 

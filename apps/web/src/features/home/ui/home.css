@@ -3,7 +3,7 @@
 .ca-home {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.3rem;
   flex: 1;
   min-height: 0;
   height: 100%;
@@ -13,13 +13,13 @@
 
 .ca-home__hero {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.05rem;
   flex-shrink: 0;
 }
 
 .ca-home__greeting {
   margin: 0;
-  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  font-size: clamp(1.1rem, 2vw, 1.55rem);
   font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--color-primary-700, #01285d);
@@ -29,16 +29,16 @@
 .ca-home__lead {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.88rem;
+  font-size: 0.84rem;
 }
 
 .ca-home__trust {
-  margin: 0.1rem 0 0;
+  margin: 0.05rem 0 0;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   color: var(--color-secondary-600, #2a9d8f);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
 }
 
 .ca-home__trust strong {
@@ -49,13 +49,172 @@
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 0.75rem;
+  /* Más alto Comprar|Vender; Agencia/Mensajes compactos abajo */
+  grid-template-rows: minmax(0, 1.85fr) minmax(0, 0.52fr) minmax(0, 0.52fr);
+  gap: 0.5rem;
   min-height: 0;
-  padding: 0.9rem 0.9rem 1.35rem;
+  padding: 0.45rem 0.55rem 0.85rem;
   overflow: visible;
   position: relative;
   z-index: 2;
+}
+
+.ca-home-card-wrap--comprar {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.ca-home-card-wrap--vender {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.ca-home-card-wrap--agente {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.ca-home-card-wrap--mensajes {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+
+/* Agencia / Mensajes: fila compacta en mobile/tablet (ocupan todo el ancho) */
+@media (max-width: 991.98px) {
+  .ca-home-card-wrap {
+    padding: 0.2rem 0.15rem 0.45rem;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card,
+  .ca-home-card-wrap--mensajes .ca-home-card {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.45rem 0.65rem;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__visual,
+  .ca-home-card-wrap--mensajes .ca-home-card__visual {
+    container-type: normal;
+    flex: 0 0 auto;
+    align-self: center;
+    width: 3.15rem;
+    height: 3.15rem;
+    padding: 0;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__glass,
+  .ca-home-card-wrap--mensajes .ca-home-card__glass {
+    inset: 4%;
+    top: auto;
+    left: auto;
+    width: auto;
+    height: auto;
+    transform: none;
+    border-radius: 50%;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__img,
+  .ca-home-card-wrap--mensajes .ca-home-card__img {
+    width: 78%;
+    height: 78%;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__footer,
+  .ca-home-card-wrap--mensajes .ca-home-card__footer {
+    display: contents;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__body,
+  .ca-home-card-wrap--mensajes .ca-home-card__body {
+    width: auto;
+    min-width: 0;
+    padding-right: 2.2rem;
+    gap: 0.1rem;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__desc,
+  .ca-home-card-wrap--mensajes .ca-home-card__desc {
+    font-size: 0.68rem;
+    line-height: 1.25;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__go,
+  .ca-home-card-wrap--mensajes .ca-home-card__go {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    width: 1.9rem;
+    height: 1.9rem;
+  }
+}
+
+/* Tablet: más aire en las cards + ilustraciones más grandes en Agencia/Mensajes */
+@media (min-width: 768px) and (max-width: 991.98px) {
+  .ca-home__grid {
+    gap: 0.75rem;
+    padding: 0.7rem 0.9rem 1.2rem;
+    /* Más alto para las filas largas (imágenes más grandes) */
+    grid-template-rows: minmax(0, 1.65fr) minmax(0, 0.72fr) minmax(0, 0.72fr);
+  }
+
+  .ca-home-card-wrap {
+    padding: 0.35rem 0.3rem 0.7rem;
+  }
+
+  .ca-home-card {
+    gap: 0.7rem;
+    padding: 1.05rem 1.1rem 1.15rem;
+  }
+
+  .ca-home-card__visual {
+    padding: 0.75rem 0.9rem;
+  }
+
+  .ca-home-card__go {
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 2.35rem;
+    height: 2.35rem;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card,
+  .ca-home-card-wrap--mensajes .ca-home-card {
+    gap: 0.95rem;
+    padding: 0.9rem 1.15rem;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__visual,
+  .ca-home-card-wrap--mensajes .ca-home-card__visual {
+    width: 5rem;
+    height: 5rem;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__img,
+  .ca-home-card-wrap--mensajes .ca-home-card__img {
+    width: 84%;
+    height: 84%;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__body,
+  .ca-home-card-wrap--mensajes .ca-home-card__body {
+    padding-right: 2.75rem;
+    gap: 0.18rem;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__desc,
+  .ca-home-card-wrap--mensajes .ca-home-card__desc {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .ca-home-card-wrap--agente .ca-home-card__go,
+  .ca-home-card-wrap--mensajes .ca-home-card__go {
+    top: 0.7rem;
+    right: 0.7rem;
+    width: 2.25rem;
+    height: 2.25rem;
+  }
 }
 
 .ca-home-card-wrap {
@@ -165,8 +324,8 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: min(100cqw, 100cqh);
-  height: min(100cqw, 100cqh);
+  width: 92cqmin;
+  height: 92cqmin;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background:
@@ -192,8 +351,8 @@
   position: relative;
   z-index: 1;
   display: block;
-  width: min(82cqw, 82cqh);
-  height: min(82cqw, 82cqh);
+  width: 76cqmin;
+  height: 76cqmin;
   object-fit: contain;
   object-position: center;
   pointer-events: none;
@@ -285,17 +444,17 @@
 
 @media (min-width: 576px) {
   .ca-home {
-    gap: 0.7rem;
+    gap: 0.4rem;
   }
 
   .ca-home__grid {
-    gap: 0.9rem;
-    padding: 1.05rem 1.05rem 1.5rem;
+    gap: 0.6rem;
+    padding: 0.55rem 0.7rem 1rem;
   }
 
   .ca-home-card {
-    gap: 0.65rem;
-    padding: 0.9rem 0.95rem 1rem;
+    gap: 0.55rem;
+    padding: 0.8rem 0.85rem 0.9rem;
     border-radius: 1.45rem;
   }
 
@@ -305,7 +464,7 @@
   }
 
   .ca-home-card__visual {
-    padding: 0.65rem 0.75rem;
+    padding: 0.55rem 0.65rem;
   }
 
   .ca-home-card__desc {
@@ -325,54 +484,39 @@
     gap: 0.75rem;
   }
 
+  /*
+   * Desktop: 12 cols — Comprar|Vender en col-8 (lado a lado, stack vertical),
+   * Mi Agencia + Mensajes en col-4 (apilados, fila horizontal + flecha arriba der.).
+   */
   .ca-home__grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: 1fr 1fr;
     gap: 1.05rem;
     padding: 1.2rem 1.2rem 1.6rem;
-    max-width: 58rem;
+    max-width: 64rem;
     margin-inline: auto;
     width: 100%;
   }
 
-  .ca-home-card {
-    flex-direction: row;
-    align-items: center;
-    gap: 1.05rem;
-    padding: 1.1rem 1.2rem;
+  .ca-home-card-wrap--comprar {
+    grid-column: 1 / 5;
+    grid-row: 1 / 3;
   }
 
-  .ca-home-card__visual {
-    container-type: normal;
-    flex: 0 0 auto;
-    align-self: center;
-    width: clamp(4.5rem, 10vmin, 7.25rem);
-    height: clamp(4.5rem, 10vmin, 7.25rem);
-    padding: 0;
+  .ca-home-card-wrap--vender {
+    grid-column: 5 / 9;
+    grid-row: 1 / 3;
   }
 
-  .ca-home-card__glass {
-    inset: 4%;
-    top: auto;
-    left: auto;
-    width: auto;
-    height: auto;
-    transform: none;
-    border-radius: 50%;
+  .ca-home-card-wrap--agente {
+    grid-column: 9 / 13;
+    grid-row: 1 / 2;
   }
 
-  .ca-home-card__img {
-    width: 78%;
-    height: 78%;
-  }
-
-  /* Desktop: fila horizontal (imagen | texto | flecha) */
-  .ca-home-card__footer {
-    display: contents;
-  }
-
-  .ca-home-card__body {
-    gap: 0.22rem;
-    padding-right: 0.15rem;
-    width: auto;
+  .ca-home-card-wrap--mensajes {
+    grid-column: 9 / 13;
+    grid-row: 2 / 3;
   }
 
   .ca-home-card__desc {
@@ -380,11 +524,115 @@
   }
 
   .ca-home-card__go {
-    position: relative;
-    top: auto;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  /* Comprar / Vender: imagen arriba, texto abajo, flecha esquina */
+  .ca-home-card--stack {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1.15rem 1.15rem 1.2rem;
+  }
+
+  .ca-home-card--stack .ca-home-card__visual {
+    flex: 1 1 auto;
+    align-self: stretch;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    padding: 0.85rem 1rem;
+    container-type: size;
+    display: grid;
+    place-items: center;
+  }
+
+  .ca-home-card--stack .ca-home-card__glass {
+    top: 50%;
+    left: 50%;
     right: auto;
-    width: 2.75rem;
-    height: 2.75rem;
+    bottom: auto;
+    width: 90cqmin;
+    height: 90cqmin;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+
+  .ca-home-card--stack .ca-home-card__img {
+    width: 74cqmin;
+    height: 74cqmin;
+  }
+
+  .ca-home-card--stack .ca-home-card__footer {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 0.2rem;
+    padding-right: 0.15rem;
+  }
+
+  .ca-home-card--stack .ca-home-card__body {
+    width: 100%;
+    gap: 0.22rem;
+  }
+
+  .ca-home-card--stack .ca-home-card__go {
+    position: absolute;
+  }
+
+  /* Mi Agencia / Mensajes: fila (como antes) + flecha arriba a la derecha */
+  .ca-home-card--row {
+    flex-direction: row;
+    align-items: center;
+    gap: 1.05rem;
+    padding: 1.1rem 1.2rem;
+  }
+
+  .ca-home-card--row .ca-home-card__visual {
+    container-type: normal;
+    flex: 0 0 auto;
+    align-self: center;
+    position: relative;
+    width: clamp(4.5rem, 9.5vmin, 6.75rem);
+    height: clamp(4.5rem, 9.5vmin, 6.75rem);
+    padding: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .ca-home-card--row .ca-home-card__glass {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    width: 92%;
+    height: 92%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+  }
+
+  .ca-home-card--row .ca-home-card__img {
+    width: 78%;
+    height: 78%;
+  }
+
+  .ca-home-card--row .ca-home-card__footer {
+    display: contents;
+  }
+
+  .ca-home-card--row .ca-home-card__body {
+    gap: 0.22rem;
+    padding-right: 2.75rem;
+    width: auto;
+    min-width: 0;
+  }
+
+  .ca-home-card--row .ca-home-card__go {
+    position: absolute;
   }
 }
 

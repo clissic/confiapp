@@ -1,9 +1,20 @@
-import type { AgentOnboardingStatus, DayOfWeek } from '@confiapp/database';
+import type {
+  AgentOnboardingStatus,
+  DayOfWeek,
+  TransactionStatus,
+} from '@confiapp/database';
 
 export interface AgentScheduleSlotDto {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
+}
+
+export interface AgentActiveJobDto {
+  id: string;
+  code: string;
+  title: string;
+  status: TransactionStatus;
 }
 
 export interface AgentOnboardingDto {
@@ -27,6 +38,9 @@ export interface AgentOnboardingDto {
   isAgent: boolean;
   submittedAt?: string;
   activatedAt?: string;
+  /** Operaciones donde el agente sigue como intermediario ACCEPTED. */
+  activeJobsCount: number;
+  activeJobs: AgentActiveJobDto[];
   preview: {
     fullName: string;
     email: string;

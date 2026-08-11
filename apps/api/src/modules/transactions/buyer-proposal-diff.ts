@@ -1,3 +1,5 @@
+import { FEE_PAYER_LABELS, type FeePayer } from '@confiapp/shared';
+
 export type BuyerProposalChange = {
   field: string;
   from: string;
@@ -11,6 +13,7 @@ export type BuyerProposalSnapshot = {
   currency?: string | null;
   condition?: string | null;
   category?: string | null;
+  feePayer?: FeePayer | string | null;
 };
 
 export type SellerConfirmSnapshot = {
@@ -20,6 +23,7 @@ export type SellerConfirmSnapshot = {
   currency: string;
   condition: string;
   category: string;
+  feePayer: FeePayer | string;
 };
 
 function normText(value?: string | null): string {
@@ -28,6 +32,11 @@ function normText(value?: string | null): string {
 
 function formatAmount(cents: number, currency: string): string {
   return `${(cents / 100).toFixed(2)} ${currency}`;
+}
+
+function formatFeePayer(value?: string | null): string {
+  const key = (value ?? '').toUpperCase() as FeePayer;
+  return FEE_PAYER_LABELS[key] ?? (value?.trim() || '');
 }
 
 function pushIfDifferent(
@@ -90,6 +99,18 @@ export function diffBuyerProposalVsSellerConfirm(
       buyer.category.toUpperCase(),
       seller.category.toUpperCase(),
     );
+  }
+
+  const buyerFee = (buyer.feePayer ?? '').toUpperCase();
+  const sellerFee = (seller.feePayer ?? '').toUpperCase();
+  if (buyerFee && sellerFee && buyerFee !== sellerFee) {
+    changes.push({
+      field: 'feePayer',
+      from: formatFeePayer(buyerFee),
+      to: formatFeePayer(sellerFee),
+    });
+  } else if (!buyerFee && sellerFee) {
+    // Comprador no había definido (legacy): no forzar diff si el vendedor solo confirma.
   }
 
   return changes;

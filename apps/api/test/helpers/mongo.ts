@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { connectMongo, disconnectMongo } from '../src/database/connection';
+import { connectDatabase, disconnectDatabase } from '../src/database';
 
 const URI_FILE = path.join(__dirname, '.mongo-uri');
 
@@ -15,10 +15,10 @@ export function getTestMongoUri(): string {
 export async function setupTestDb(): Promise<string> {
   const uri = getTestMongoUri();
   process.env.DATABASE_URL = uri;
-  await connectMongo({ uri });
+  await connectDatabase({ uri, exitOnFailure: true });
   return uri;
 }
 
 export async function teardownTestDb(): Promise<void> {
-  await disconnectMongo();
+  await disconnectDatabase();
 }

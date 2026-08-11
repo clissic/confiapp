@@ -16,17 +16,32 @@ export function MainLayout() {
   const { theme, toggleTheme } = useLayoutChrome();
   const { pathname } = useLocation();
   const isHome = pathname === '/inicio' || pathname === '/inicio/';
+  const isChat = pathname === '/mensajes' || pathname.startsWith('/mensajes/');
 
   return (
     <div className="ca-shell" data-theme={theme}>
       <div className="ca-main">
         <Topbar theme={theme} onToggleTheme={toggleTheme} />
 
-        <div className={`ca-content ${isHome ? 'ca-content--home' : ''}`}>
+        <div
+          className={[
+            'ca-content',
+            isHome ? 'ca-content--home' : '',
+            isChat ? 'ca-content--chat' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <div className="ca-content__inner">
             {!isHome ? <AppBreadcrumbs /> : null}
             <motion.main
-              className={`ca-page ${isHome ? 'ca-page--flush' : ''}`}
+              className={[
+                'ca-page',
+                isHome || isChat ? 'ca-page--flush' : '',
+                isChat ? 'ca-page--chat' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.18, ease: [0, 0, 0.2, 1] }}

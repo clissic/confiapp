@@ -9,6 +9,7 @@ import type {
   OpenJobsQuery,
   SaveAgentOnboardingBody,
   SubmitAgentOnboardingBody,
+  WithdrawJobBody,
 } from './validation';
 
 export class AgentsController {
@@ -58,16 +59,15 @@ export class AgentsController {
 
   listOpenJobs = async (req: Request, res: Response): Promise<void> => {
     const query = req.query as unknown as OpenJobsQuery;
-    const minPayCents =
-      query.minPay != null ? Math.round(Number(query.minPay) * 100) : undefined;
     const data = await this.openJobs.listOpenJobs(req.user!.id, {
       lng: query.lng,
       lat: query.lat,
       radiusKm: query.radiusKm,
-      minPayCents,
+      minCommissionUsd: query.minCommissionUsd,
       minBuyerRating: query.minBuyerRating,
+      maxBuyerRating: query.maxBuyerRating,
       minSellerRating: query.minSellerRating,
-      maxDistanceKm: query.maxDistanceKm,
+      maxSellerRating: query.maxSellerRating,
       limit: query.limit,
     });
     res.status(200).json({ items: data, count: data.length });
@@ -77,6 +77,16 @@ export class AgentsController {
     const data = await this.openJobs.acceptOpenJob(
       req.user!.id,
       String(req.params.code),
+    );
+    res.status(200).json(data);
+  };
+
+  withdrawFromJob = async (req: Request, res: Response): Promise<void> => {
+    const body = (req.body ?? {}) as WithdrawJobBody;
+    const data = await this.openJobs.withdrawFromJob(
+      req.user!.id,
+      String(req.params.code),
+      body.reason,
     );
     res.status(200).json(data);
   };

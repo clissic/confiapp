@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   BadgeCheck,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import '../styles/landing.css';
+import { Reveal, RevealGroup, RevealItem } from './Reveal';
 
 const FEATURES = [
   {
@@ -132,6 +134,8 @@ const FAQS = [
   },
 ] as const;
 
+const HERO_EASE = [0.22, 1, 0.36, 1] as const;
+
 function BrandMark() {
   return (
     <>
@@ -150,8 +154,29 @@ function BrandMark() {
   );
 }
 
+function SectionIntro({
+  title,
+  lead,
+  titleClassName,
+  leadClassName,
+}: {
+  title: string;
+  lead: string;
+  titleClassName?: string;
+  leadClassName?: string;
+}) {
+  return (
+    <Reveal>
+      <h2 className={titleClassName ?? 'ca-landing__section-title'}>{title}</h2>
+      <p className={leadClassName ?? 'ca-landing__section-lead'}>{lead}</p>
+    </Reveal>
+  );
+}
+
 /** Landing pública de ConfiApp — lanzamiento honesto y didáctico. */
 export function LandingPage() {
+  const reduceMotion = useReducedMotion();
+
   return (
     <div className="ca-landing">
       <header className="ca-landing__nav">
@@ -185,7 +210,12 @@ export function LandingPage() {
       </header>
 
       <section className="ca-landing__hero" id="inicio">
-        <div className="ca-landing__hero-copy">
+        <motion.div
+          className="ca-landing__hero-copy"
+          initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: HERO_EASE }}
+        >
           <h1>Confianza que conecta, tecnología que protege.</h1>
           <p className="ca-landing__hero-lead">
             Comprá o vendé sin que el miedo a la estafa te frene: un Agente lleva el producto de una
@@ -213,9 +243,14 @@ export function LandingPage() {
               <MessageSquare size={18} /> Todo en un mismo hilo
             </span>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="ca-landing__hero-visual">
+        <motion.div
+          className="ca-landing__hero-visual"
+          initial={reduceMotion ? false : { opacity: 0, y: 28, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.12, ease: HERO_EASE }}
+        >
           <img
             className="ca-landing__hero-img"
             src="/landing/Shopping2.png"
@@ -224,105 +259,103 @@ export function LandingPage() {
             height={512}
             fetchPriority="high"
           />
-        </div>
+        </motion.div>
       </section>
 
       <section className="ca-landing__section" id="problema">
         <div className="ca-landing__section-inner">
-          <h2 className="ca-landing__section-title">
-            Cuando la entrega depende solo de la buena fe, el miedo gana
-          </h2>
-          <p className="ca-landing__section-lead">
-            La confianza no debería ser un salto al vacío. Estos son los miedos que ConfiApp aborda
-            de raíz.
-          </p>
-          <div className="ca-landing__pains">
-            <article className="ca-landing__pain">
+          <SectionIntro
+            title="Cuando la entrega depende solo de la buena fe, el miedo gana"
+            lead="La confianza no debería ser un salto al vacío. Estos son los miedos que ConfiApp aborda de raíz."
+          />
+          <RevealGroup className="ca-landing__pains" stagger={0.12}>
+            <RevealItem className="ca-landing__pain">
               <h3>Pagué y no recibí</h3>
               <p>El dinero salió… y el producto nunca apareció.</p>
-            </article>
-            <article className="ca-landing__pain">
+            </RevealItem>
+            <RevealItem className="ca-landing__pain">
               <h3>Entregué y no cobré</h3>
               <p>Soltaste el producto por una promesa. Después, silencio.</p>
-            </article>
-            <article className="ca-landing__pain">
+            </RevealItem>
+            <RevealItem className="ca-landing__pain">
               <h3>No sé a quién confiarle el envío</h3>
               <p>
                 Entre el vendedor y el comprador hace falta alguien — pero ¿quién garantiza el
                 proceso?
               </p>
-            </article>
-          </div>
+            </RevealItem>
+          </RevealGroup>
         </div>
       </section>
 
       <section className="ca-landing__section" id="por-que" style={{ paddingTop: 0 }}>
         <div className="ca-landing__section-inner">
-          <h2 className="ca-landing__section-title">Cómo ConfiApp te cuida en cada paso</h2>
-          <p className="ca-landing__section-lead">
-            No prometemos magia: diseñamos un recorrido donde la tranquilidad se construye con
-            claridad.
-          </p>
-          <div className="ca-landing__features">
+          <SectionIntro
+            title="Cómo ConfiApp te cuida en cada paso"
+            lead="No prometemos magia: diseñamos un recorrido donde la tranquilidad se construye con claridad."
+          />
+          <RevealGroup className="ca-landing__features" stagger={0.1}>
             {FEATURES.map((feature) => (
-              <article key={feature.title} className="ca-landing__feature">
+              <RevealItem key={feature.title} className="ca-landing__feature">
                 <div className="ca-landing__feature-icon">
                   <feature.icon size={22} strokeWidth={1.75} />
                 </div>
                 <h3>{feature.title}</h3>
                 <p>{feature.text}</p>
-              </article>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
       <section className="ca-landing__section" id="como-funciona" style={{ paddingTop: 0 }}>
         <div className="ca-landing__section-inner">
-          <h2 className="ca-landing__section-title">Así de simple funciona</h2>
-          <p className="ca-landing__section-lead">
-            Cuatro momentos. En cada uno sabés qué pasa — y cómo te sentís más seguro.
-          </p>
-          <div className="ca-landing__steps">
+          <SectionIntro
+            title="Así de simple funciona"
+            lead="Cuatro momentos. En cada uno sabés qué pasa — y cómo te sentís más seguro."
+          />
+          <RevealGroup className="ca-landing__steps" stagger={0.1}>
             {STEPS.map((step, index) => (
-              <div key={step.label} className="ca-landing__step">
+              <RevealItem key={step.label} className="ca-landing__step">
                 <div className="ca-landing__step-num">{index + 1}</div>
                 <div className="ca-landing__step-icon">
                   <step.icon size={28} strokeWidth={1.75} />
                 </div>
                 <p className="ca-landing__step-label">{step.label}</p>
                 <p className="ca-landing__step-feeling">{step.feeling}</p>
-              </div>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
 
-          <figure className="ca-landing__flow">
-            <img
-              src="/landing/flow-agents.png"
-              alt="Flujo: vendedor, Agente y comprador en una entrega protegida"
-              width={1920}
-              height={1080}
-              loading="lazy"
-              decoding="async"
-            />
-            <figcaption>
-              Vendedor → Agente → Comprador. El Agente es el puente de confianza.
-            </figcaption>
-          </figure>
+          <Reveal className="ca-landing__flow" delay={0.08} y={36}>
+            <figure>
+              <img
+                src="/landing/flow-agents.png"
+                alt="Flujo: vendedor, Agente y comprador en una entrega protegida"
+                width={1920}
+                height={1080}
+                loading="lazy"
+                decoding="async"
+              />
+              <figcaption>
+                Vendedor → Agente → Comprador. El Agente es el puente de confianza.
+              </figcaption>
+            </figure>
+          </Reveal>
         </div>
       </section>
 
       <section className="ca-landing__roles" id="para-quien">
         <div className="ca-landing__section-inner">
-          <h2 className="ca-landing__section-title ca-landing__section-title--on-dark">
-            Tres roles. Un mismo acuerdo.
-          </h2>
-          <p className="ca-landing__section-lead ca-landing__section-lead--on-dark">
-            Sea cual sea tu lugar en la operación, ConfiApp te da un marco claro.
-          </p>
-          <div className="ca-landing__roles-grid">
+          <SectionIntro
+            title="Tres roles. Un mismo acuerdo."
+            lead="Sea cual sea tu lugar en la operación, ConfiApp te da un marco claro."
+            titleClassName="ca-landing__section-title ca-landing__section-title--on-dark"
+            leadClassName="ca-landing__section-lead ca-landing__section-lead--on-dark"
+          />
+          <RevealGroup className="ca-landing__roles-grid" stagger={0.12}>
             {ROLES.map((role) => (
-              <article key={role.title} className="ca-landing__role">
+              <RevealItem key={role.title} className="ca-landing__role">
                 <div className="ca-landing__role-icon">
                   <role.icon size={26} strokeWidth={1.75} />
                 </div>
@@ -333,47 +366,51 @@ export function LandingPage() {
                     <li key={point}>{point}</li>
                   ))}
                 </ul>
-              </article>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
       <section className="ca-landing__section" id="simple">
         <div className="ca-landing__section-inner">
-          <h2 className="ca-landing__section-title">Hecha para entenderse a la primera</h2>
-          <p className="ca-landing__section-lead">
-            La mejor protección es la que no te obliga a ser experto. Intuitiva, legible, operativa.
-          </p>
-          <div className="ca-landing__simple-grid">
+          <SectionIntro
+            title="Hecha para entenderse a la primera"
+            lead="La mejor protección es la que no te obliga a ser experto. Intuitiva, legible, operativa."
+          />
+          <RevealGroup className="ca-landing__simple-grid" stagger={0.1}>
             {SIMPLICITY.map((item) => (
-              <article key={item.title} className="ca-landing__simple">
+              <RevealItem key={item.title} className="ca-landing__simple">
                 <item.icon size={22} strokeWidth={1.75} />
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
-              </article>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
       <section className="ca-landing__section" id="preguntas" style={{ paddingTop: 0 }}>
         <div className="ca-landing__section-inner ca-landing__section-inner--narrow">
-          <h2 className="ca-landing__section-title">Preguntas frecuentes</h2>
-          <p className="ca-landing__section-lead">Respuestas directas. Sin humo.</p>
-          <div className="ca-landing__faq">
+          <SectionIntro
+            title="Preguntas frecuentes"
+            lead="Respuestas directas. Sin humo."
+          />
+          <RevealGroup className="ca-landing__faq" stagger={0.08}>
             {FAQS.map((item) => (
-              <details key={item.q} className="ca-landing__faq-item">
-                <summary>{item.q}</summary>
-                <p>{item.a}</p>
-              </details>
+              <RevealItem key={item.q}>
+                <details className="ca-landing__faq-item">
+                  <summary>{item.q}</summary>
+                  <p>{item.a}</p>
+                </details>
+              </RevealItem>
             ))}
-          </div>
+          </RevealGroup>
         </div>
       </section>
 
       <div className="ca-landing__cta-wrap">
-        <section className="ca-landing__cta">
+        <Reveal className="ca-landing__cta" y={32}>
           <div>
             <h2>Empezá con una operación protegida</h2>
             <p>
@@ -406,61 +443,63 @@ export function LandingPage() {
               <Lock size={16} /> Pago protegido
             </div>
           </div>
-        </section>
+        </Reveal>
       </div>
 
       <footer className="ca-landing__footer">
-        <div className="ca-landing__footer-grid">
-          <div>
-            <div className="ca-landing__brand">
-              <BrandMark />
+        <Reveal>
+          <div className="ca-landing__footer-grid">
+            <div>
+              <div className="ca-landing__brand">
+                <BrandMark />
+              </div>
+              <p>
+                ConfiApp conecta compradores y vendedores con Agentes que llevan el producto, con pago
+                protegido hasta la entrega.
+              </p>
             </div>
-            <p>
-              ConfiApp conecta compradores y vendedores con Agentes que llevan el producto, con pago
-              protegido hasta la entrega.
-            </p>
+            <div>
+              <h4>Producto</h4>
+              <ul>
+                <li>
+                  <a href="#por-que">Te cuidamos</a>
+                </li>
+                <li>
+                  <a href="#como-funciona">Así funciona</a>
+                </li>
+                <li>
+                  <a href="#para-quien">Tres roles</a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4>Empezar</h4>
+              <ul>
+                <li>
+                  <a href="#preguntas">Preguntas frecuentes</a>
+                </li>
+                <li>
+                  <Link to="/ingresar">Ingresar</Link>
+                </li>
+                <li>
+                  <Link to="/registro">Crear cuenta</Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4>Agentes</h4>
+              <ul>
+                <li>
+                  <Link to="/ingresar?next=%2Fagente">Sumarme como Agente</Link>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div>
-            <h4>Producto</h4>
-            <ul>
-              <li>
-                <a href="#por-que">Te cuidamos</a>
-              </li>
-              <li>
-                <a href="#como-funciona">Así funciona</a>
-              </li>
-              <li>
-                <a href="#para-quien">Tres roles</a>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4>Empezar</h4>
-            <ul>
-              <li>
-                <a href="#preguntas">Preguntas frecuentes</a>
-              </li>
-              <li>
-                <Link to="/ingresar">Ingresar</Link>
-              </li>
-              <li>
-                <Link to="/registro">Crear cuenta</Link>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4>Agentes</h4>
-            <ul>
-              <li>
-                <Link to="/ingresar?next=%2Fagente">Sumarme como Agente</Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-        <p className="ca-landing__copy">
-          © {new Date().getFullYear()} ConfiApp. En lanzamiento — con honestidad y foco en la
-          confianza.
-        </p>
+          <p className="ca-landing__copy">
+            © {new Date().getFullYear()} ConfiApp. En lanzamiento — con honestidad y foco en la
+            confianza.
+          </p>
+        </Reveal>
       </footer>
     </div>
   );

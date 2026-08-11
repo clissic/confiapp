@@ -1,5 +1,7 @@
 import type { HydratedDocument } from 'mongoose';
 import {
+  AddressVerificationStatus,
+  IdentityVerificationStatus,
   PlatformRole,
   UserStatus,
   type IRefreshToken,
@@ -19,7 +21,8 @@ export class AuthRepository {
     email: string;
     passwordHash: string;
     fullName: string;
-    phone?: string;
+    phone: string;
+    documentNumber: string;
     emailVerificationTokenHash: string;
     emailVerificationExpires: Date;
   }): Promise<UserDocument> {
@@ -28,6 +31,15 @@ export class AuthRepository {
       role: PlatformRole.USER,
       status: UserStatus.ACTIVE,
       failedLoginAttempts: 0,
+      // Tener teléfono en el alta no implica verificación OTP.
+      phoneVerifiedAt: undefined,
+      verification: {
+        email: { verified: false },
+        phone: { verified: false },
+        identity: { status: IdentityVerificationStatus.UNVERIFIED },
+        address: { status: AddressVerificationStatus.UNVERIFIED },
+        photo: { status: AddressVerificationStatus.UNVERIFIED },
+      },
     });
   }
 

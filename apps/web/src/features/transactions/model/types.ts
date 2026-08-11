@@ -11,6 +11,8 @@ export type TransactionStatus =
 
 export type TransactionInitiator = 'BUYER' | 'SELLER';
 
+export type FeePayer = 'BUYER' | 'SELLER' | 'SPLIT_50_50';
+
 export type ParticipantRole = 'CREATOR' | 'COUNTERPARTY' | 'INTERMEDIARY';
 export type ParticipantStatus = 'INVITED' | 'ACCEPTED' | 'DECLINED' | 'REMOVED';
 
@@ -96,6 +98,7 @@ export interface Transaction {
   };
   amountCents?: number;
   currency?: string;
+  feePayer?: FeePayer;
   /** @deprecated Preferir party.*.meetingLocation */
   meetingLocation?: MeetingLocation;
   party?: {
@@ -131,6 +134,7 @@ export interface InvitePreview {
   productDescription?: string;
   amountCents?: number;
   currency?: string;
+  feePayer?: FeePayer;
   status: TransactionStatus;
   initiatedBy: TransactionInitiator;
   inviteExpiresAt?: string;
@@ -155,6 +159,7 @@ export interface CreateTransactionPayload extends AgentInstructionsPayload {
   description?: string;
   amount: number;
   currency?: string;
+  feePayer: FeePayer;
   inviteExpiresInDays?: number;
   productTitle: string;
   productDescription: string;
@@ -165,6 +170,7 @@ export interface CreateSellerTransactionPayload {
   description?: string;
   conditionsSummary: string;
   checklist?: string[];
+  feePayer: FeePayer;
   inviteExpiresInDays?: number;
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocation;
@@ -183,6 +189,7 @@ export interface ConfirmSaleProductFields {
 }
 
 export interface ConfirmSalePayload extends ConfirmSaleProductFields {
+  feePayer: FeePayer;
   conditionsSummary: string;
   checklist?: string[];
   meetingLocationMode?: MeetingLocationMode;
@@ -190,14 +197,16 @@ export interface ConfirmSalePayload extends ConfirmSaleProductFields {
   returnInstructions: string;
 }
 
-export type AcceptPurchasePayload = AgentInstructionsPayload;
+export type AcceptPurchasePayload = AgentInstructionsPayload & {
+  feePayer?: FeePayer;
+};
 
 export const STATUS_LABELS: Record<TransactionStatus, string> = {
   CREATED: 'Creada',
   WAITING_PARTICIPANT: 'Esperando participante',
   PENDING_BUYER_CONFIRM: 'Pendiente confirmación del comprador',
   ACCEPTED: 'Aceptada',
-  FUNDED: 'Fondeada',
+  FUNDED: 'Pago protegido',
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Completada',
   CANCELLED: 'Cancelada',
@@ -207,6 +216,12 @@ export const STATUS_LABELS: Record<TransactionStatus, string> = {
 export const INITIATOR_LABELS: Record<TransactionInitiator, string> = {
   BUYER: 'Iniciada por comprador',
   SELLER: 'Iniciada por vendedor',
+};
+
+export const FEE_PAYER_LABELS: Record<FeePayer, string> = {
+  BUYER: 'La paga el comprador',
+  SELLER: 'La paga el vendedor',
+  SPLIT_50_50: '50 % comprador / 50 % vendedor',
 };
 
 export const CONDITION_LABELS: Record<ProductCondition, string> = {

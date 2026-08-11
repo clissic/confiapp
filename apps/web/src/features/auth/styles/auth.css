@@ -22,13 +22,125 @@
 }
 
 .ca-auth__card {
-  width: min(100%, 420px);
+  width: min(100%, 460px);
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(1, 40, 93, 0.08);
   border-radius: 1.25rem;
   padding: 2rem 1.75rem;
   box-shadow: 0 24px 60px rgba(1, 40, 93, 0.1);
   backdrop-filter: blur(8px);
+}
+
+.ca-auth__card--status {
+  text-align: center;
+}
+
+.ca-auth__brand-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+.ca-auth__brand-wrap .ca-auth__brand {
+  margin-bottom: 1.25rem;
+}
+
+.ca-auth__status {
+  display: grid;
+  justify-items: center;
+  gap: 0;
+}
+
+.ca-auth__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #55c5b5 16%, #fff);
+  color: #174740;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.ca-auth__status .ca-auth__title {
+  margin-bottom: 0.5rem;
+}
+
+.ca-auth__status .ca-auth__lead {
+  max-width: 28rem;
+  margin-bottom: 1.5rem;
+  text-wrap: pretty;
+}
+
+.ca-auth__submit {
+  min-height: 48px;
+  padding: 0.75rem 1.35rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: var(--color-primary-700);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.ca-auth__submit--block {
+  width: 100%;
+}
+
+.ca-auth__submit:hover:not(:disabled) {
+  background: var(--color-primary-600);
+  transform: translateY(-1px);
+}
+
+.ca-auth__submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+a.ca-auth__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.ca-auth__status-icon {
+  width: 4rem;
+  height: 4rem;
+  margin: 0 auto 1rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-secondary-100, #d4f1ec);
+  color: var(--color-primary-700, #01285d);
+  box-shadow: 0 0 0 10px color-mix(in srgb, #55c5b5 12%, transparent);
+}
+
+.ca-auth__status-icon--ok {
+  background: #dcfce7;
+  color: #166534;
+  box-shadow: 0 0 0 10px color-mix(in srgb, #22c55e 12%, transparent);
+}
+
+.ca-auth__status-icon--pulse {
+  animation: ca-auth-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ca-auth-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.04);
+    opacity: 0.88;
+  }
 }
 
 .ca-auth__brand {
@@ -82,6 +194,40 @@
 .ca-auth__form {
   display: grid;
   gap: 1rem;
+}
+
+.ca-auth__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 420px) {
+  .ca-auth__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ca-auth__label-text {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary-700);
+}
+
+.ca-auth__phone-row {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 9rem) 1fr;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.ca-auth__phone-row .ca-dial-select__trigger {
+  min-height: 44px;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-default);
+  background: #fff;
 }
 
 .ca-auth__label {
@@ -171,49 +317,6 @@
   background: var(--success-bg);
   color: var(--color-secondary-800);
   font-size: 0.875rem;
-}
-
-.ca-auth__submit {
-  min-height: 48px;
-  border: 0;
-  border-radius: 0.75rem;
-  background: var(--color-primary-700);
-  color: #fff;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.18s ease, background 0.18s ease;
-}
-
-.ca-auth__submit:hover:not(:disabled) {
-  background: var(--color-primary-600);
-  transform: translateY(-1px);
-}
-
-.ca-auth__submit:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-a.ca-auth__submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.ca-auth__status-icon {
-  width: 3.25rem;
-  height: 3.25rem;
-  margin: 0 auto 0.75rem;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  background: var(--color-secondary-100, #d4f1ec);
-  color: var(--color-primary-700, #01285d);
-}
-
-.ca-auth__status-icon--ok {
-  background: #dcfce7;
-  color: #166534;
 }
 
 .ca-auth__footer {

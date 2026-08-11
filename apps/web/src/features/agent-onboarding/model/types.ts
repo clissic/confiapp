@@ -9,10 +9,24 @@ export type DayOfWeek =
 
 export type AgentOnboardingStatus = 'NONE' | 'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
+export type AgentActiveJobStatus =
+  | 'WAITING_PARTICIPANT'
+  | 'ACCEPTED'
+  | 'FUNDED'
+  | 'IN_PROGRESS'
+  | 'DISPUTED';
+
 export interface AgentScheduleSlot {
   dayOfWeek: DayOfWeek;
   startTime: string;
   endTime: string;
+}
+
+export interface AgentActiveJob {
+  id: string;
+  code: string;
+  title: string;
+  status: AgentActiveJobStatus;
 }
 
 export interface AgentOnboarding {
@@ -38,6 +52,8 @@ export interface AgentOnboarding {
   isAgent: boolean;
   submittedAt?: string;
   activatedAt?: string;
+  activeJobsCount?: number;
+  activeJobs?: AgentActiveJob[];
   preview: {
     fullName: string;
     email: string;

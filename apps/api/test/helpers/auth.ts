@@ -32,16 +32,22 @@ export async function registerAndLogin(input?: {
   email?: string;
   password?: string;
   fullName?: string;
+  documentNumber?: string;
+  phone?: string;
 }): Promise<TestUser> {
   const password = input?.password ?? 'TestPass1!';
   const email =
     input?.email ?? `user_${Date.now()}_${Math.random().toString(16).slice(2)}@test.local`;
   const fullName = input?.fullName ?? 'Test User';
+  const documentNumber = input?.documentNumber ?? '12345678';
+  const phone = input?.phone ?? '+59899123456';
 
   const register = await api().post('/auth/register').send({
     email,
     password,
     fullName,
+    documentNumber,
+    phone,
   });
 
   if (register.status >= 400) {

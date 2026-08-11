@@ -10,7 +10,7 @@ description: >-
 
 ## Cuándo aplicar
 
-Cualquier mutación de dominio con impacto al usuario (estado de operación, dinero, mensaje, KYC, seguridad, oferta agente, reseña).
+Cualquier mutación de dominio con impacto al usuario (estado de operación, dinero, mensaje, KYC, seguridad, oferta/aceptación/salida de agente, reseña).
 
 ## Qué hacer
 

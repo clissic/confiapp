@@ -2,6 +2,7 @@ import { Schema, model, type HydratedDocument, type Model } from 'mongoose';
 
 import type { ITransaction } from '../interfaces/transaction.interface';
 import {
+  FeePayer,
   ParticipantRole,
   ParticipantStatus,
   TransactionInitiator,
@@ -168,6 +169,10 @@ const transactionSchema = new Schema<ITransaction>(
       minlength: 3,
       maxlength: 3,
       match: [/^[A-Z]{3}$/, 'currency must be ISO 4217'],
+    },
+    feePayer: {
+      type: String,
+      enum: Object.values(FeePayer),
     },
     inviteTokenHash: {
       type: String,

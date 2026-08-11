@@ -29,8 +29,9 @@ Chat 1──* Message
 | Dato | Estrategia | Motivo |
 |------|------------|--------|
 | `User.kyc`, `User.reputation` | Embebido | Viaja con la identidad |
+| `User.agent`, `User.schedule`, `User.location` | Embebido | Onboarding / disponibilidad del intermediario |
 | `Profile` | Colección + ref User | Login lean vs perfil público |
-| `Transaction.participants` | Embebido (1–3) | Siempre se lee con la operación |
+| `Transaction.participants` | Embebido (1–3) | Siempre se lee con la operación; `REMOVED` = agente saliente |
 | `Transaction.conditions` / `statusHistory` | Embebido | Acuerdo + historial resumido |
 | `Transaction.evidenceIds` | Array de refs | Evidencias crecen sin hinchar el doc |
 | `Product.images` | Embebido (≤20) | Galería acotada |

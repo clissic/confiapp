@@ -17,10 +17,12 @@ describe('transactions/schemas', () => {
       category: 'ELECTRONICS',
       amount: 45000,
       currency: 'uyu',
+      feePayer: 'BUYER',
     });
     expect(parsed.currency).toBe('UYU');
     expect(parsed.inviteExpiresInDays).toBe(7);
     expect(parsed.productTitle).toBe('Notebook Lenovo');
+    expect(parsed.feePayer).toBe('BUYER');
   });
 
   it('rechaza monto inválido', () => {
@@ -39,10 +41,12 @@ describe('transactions/schemas', () => {
       condition: 'GOOD',
       price: 22000,
       currency: 'UYU',
+      feePayer: 'SELLER',
       conditionsSummary: 'Retiro en persona con mediador',
       returnInstructions: 'Devolver embasado en el mismo punto de entrega',
     });
     expect(parsed.category).toBe('OTHER');
+    expect(parsed.feePayer).toBe('SELLER');
     expect(parsed.returnInstructions.length).toBeGreaterThan(9);
   });
 
@@ -55,8 +59,10 @@ describe('transactions/schemas', () => {
       condition: 'LIKE_NEW',
       price: 12000,
       currency: 'USD',
+      feePayer: 'SPLIT_50_50',
       returnInstructions: 'Si no acepta, devolver al domicilio del vendedor',
     });
     expect(parsed.currency ?? 'UYU').toBeTruthy();
+    expect(parsed.feePayer).toBe('SPLIT_50_50');
   });
 });

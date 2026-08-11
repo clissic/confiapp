@@ -41,6 +41,20 @@ export function auditMetaFromRequest(req: Request): AuditRequestMeta {
  */
 export class AuditService {
   async record(input: AuditRecordInput): Promise<void> {
+    const outcome = input.outcome ?? AuditOutcome.SUCCESS;
+    const safeMeta = sanitizeMetadata(input.metadata);
+
+    logger.info('audit.event', {
+      action: input.action,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      actor: input.actor ?? null,
+      actorRole: input.actorRole,
+      outcome,
+      correlationId: input.correlationId,
+      metadata: safeMeta,
+    });
+
     try {
       if (!Types.ObjectId.isValid(input.entityId)) {
         logger.warn('audit skipped: invalid entityId', {
@@ -60,9 +74,9 @@ export class AuditService {
         action: input.action,
         entityType: input.entityType,
         entityId: new Types.ObjectId(input.entityId),
-        outcome: input.outcome,
+        outcome,
         correlationId: input.correlationId?.slice(0, 128),
-        metadata: sanitizeMetadata(input.metadata),
+        metadata: safeMeta,
         ipAddress: input.ipAddress?.slice(0, 64),
         userAgent: input.userAgent?.slice(0, 512),
       });

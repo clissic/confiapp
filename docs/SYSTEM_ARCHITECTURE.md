@@ -128,12 +128,13 @@ Cada contexto expone **puertos** (interfaces). Los adaptadores (Mongo, Stripe, S
 ### 3.3 Superficies UX críticas
 
 - Onboarding + verificación (email; teléfono UI stub → backend pendiente)
-- Crear / aceptar operación (comprador/vendedor + invite)
+- Crear / aceptar operación (comprador/vendedor + invite + checklist)
 - Checkout / fondeo
-- Subida de evidencias con progreso
+- Agentes: onboarding, open jobs, suspender/cerrar agencia, salida/reasignación por operación
+- Subida de evidencias con progreso *(roadmap — API stub)*
 - Mapa de punto de encuentro / open jobs
 - Live status de la operación (Socket)
-- Centro de disputas y **inbox de notificaciones** (`/notificaciones` + campana)
+- Centro de disputas *(roadmap — API stub)* e **inbox de notificaciones** (`/notificaciones` + campana)
 - Wallet, auditoría, reputación, perfil/KYC
 
 Detalle de rutas y patrones UI actuales: [`WEB_APP.md`](./WEB_APP.md).
@@ -441,8 +442,8 @@ Tracing distribuido en HTTP → use case → Mongo/Redis/PSP.
 | Fase | Alcance |
 |------|---------|
 | **MVP** *(gran parte hecho)* | Auth, users, transactions (+ `WAITING_PARTICIPANT`), web app, health, monorepo |
-| **Trust** *(en curso)* | Pagos + ledger, KYC, notificaciones in-app, Socket (chat/notif), wallet, audit UI, agentes |
-| **Scale** | Redis adapter, workers/outbox, S3 uploads, geofence, rate limits distribuidos, phone verify real |
+| **Trust** *(en curso)* | Pagos + ledger, KYC, notificaciones in-app, Socket (chat/notif), wallet, audit UI, agentes (open jobs, salida/cierre) |
+| **Scale** | Redis adapter, workers/outbox, S3 uploads, geofence, rate limits distribuidos, phone verify real, evidence/disputes UI |
 | **Hardening** | Sharding, multi-región lectura, admin forense, warehouse analytics |
 
 ---

@@ -1,3 +1,5 @@
+import { computeIntermediationFees } from '@confiapp/shared';
+
 import { apiClient } from '@/shared/api/client';
 
 import type { EscrowView, PaymentEventLog, PaymentRecord } from '../model/types';
@@ -7,23 +9,23 @@ function hasApiAuth(): boolean {
 }
 
 function demoEscrow(code: string): EscrowView {
-  const gross = 5_000_000; // $50.000 UYU ejemplo
-  const platform = Math.floor((gross * 2000) / 10_000);
-  const agent = Math.floor((gross * 500) / 10_000);
+  const productCents = 5_000_000; // $50.000 UYU ≈ USD $1250 → comisión $25
+  const split = computeIntermediationFees({
+    productCents,
+    currency: 'UYU',
+    feePayer: 'BUYER',
+    uyuPerUsd: 40,
+  });
   return {
     transactionId: 'demo-tx',
     code: code.toUpperCase() || 'DEMO-001',
     status: 'ACCEPTED',
     currency: 'UYU',
-    grossCents: gross,
-    split: {
-      grossCents: gross,
-      platformFeeCents: platform,
-      agentFeeCents: agent,
-      sellerCents: gross - platform - agent,
-      platformFeeBps: 2000,
-      agentFeeBps: 500,
-    },
+    grossCents: split.buyerPaysCents,
+    productCents: split.productCents,
+    commissionCents: split.commissionCents,
+    feePayer: split.feePayer,
+    split,
     parties: {
       buyerId: 'demo-buyer',
       sellerId: 'demo-seller',

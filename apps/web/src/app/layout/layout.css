@@ -617,8 +617,8 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: visible;
-  padding-top: 0.5rem;
-  padding-bottom: 0.75rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.4rem;
 }
 
 .ca-content--home .ca-content__inner {
@@ -710,6 +710,72 @@
   box-shadow: none;
   min-height: 0;
   padding: 0;
+}
+
+/* Chat solo teléfono: full-bleed sobre el canvas */
+@media (max-width: 767.98px) {
+  .ca-content--chat {
+    padding: 0;
+  }
+
+  .ca-content--chat .ca-content__inner {
+    max-width: none;
+    width: 100%;
+  }
+
+  .ca-content--chat .ca-breadcrumbs {
+    display: none;
+  }
+
+  .ca-page.ca-page--chat {
+    min-width: 0;
+  }
+
+  /* Chat abierto: viewport fijo — header y composer siempre visibles */
+  .ca-shell:has(.ca-chat--room) {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .ca-main:has(.ca-chat--room) {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .ca-content--chat:has(.ca-chat--room) {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .ca-content--chat:has(.ca-chat--room) .ca-content__inner {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .ca-content--chat:has(.ca-chat--room) .ca-page--chat {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+/* Chat tablet/desktop: menos aire sobre Conversaciones */
+@media (min-width: 768px) {
+  .ca-content--chat .ca-breadcrumbs {
+    margin-bottom: 0.35rem;
+  }
 }
 
 .ca-page__kicker {

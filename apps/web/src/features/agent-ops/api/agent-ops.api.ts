@@ -1,26 +1,12 @@
+import { amountCentsToUsd, minProductUsdForMinCommission } from '@confiapp/shared';
+
 import { apiClient } from '@/shared/api/client';
 
-import type { AgentOffer, AgentSearchHit } from '../model/types';
+import type { AgentSearchHit } from '../model/types';
 import type { OpenJob, OpenJobsFilters } from '../model/open-jobs.types';
-
-const DEMO_OFFERS_KEY = 'confiapp.agent.offers.demo';
 
 function hasAccessToken(): boolean {
   return Boolean(localStorage.getItem('accessToken'));
-}
-
-function loadDemoOffers(): AgentOffer[] {
-  try {
-    const raw = localStorage.getItem(DEMO_OFFERS_KEY);
-    return raw ? (JSON.parse(raw) as AgentOffer[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDemoOffers(list: AgentOffer[]): AgentOffer[] {
-  localStorage.setItem(DEMO_OFFERS_KEY, JSON.stringify(list));
-  return list;
 }
 
 export async function searchAgents(params: {
@@ -98,105 +84,6 @@ export async function searchAgents(params: {
   }
 }
 
-export async function offerAssignment(payload: {
-  transactionCode: string;
-  lng: number;
-  lat: number;
-  radiusKm: number;
-  expiresInSeconds?: number;
-}): Promise<{ source: 'api' | 'demo'; data: unknown }> {
-  if (!hasAccessToken()) {
-    const expiresAt = new Date(Date.now() + (payload.expiresInSeconds ?? 120) * 1000).toISOString();
-    const offer: AgentOffer = {
-      id: `demo-offer-${Date.now()}`,
-      type: 'AGENT_ASSIGNMENT',
-      title: `Nueva asignación · ${payload.transactionCode}`,
-      body: 'Oferta demo para mediación. Aceptá o rechazá antes de que expire.',
-      actionStatus: 'PENDING',
-      expiresAt,
-      data: { transactionCode: payload.transactionCode },
-      createdAt: new Date().toISOString(),
-      isExpired: false,
-    };
-    saveDemoOffers([offer, ...loadDemoOffers()]);
-    return { source: 'demo', data: { notification: offer } };
-  }
-  const { data } = await apiClient.post('/agents/assignments/offer', payload);
-  return { source: 'api', data };
-}
-
-export async function listAgentOffers(): Promise<{
-  items: AgentOffer[];
-  source: 'api' | 'demo';
-}> {
-  if (!hasAccessToken()) {
-    return { items: loadDemoOffers(), source: 'demo' };
-  }
-  try {
-    const { data } = await apiClient.get<{ items: AgentOffer[] }>('/agents/offers');
-    return { items: data.items, source: 'api' };
-  } catch {
-    return { items: loadDemoOffers(), source: 'demo' };
-  }
-}
-
-export async function acceptAgentOffer(id: string): Promise<AgentOffer> {
-  if (!hasAccessToken()) {
-    const list = loadDemoOffers();
-    const updated = list.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            actionStatus: 'ACCEPTED' as const,
-            respondedAt: new Date().toISOString(),
-            isExpired: false,
-          }
-        : item,
-    );
-    saveDemoOffers(updated);
-    const found = updated.find((item) => item.id === id);
-    if (!found) throw new Error('Oferta no encontrada');
-    return found;
-  }
-  const { data } = await apiClient.post<AgentOffer>(`/agents/offers/${id}/accept`);
-  return data;
-}
-
-export async function rejectAgentOffer(id: string): Promise<{
-  notification: AgentOffer;
-  reassigned?: AgentOffer;
-}> {
-  if (!hasAccessToken()) {
-    const list = loadDemoOffers();
-    const updated = list.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            actionStatus: 'REJECTED' as const,
-            respondedAt: new Date().toISOString(),
-          }
-        : item,
-    );
-    saveDemoOffers(updated);
-    const found = updated.find((item) => item.id === id);
-    if (!found) throw new Error('Oferta no encontrada');
-    return { notification: found };
-  }
-  const { data } = await apiClient.post<{
-    notification: AgentOffer;
-    reassigned?: AgentOffer;
-  }>(`/agents/offers/${id}/reject`);
-  return data;
-}
-
-export async function reassignAgent(code: string): Promise<unknown> {
-  if (!hasAccessToken()) {
-    return { message: 'Reasignación demo' };
-  }
-  const { data } = await apiClient.post(`/agents/assignments/${code}/reassign`);
-  return data;
-}
-
 function demoOpenJobs(filters: OpenJobsFilters): OpenJob[] {
   const base: OpenJob[] = [
     {
@@ -245,13 +132,21 @@ function demoOpenJobs(filters: OpenJobsFilters): OpenJob[] {
   ];
 
   return base.filter((job) => {
-    if (filters.maxDistanceKm != null && job.distanceKm > filters.maxDistanceKm) {
-      return false;
+    if (job.distanceKm > filters.radiusKm) return false;
+    if (filters.minCommissionUsd != null) {
+      const productUsd = amountCentsToUsd(job.amountCents, job.currency);
+      const minProduct = minProductUsdForMinCommission(filters.minCommissionUsd);
+      if (productUsd < minProduct) return false;
     }
-    if (filters.minPay != null && job.amountCents / 100 < filters.minPay) return false;
     if (
       filters.minBuyerRating != null &&
       job.buyer.ratingAverage < filters.minBuyerRating
+    ) {
+      return false;
+    }
+    if (
+      filters.maxBuyerRating != null &&
+      job.buyer.ratingAverage > filters.maxBuyerRating
     ) {
       return false;
     }
@@ -261,7 +156,13 @@ function demoOpenJobs(filters: OpenJobsFilters): OpenJob[] {
     ) {
       return false;
     }
-    return job.distanceKm <= filters.radiusKm;
+    if (
+      filters.maxSellerRating != null &&
+      job.seller.ratingAverage > filters.maxSellerRating
+    ) {
+      return false;
+    }
+    return true;
   });
 }
 
@@ -292,5 +193,23 @@ export async function acceptOpenJob(code: string): Promise<OpenJob> {
     return found;
   }
   const { data } = await apiClient.post<OpenJob>(`/agents/jobs/${code}/accept`);
+  return data;
+}
+
+export async function withdrawFromJob(
+  code: string,
+  reason?: string,
+): Promise<{
+  code: string;
+  status: string;
+  lookingForAgent: true;
+  reopenedViaOffer: boolean;
+}> {
+  const { data } = await apiClient.post<{
+    code: string;
+    status: string;
+    lookingForAgent: true;
+    reopenedViaOffer: boolean;
+  }>(`/agents/jobs/${encodeURIComponent(code)}/withdraw`, reason ? { reason } : {});
   return data;
 }

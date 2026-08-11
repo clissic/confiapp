@@ -4,6 +4,7 @@ import { Spinner } from 'react-bootstrap';
 
 import { MainLayout } from '@/app/layout/MainLayout';
 import { RequireAdmin } from '@/features/auth/ui/RequireAdmin';
+import { RequireAgent } from '@/features/auth/ui/RequireAgent';
 import { RequireAuth } from '@/features/auth/ui/RequireAuth';
 
 const LandingPage = lazy(() =>
@@ -35,9 +36,6 @@ const BecomeAgentPage = lazy(() =>
 const AgentSearchPage = lazy(() =>
   import('@/pages/AgentSearchPage').then((m) => ({ default: m.AgentSearchPage })),
 );
-const AgentOffersPage = lazy(() =>
-  import('@/pages/AgentOffersPage').then((m) => ({ default: m.AgentOffersPage })),
-);
 const OpenJobsPage = lazy(() =>
   import('@/pages/OpenJobsPage').then((m) => ({ default: m.OpenJobsPage })),
 );
@@ -62,6 +60,12 @@ const JoinTransactionPage = lazy(() =>
 );
 const TransactionDetailPage = lazy(() =>
   import('@/pages/TransactionDetailPage').then((m) => ({ default: m.TransactionDetailPage })),
+);
+const TransactionPayPage = lazy(() =>
+  import('@/pages/TransactionPayPage').then((m) => ({ default: m.TransactionPayPage })),
+);
+const TransactionPayMockPage = lazy(() =>
+  import('@/pages/TransactionPayMockPage').then((m) => ({ default: m.TransactionPayMockPage })),
 );
 const MessagesPage = lazy(() =>
   import('@/pages/MessagesPage').then((m) => ({ default: m.MessagesPage })),
@@ -114,14 +118,17 @@ export function AppRouter() {
               <Route path="profile" element={<Navigate to="/perfil" replace />} />
               <Route path="agente" element={<BecomeAgentPage />} />
               <Route path="agente/buscar" element={<AgentSearchPage />} />
-              <Route path="agente/ofertas" element={<AgentOffersPage />} />
-              <Route path="agente/trabajos" element={<OpenJobsPage />} />
+              <Route element={<RequireAgent />}>
+                <Route path="agente/trabajos" element={<OpenJobsPage />} />
+              </Route>
               <Route path="become-agent" element={<Navigate to="/agente" replace />} />
               <Route path="operaciones" element={<TransactionsPage />} />
               <Route path="operaciones/nueva" element={<StartTransactionHubPage />} />
               <Route path="operaciones/nueva/comprador" element={<StartTransactionPage />} />
               <Route path="operaciones/nueva/vendedor" element={<StartSellerTransactionPage />} />
               <Route path="operaciones/unirse/:token" element={<JoinTransactionPage />} />
+              <Route path="operaciones/:code/pagar/simular" element={<TransactionPayMockPage />} />
+              <Route path="operaciones/:code/pagar" element={<TransactionPayPage />} />
               <Route path="operaciones/:code" element={<TransactionDetailPage />} />
               <Route path="mensajes" element={<MessagesPage />} />
               <Route path="pagos" element={<PaymentsPage />} />

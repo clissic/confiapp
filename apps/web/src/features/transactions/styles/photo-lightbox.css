@@ -1,0 +1,87 @@
+/* Lightbox galería (compartido: transacciones, KYC admin, etc.) */
+.ca-photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1080;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: rgba(8, 16, 32, 0.92);
+  padding: 12px;
+}
+
+.ca-photo-lightbox__chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #f4f7fb;
+  padding: 4px 4px 12px;
+}
+
+.ca-photo-lightbox__title {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.ca-photo-lightbox__close,
+.ca-photo-lightbox__nav {
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.ca-photo-lightbox__close {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.ca-photo-lightbox__stage {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.ca-photo-lightbox__image {
+  max-width: min(100%, 100vw - 24px);
+  max-height: calc(100vh - 96px);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.ca-photo-lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  z-index: 2;
+}
+
+.ca-photo-lightbox__nav--prev {
+  left: 8px;
+}
+
+.ca-photo-lightbox__nav--next {
+  right: 8px;
+}
+
+@media (max-width: 640px) {
+  .ca-photo-lightbox__nav--prev {
+    left: 0;
+  }
+
+  .ca-photo-lightbox__nav--next {
+    right: 0;
+  }
+}

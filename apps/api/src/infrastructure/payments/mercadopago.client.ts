@@ -21,6 +21,11 @@ export interface MpCreatePreferenceInput {
     failure: string;
     pending: string;
   };
+  /**
+   * Solo MOCK: URL de la “pasarela” de prueba en la app
+   * (p. ej. /operaciones/CODE/pagar/simular?paymentId=…).
+   */
+  mockBridgeUrl?: string;
 }
 
 export interface MpPreferenceResult {
@@ -69,16 +74,20 @@ export class MercadoPagoClient {
     if (this.isMock()) {
       const mockId = `MOCK-PREF-${Date.now()}`;
       const confirmUrl = `${env.API_PUBLIC_URL}/payments/mock/confirm/${encodeURIComponent(input.externalReference)}`;
+      const bridgeUrl =
+        input.mockBridgeUrl?.trim() ||
+        confirmUrl;
       logger.info('mercadopago preference mock created', {
         preferenceId: mockId,
         externalReference: input.externalReference,
+        bridgeUrl,
         country: this.country(),
         siteId: this.siteId(),
       });
       return {
         id: mockId,
-        initPoint: confirmUrl,
-        sandboxInitPoint: confirmUrl,
+        initPoint: bridgeUrl,
+        sandboxInitPoint: bridgeUrl,
         provider: 'MOCK',
       };
     }

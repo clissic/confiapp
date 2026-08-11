@@ -8,6 +8,10 @@ const appCurrencySchema = z
     message: 'Usá UYU o USD',
   });
 
+const feePayerSchema = z.enum(['BUYER', 'SELLER', 'SPLIT_50_50'], {
+  required_error: 'Elegí quién paga la comisión',
+});
+
 const productConditions = ['NEW', 'LIKE_NEW', 'GOOD', 'FAIR', 'POOR'] as const;
 const productCategories = [
   'ELECTRONICS',
@@ -47,6 +51,7 @@ export const createTransactionSchema = z.object({
     .positive('El monto debe ser mayor a 0')
     .max(100_000_000, 'Monto demasiado alto'),
   currency: appCurrencySchema.default('UYU'),
+  feePayer: feePayerSchema,
 });
 
 export type CreateTransactionValues = z.infer<typeof createTransactionSchema>;
@@ -67,6 +72,7 @@ export const confirmSaleSchema = z.object({
     .positive('El precio debe ser mayor a 0')
     .max(100_000_000),
   currency: appCurrencySchema.default('UYU'),
+  feePayer: feePayerSchema,
   imageUrl: z.string().trim().optional().or(z.literal('')),
   ...agentConditionsSchema,
   returnInstructions: z
@@ -94,6 +100,7 @@ export const createSellerTransactionSchema = z.object({
     .positive('El precio debe ser mayor a 0')
     .max(100_000_000),
   currency: appCurrencySchema.default('UYU'),
+  feePayer: feePayerSchema,
   imageUrl: z.string().trim().optional().or(z.literal('')),
   returnInstructions: z
     .string()
@@ -108,6 +115,7 @@ export type CreateSellerTransactionValues = z.infer<
 
 export const acceptPurchaseSchema = z.object({
   ...agentConditionsSchema,
+  feePayer: feePayerSchema,
   productTitle: z.string().trim().min(3, 'Mínimo 3 caracteres').max(200),
   productDescription: z
     .string()

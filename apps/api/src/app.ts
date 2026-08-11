@@ -123,7 +123,7 @@ export function createApp(): Express {
   app.use((req, res, next) => {
     const limit =
       isChatMessageWrite(req) || isUserProfileWrite(req) || isTransactionMediaWrite(req)
-        ? '6mb'
+        ? '8mb'
         : '256kb';
     express.json({ limit })(req, res, next);
   });

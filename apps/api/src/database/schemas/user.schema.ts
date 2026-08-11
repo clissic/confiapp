@@ -279,7 +279,7 @@ const scheduleSchema = new Schema(
 
 const photoSchema = new Schema(
   {
-    url: { type: String, required: true, trim: true, maxlength: 2_000_000 },
+    url: { type: String, required: true, trim: true, maxlength: 4_000_000 },
     storageKey: { type: String, trim: true, maxlength: 512 },
     kind: {
       type: String,

@@ -359,7 +359,7 @@
 
 [data-theme='dark'] .ca-onboarding-media__body,
 [data-theme='dark'] .ca-terms-box {
-  background: var(--surface-sunken);
+  background: var(--surface-raised);
 }
 
 @media (max-width: 767.98px) {
@@ -535,6 +535,150 @@
   border-top: 1px solid var(--border-default);
 }
 
+.ca-agency-active-jobs {
+  margin: 0;
+  padding: var(--space-2);
+  border-top: 1px solid var(--border-default);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ca-agency-active-jobs__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.ca-agency-active-jobs__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-md, 0.75rem);
+  color: var(--color-secondary-700, #1f7a6e);
+  background: color-mix(in srgb, var(--color-secondary-100, #e6f7f4) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-secondary-400, #2a9d8f) 22%, transparent);
+}
+
+.ca-agency-active-jobs__intro {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ca-agency-active-jobs__title {
+  margin: 0 0 0.15rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-agency-active-jobs__chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.65rem;
+  height: 1.65rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--color-primary-700, #01285d);
+  background: color-mix(in srgb, var(--color-secondary-200, #c9efe8) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-secondary-400, #2a9d8f) 30%, transparent);
+}
+
+.ca-agency-active-jobs__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.ca-agency-job-chip {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.45rem 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-md, 0.75rem);
+  text-decoration: none;
+  color: inherit;
+  background: color-mix(in srgb, var(--surface-sunken) 72%, transparent);
+  border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.1));
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.ca-agency-job-chip:hover {
+  color: inherit;
+  border-color: color-mix(in srgb, var(--color-secondary-400, #2a9d8f) 45%, transparent);
+  transform: translateY(-1px);
+}
+
+.ca-agency-job-chip__code {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--color-secondary-700, #1f7a6e);
+}
+
+.ca-agency-job-chip__title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-agency-job-chip__status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-elevated) 88%, transparent);
+  border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.1));
+  white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+  .ca-agency-job-chip {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ca-agency-job-chip__code {
+    grid-column: 1 / -1;
+  }
+}
+
+.ca-agency-active-jobs__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .ca-agency-active-jobs__icon {
+  color: #9ee6d8;
+  background: color-mix(in srgb, #134039 75%, transparent);
+  border-color: rgba(125, 213, 196, 0.22);
+}
+
+[data-theme='dark'] .ca-agency-active-jobs__chip {
+  color: #e8f7f4;
+  background: color-mix(in srgb, #134039 80%, transparent);
+}
+
+[data-theme='dark'] .ca-agency-job-chip {
+  background: color-mix(in srgb, var(--surface-sunken) 90%, transparent);
+}
+
 .ca-agency-jobs__link {
   display: flex;
   align-items: center;
@@ -604,6 +748,14 @@
   font-weight: 600;
 }
 
+.ca-agency-footer-hint {
+  margin: 0;
+  padding: 0 var(--space-2) var(--space-2);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 767.98px) {
   .ca-agency-visual {
     width: min(42vw, 9rem);
@@ -630,6 +782,10 @@
 
 [data-theme='dark'] .ca-agency-list__item {
   border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.ca-preview-card {
+  background: transparent;
 }
 
 .ca-preview-card__name {
@@ -668,6 +824,115 @@
   margin: 0;
   color: var(--text-primary);
   font-size: var(--text-small-size);
+}
+
+/* Confirmación de alta — sobria, full-width del contenedor */
+.ca-agent-preview {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.ca-agent-preview__header .ca-section-lead {
+  margin-top: 0.35rem;
+}
+
+.ca-agent-preview__card {
+  width: 100%;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised, var(--surface-base));
+}
+
+.ca-agent-preview__identity {
+  padding-bottom: 0.9rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.ca-agent-preview__name {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.ca-agent-preview__email {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.ca-agent-preview__grid {
+  display: grid;
+  gap: 0.85rem 1.25rem;
+  margin: 0;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 576px) {
+  .ca-agent-preview__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 992px) {
+  .ca-agent-preview__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ca-agent-preview__fact {
+  min-width: 0;
+}
+
+.ca-agent-preview__fact dt {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ca-agent-preview__fact dd {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  text-wrap: pretty;
+}
+
+.ca-agent-preview__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.ca-agent-preview__actions .btn {
+  min-height: 2.5rem;
+  font-weight: 600;
+}
+
+@media (max-width: 575.98px) {
+  .ca-agent-preview__card {
+    padding: 1rem;
+  }
+
+  .ca-agent-preview__actions .btn {
+    width: 100%;
+  }
+}
+
+[data-theme='dark'] .ca-agent-preview__card {
+  background: var(--surface-raised);
 }
 
 /* Tablet: más aire para inputs y botones */
@@ -826,7 +1091,7 @@
 }
 
 [data-theme='dark'] .ca-preview-card {
-  background: linear-gradient(160deg, var(--surface-raised), var(--surface-sunken));
+  background: transparent;
 }
 
 [data-theme='dark'] .ca-agent-steps__item--active {
