@@ -1,6 +1,8 @@
 export interface EscrowSplit {
   productCents: number;
   commissionCents: number;
+  commissionUyu?: number;
+  /** @deprecated Alias de commissionUyu */
   commissionUsd?: number;
   buyerPaysCents: number;
   sellerNetCents: number;

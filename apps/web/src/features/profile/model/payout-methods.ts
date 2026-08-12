@@ -29,11 +29,14 @@ export const PAYOUT_ACCOUNT_KIND_OPTIONS: Array<{ value: PayoutAccountKind; labe
   { value: 'CC', label: 'Cuenta corriente (CC)' },
 ];
 
-export const PAYOUT_CURRENCY_OPTIONS: Array<{ value: Exclude<PayoutCurrency, ''>; label: string }> =
-  [
-    { value: 'UYU', label: 'UYU $' },
-    { value: 'USD', label: 'USD $' },
-  ];
+export const PAYOUT_CURRENCY_OPTIONS: Array<{
+  value: Exclude<PayoutCurrency, ''>;
+  label: string;
+  disabled?: boolean;
+}> = [
+  { value: 'UYU', label: 'UYU $' },
+  { value: 'USD', label: 'USD $', disabled: true },
+];
 
 /** Textos de ayuda por banco / billetera (formato de número de cuenta — Latias Ajustes). */
 export const PAYOUT_BANK_HELP: Record<string, string> = {

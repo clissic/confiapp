@@ -169,7 +169,6 @@ export function TransactionPayPage() {
             <span>Comisión de intermediación</span>
             <strong>
               {formatOperationMoney(feePreview.commissionCents, tx.currency)}
-              <em className="ca-tx-pay-summary__hint"> (USD ${feePreview.commissionUsd})</em>
             </strong>
           </li>
           <li>

@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 
 import { useZodForm } from '@/shared/lib/form';
 import { getApiErrorMessage } from '@/shared/api/client';
-import { defaultPaymentCurrency } from '@/shared/lib/money';
+import { defaultPaymentCurrency, PAYMENT_CURRENCY_OPTIONS } from '@/shared/lib/money';
 import { useUserPreferences } from '@/shared/preferences';
 import { useProfile } from '@/features/profile/hooks/useProfile';
 
@@ -282,8 +282,16 @@ export function StartTransactionPage() {
               <Form.Group className="col-6 col-md-3" controlId="tx-currency">
                 <Form.Label>Moneda</Form.Label>
                 <Form.Select {...form.register('currency')}>
-                  <option value="UYU">UYU $</option>
-                  <option value="USD">USD $</option>
+                  {PAYMENT_CURRENCY_OPTIONS.map((option) => (
+                    <option
+                      key={option.code}
+                      value={option.code}
+                      disabled={option.disabled}
+                    >
+                      {option.label}
+                      {option.disabled ? ' (próximamente)' : ''}
+                    </option>
+                  ))}
                 </Form.Select>
               </Form.Group>
             </div>

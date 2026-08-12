@@ -56,20 +56,27 @@ export function CurrencySelect({ id, value, onChange, onBlur }: CurrencySelectPr
         <ul className="ca-dial-select__menu" role="listbox" aria-label="Monedas">
           {CURRENCY_OPTIONS.map((item) => {
             const isActive = item.code === selected.code;
+            const isDisabled = Boolean(item.disabled);
             return (
               <li key={item.code} role="presentation">
                 <button
                   type="button"
                   role="option"
                   aria-selected={isActive}
-                  className={`ca-dial-select__option ${isActive ? 'ca-dial-select__option--active' : ''}`}
+                  aria-disabled={isDisabled}
+                  disabled={isDisabled}
+                  className={`ca-dial-select__option ${isActive ? 'ca-dial-select__option--active' : ''} ${isDisabled ? 'ca-dial-select__option--disabled' : ''}`}
                   onClick={() => {
+                    if (isDisabled) return;
                     onChange(item.code);
                     setOpen(false);
                     onBlur?.();
                   }}
                 >
-                  <span className="ca-dial-select__label">{item.label}</span>
+                  <span className="ca-dial-select__label">
+                    {item.label}
+                    {isDisabled ? ' (próximamente)' : ''}
+                  </span>
                 </button>
               </li>
             );

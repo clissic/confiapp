@@ -66,7 +66,7 @@ export const submitAgentOnboardingBodySchema = z
       .trim()
       .toUpperCase()
       .regex(/^[A-Z]{3}$/)
-      .default('USD'),
+      .default('UYU'),
   })
   .superRefine((value, ctx) => {
     if (!value.unspecifiedSchedule && value.weeklySlots.length < 1) {
@@ -126,10 +126,10 @@ export const openJobsQuerySchema = z
     lng: z.coerce.number().min(-180).max(180),
     lat: z.coerce.number().min(-90).max(90),
     radiusKm: z.coerce.number().min(0.5).max(100).default(15),
-    minCommissionUsd: z.coerce
+    minCommissionUyu: z.coerce
       .number()
-      .refine((v) => [10, 15, 20, 25, 35].includes(v), {
-        message: 'minCommissionUsd must be one of 10, 15, 20, 25, 35',
+      .refine((v) => [400, 600, 800, 1000, 1400].includes(v), {
+        message: 'minCommissionUyu must be one of 400, 600, 800, 1000, 1400',
       })
       .optional(),
     minBuyerRating: z.coerce.number().min(0).max(5).optional(),

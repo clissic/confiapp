@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { centsToMajorUnit, computeEscrowSplit, IntermediationFeeError } from './split';
 
 describe('payments/split', () => {
-  it('USD $1500 → comisión $25; comprador asume → paga 1525, vendedor 1500', () => {
+  it('USD $1500 → comisión UYU $1000 (= $25); comprador asume', () => {
     const split = computeEscrowSplit({
       productCents: 150_000,
       currency: 'USD',
       feePayer: 'BUYER',
       uyuPerUsd: 40,
     });
-    expect(split.commissionUsd).toBe(25);
+    expect(split.commissionUyu).toBe(1_000);
     expect(split.commissionCents).toBe(2_500);
     expect(split.buyerPaysCents).toBe(152_500);
     expect(split.sellerNetCents).toBe(150_000);
@@ -40,16 +40,15 @@ describe('payments/split', () => {
     expect(split.sellerNetCents).toBe(148_750);
   });
 
-  it('UYU convierte a USD con rate 40 para elegir franja', () => {
-    // UYU $40.000 = USD $1000 → franja $20
+  it('UYU clasifica franja sin conversión (40.000 → comisión 800)', () => {
     const split = computeEscrowSplit({
       productCents: 4_000_000,
       currency: 'UYU',
       feePayer: 'BUYER',
       uyuPerUsd: 40,
     });
-    expect(split.commissionUsd).toBe(20);
-    expect(split.commissionCents).toBe(80_000); // 20 * 40 * 100
+    expect(split.commissionUyu).toBe(800);
+    expect(split.commissionCents).toBe(80_000);
     expect(split.buyerPaysCents).toBe(4_080_000);
   });
 

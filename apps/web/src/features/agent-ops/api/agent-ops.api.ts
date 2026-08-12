@@ -1,4 +1,4 @@
-import { amountCentsToUsd, minProductUsdForMinCommission } from '@confiapp/shared';
+import { amountCentsToUyu, minProductUyuForMinCommission } from '@confiapp/shared';
 
 import { apiClient } from '@/shared/api/client';
 
@@ -133,10 +133,10 @@ function demoOpenJobs(filters: OpenJobsFilters): OpenJob[] {
 
   return base.filter((job) => {
     if (job.distanceKm > filters.radiusKm) return false;
-    if (filters.minCommissionUsd != null) {
-      const productUsd = amountCentsToUsd(job.amountCents, job.currency);
-      const minProduct = minProductUsdForMinCommission(filters.minCommissionUsd);
-      if (productUsd < minProduct) return false;
+    if (filters.minCommissionUyu != null) {
+      const productUyu = amountCentsToUyu(job.amountCents, job.currency);
+      const minProduct = minProductUyuForMinCommission(filters.minCommissionUyu);
+      if (productUyu < minProduct) return false;
     }
     if (
       filters.minBuyerRating != null &&

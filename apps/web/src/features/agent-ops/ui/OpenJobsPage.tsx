@@ -27,8 +27,8 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
 import {
   AGENT_FEE_TIERS,
-  amountCentsToUsd,
-  commissionForProductUsd,
+  amountCentsToUyu,
+  commissionForProductUyu,
   formatFeeTierPopoverLine,
   formatFeeTierSelectLabel,
 } from '@confiapp/shared';
@@ -87,7 +87,7 @@ function CommissionHelpPopover() {
       <Popover.Body>
         <ul className="ca-open-jobs__fee-list mb-0">
           {AGENT_FEE_TIERS.map((tier) => (
-            <li key={tier.commissionUsd}>{formatFeeTierPopoverLine(tier)}</li>
+            <li key={tier.commissionUyu}>{formatFeeTierPopoverLine(tier)}</li>
           ))}
         </ul>
       </Popover.Body>
@@ -104,7 +104,7 @@ export function OpenJobsPage() {
   const [pinLng, setPinLng] = useState(MONTEVIDEO[1]);
   const [pinLat, setPinLat] = useState(MONTEVIDEO[0]);
   const [radiusKm, setRadiusKm] = useState(15);
-  const [minCommissionUsd, setMinCommissionUsd] = useState<number | ''>('');
+  const [minCommissionUyu, setMinCommissionUyu] = useState<number | ''>('');
   const [minBuyerRating, setMinBuyerRating] = useState(0);
   const [maxBuyerRating, setMaxBuyerRating] = useState(5);
   const [minSellerRating, setMinSellerRating] = useState(0);
@@ -168,7 +168,7 @@ export function OpenJobsPage() {
       lng: pinLng,
       lat: pinLat,
       radiusKm,
-      minCommissionUsd: minCommissionUsd === '' ? undefined : minCommissionUsd,
+      minCommissionUyu: minCommissionUyu === '' ? undefined : minCommissionUyu,
       minBuyerRating: minBuyerRating > 0 ? minBuyerRating : undefined,
       maxBuyerRating: maxBuyerRating < 5 ? maxBuyerRating : undefined,
       minSellerRating: minSellerRating > 0 ? minSellerRating : undefined,
@@ -202,9 +202,9 @@ export function OpenJobsPage() {
   };
 
   const estimatedCommissionLabel = (job: OpenJob) => {
-    const usd = amountCentsToUsd(job.amountCents, job.currency);
-    const fee = commissionForProductUsd(usd);
-    return `Comisión ~ USD $${fee}`;
+    const uyu = amountCentsToUyu(job.amountCents, job.currency);
+    const fee = commissionForProductUyu(uyu);
+    return `Comisión ~ ${formatOperationMoney(fee * 100, 'UYU')}`;
   };
 
   return (
@@ -264,15 +264,15 @@ export function OpenJobsPage() {
               </OverlayTrigger>
             </Form.Label>
             <Form.Select
-              value={minCommissionUsd === '' ? '' : String(minCommissionUsd)}
+              value={minCommissionUyu === '' ? '' : String(minCommissionUyu)}
               onChange={(e) => {
                 const raw = e.target.value;
-                setMinCommissionUsd(raw === '' ? '' : Number(raw));
+                setMinCommissionUyu(raw === '' ? '' : Number(raw));
               }}
             >
               <option value="">Cualquiera</option>
               {AGENT_FEE_TIERS.map((tier) => (
-                <option key={tier.commissionUsd} value={tier.commissionUsd}>
+                <option key={tier.commissionUyu} value={tier.commissionUyu}>
                   {formatFeeTierSelectLabel(tier)}
                 </option>
               ))}

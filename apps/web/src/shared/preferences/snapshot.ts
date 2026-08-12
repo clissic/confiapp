@@ -16,7 +16,7 @@ export interface PreferencesSnapshot {
 const DEFAULT_SNAPSHOT: PreferencesSnapshot = {
   language: 'es',
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Montevideo',
-  currency: 'USD',
+  currency: 'UYU',
   theme: 'SYSTEM',
   distanceUnit: 'KM',
   rates: null,

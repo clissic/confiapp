@@ -33,7 +33,7 @@ export function createDemoProfile(): UserProfile {
     payoutMethods: [],
     wallet: {
       status: 'ACTIVE',
-      currency: 'USD',
+      currency: 'UYU',
       availableCents: 1250000,
       pendingCents: 150000,
       heldCents: 420000,
@@ -94,7 +94,7 @@ export function createDemoProfile(): UserProfile {
       language: 'es',
       locale: 'es-UY',
       timezone: 'America/Argentina/Buenos_Aires',
-      currency: 'USD',
+      currency: 'UYU',
       theme: 'SYSTEM',
       distanceUnit: 'KM',
       notifications: {

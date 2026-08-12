@@ -171,7 +171,7 @@ function toPublicDto(
 ): UserPublicDto {
   const wallet = user.wallet ?? {
     status: WalletStatus.ACTIVE,
-    currency: 'USD',
+    currency: 'UYU',
     availableCents: 0,
     pendingCents: 0,
     heldCents: 0,
@@ -202,7 +202,7 @@ function toPublicDto(
     language: 'es',
     locale: 'es-AR',
     timezone: 'America/Argentina/Buenos_Aires',
-    currency: 'USD',
+    currency: 'UYU',
     theme: ThemePreference.SYSTEM,
     distanceUnit: DistanceUnit.KM,
     notifications: {

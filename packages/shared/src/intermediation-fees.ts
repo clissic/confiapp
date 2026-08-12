@@ -1,11 +1,11 @@
 /**
- * Comisión de intermediación por franjas (USD) + quién la paga.
+ * Comisión de intermediación por franjas (UYU) + quién la paga.
  * El precio acordado no se diluye: plataforma/agente se pagan solo de la comisión.
  */
 
 import {
-  amountCentsToUsd,
-  commissionForProductUsd,
+  amountCentsToUyu,
+  commissionForProductUyu,
   DEFAULT_UYU_PER_USD,
 } from './agent-fee-tiers.js';
 
@@ -27,7 +27,7 @@ export interface IntermediationFeesInput {
   productCents: number;
   currency: string;
   feePayer: FeePayer;
-  /** UYU por 1 USD (solo para clasificar / convertir comisión). */
+  /** UYU por 1 USD (solo si la op estuviera en USD legacy). */
   uyuPerUsd?: number;
   platformCommissionBps?: number;
   agentCommissionBps?: number;
@@ -37,9 +37,9 @@ export interface IntermediationFees {
   productCents: number;
   currency: string;
   feePayer: FeePayer;
-  /** Precio del producto en USD (para franja). */
-  productUsd: number;
-  commissionUsd: number;
+  /** Precio del producto en UYU (para franja). */
+  productUyu: number;
+  commissionUyu: number;
   commissionCents: number;
   /** Monto que paga el comprador en checkout. */
   buyerPaysCents: number;
@@ -53,6 +53,10 @@ export interface IntermediationFees {
   grossCents: number;
   /** Alias de sellerNetCents (compat UI/API previa). */
   sellerCents: number;
+  /** @deprecated Alias de productUyu */
+  productUsd: number;
+  /** @deprecated Alias de commissionUyu */
+  commissionUsd: number;
 }
 
 export class IntermediationFeeError extends Error {
@@ -62,28 +66,31 @@ export class IntermediationFeeError extends Error {
   }
 }
 
-/** Comisión fija USD → centavos en la moneda de la operación. */
-export function commissionUsdToCents(
-  commissionUsd: number,
+/** Comisión fija UYU → centavos en la moneda de la operación. */
+export function commissionUyuToCents(
+  commissionUyu: number,
   currency: string,
   uyuPerUsd: number = DEFAULT_UYU_PER_USD,
 ): number {
-  const code = (currency || 'USD').toUpperCase();
-  if (code === 'USD') {
-    return Math.round(commissionUsd * 100);
-  }
+  const code = (currency || 'UYU').toUpperCase();
   if (code === 'UYU') {
-    const rate = uyuPerUsd > 0 ? uyuPerUsd : DEFAULT_UYU_PER_USD;
-    return Math.round(commissionUsd * rate * 100);
+    return Math.round(commissionUyu * 100);
   }
-  return Math.round(commissionUsd * 100);
+  if (code === 'USD') {
+    const rate = uyuPerUsd > 0 ? uyuPerUsd : DEFAULT_UYU_PER_USD;
+    return Math.round((commissionUyu / rate) * 100);
+  }
+  return Math.round(commissionUyu * 100);
 }
+
+/** @deprecated Usar commissionUyuToCents */
+export const commissionUsdToCents = commissionUyuToCents;
 
 export function computeIntermediationFees(
   input: IntermediationFeesInput,
 ): IntermediationFees {
   const productCents = Math.max(0, Math.trunc(input.productCents));
-  const currency = (input.currency || 'USD').toUpperCase();
+  const currency = (input.currency || 'UYU').toUpperCase();
   const feePayer = input.feePayer;
   const uyuPerUsd = input.uyuPerUsd ?? DEFAULT_UYU_PER_USD;
   const platformCommissionBps =
@@ -91,9 +98,9 @@ export function computeIntermediationFees(
   const agentCommissionBps =
     input.agentCommissionBps ?? DEFAULT_AGENT_COMMISSION_BPS;
 
-  const productUsd = amountCentsToUsd(productCents, currency, uyuPerUsd);
-  const commissionUsd = commissionForProductUsd(productUsd);
-  const commissionCents = commissionUsdToCents(commissionUsd, currency, uyuPerUsd);
+  const productUyu = amountCentsToUyu(productCents, currency, uyuPerUsd);
+  const commissionUyu = commissionForProductUyu(productUyu);
+  const commissionCents = commissionUyuToCents(commissionUyu, currency, uyuPerUsd);
 
   const platformFeeCents = Math.floor(
     (commissionCents * platformCommissionBps) / 10_000,
@@ -136,8 +143,8 @@ export function computeIntermediationFees(
     productCents,
     currency,
     feePayer,
-    productUsd,
-    commissionUsd,
+    productUyu,
+    commissionUyu,
     commissionCents,
     buyerPaysCents,
     sellerNetCents,
@@ -147,5 +154,7 @@ export function computeIntermediationFees(
     agentCommissionBps,
     grossCents: buyerPaysCents,
     sellerCents: sellerNetCents,
+    productUsd: productUyu,
+    commissionUsd: commissionUyu,
   };
 }

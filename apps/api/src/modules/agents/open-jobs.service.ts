@@ -8,8 +8,8 @@ import {
   type ITransaction,
 } from '@confiapp/database';
 import {
-  amountCentsToUsd,
-  minProductUsdForMinCommission,
+  amountCentsToUyu,
+  minProductUyuForMinCommission,
 } from '@confiapp/shared';
 import { Types } from 'mongoose';
 
@@ -31,7 +31,7 @@ export interface OpenJobsQuery {
   lng: number;
   lat: number;
   radiusKm: number;
-  minCommissionUsd?: number;
+  minCommissionUyu?: number;
   minBuyerRating?: number;
   maxBuyerRating?: number;
   minSellerRating?: number;
@@ -243,10 +243,10 @@ export class OpenJobsService {
 
       const amountCents = tx.amountCents ?? 0;
       const currency = tx.currency ?? 'UYU';
-      if (query.minCommissionUsd != null) {
-        const productUsd = amountCentsToUsd(amountCents, currency, env.USD_UYU_RATE);
-        const minProductUsd = minProductUsdForMinCommission(query.minCommissionUsd);
-        if (productUsd < minProductUsd) continue;
+      if (query.minCommissionUyu != null) {
+        const productUyu = amountCentsToUyu(amountCents, currency, env.USD_UYU_RATE);
+        const minProductUyu = minProductUyuForMinCommission(query.minCommissionUyu);
+        if (productUyu < minProductUyu) continue;
       }
 
       const roles = partyRoles(tx.initiatedBy ?? TransactionInitiator.BUYER);

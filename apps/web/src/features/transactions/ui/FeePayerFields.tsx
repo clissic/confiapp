@@ -93,10 +93,6 @@ export function FeePayerFields({
             <span>Comisión de intermediación</span>
             <strong>
               {formatOperationMoney(preview.commissionCents, currency)}
-              <span className="ca-tx-fee-preview__hint">
-                {' '}
-                (USD ${preview.commissionUsd})
-              </span>
             </strong>
           </div>
           <div className="ca-tx-fee-preview__row">

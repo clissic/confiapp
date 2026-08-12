@@ -9,7 +9,7 @@ function hasApiAuth(): boolean {
 }
 
 function demoEscrow(code: string): EscrowView {
-  const productCents = 5_000_000; // $50.000 UYU ≈ USD $1250 → comisión $25
+  const productCents = 5_000_000; // $50.000 UYU → comisión $1.000 UYU
   const split = computeIntermediationFees({
     productCents,
     currency: 'UYU',

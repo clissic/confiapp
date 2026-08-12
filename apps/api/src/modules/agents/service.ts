@@ -51,7 +51,7 @@ async function toDto(
     status: AgentOnboardingStatus.NONE,
     termsAccepted: false,
     ratesAccepted: false,
-    currency: 'USD',
+    currency: 'UYU',
     draftStep: 1,
   };
 
@@ -81,7 +81,7 @@ async function toDto(
     workAreaCountry: agent.workAreaCountry ?? user.location?.address?.country,
     coverageRadiusKm: agent.coverageRadiusKm ?? user.location?.coverageRadiusKm,
     hourlyRateCents: agent.hourlyRateCents,
-    currency: agent.currency ?? 'USD',
+    currency: agent.currency ?? 'UYU',
     ratesAccepted: Boolean(agent.ratesAccepted),
     ratesAcceptedAt: agent.ratesAcceptedAt?.toISOString?.(),
     draftStep: agent.draftStep ?? 1,
@@ -176,7 +176,7 @@ export class AgentsService {
       workAreaCity: input.workAreaCity,
       workAreaCountry: input.workAreaCountry,
       coverageRadiusKm: input.coverageRadiusKm,
-      currency: input.currency ?? 'USD',
+      currency: input.currency ?? 'UYU',
     });
 
     if (!user) throw new NotFoundError('User not found');

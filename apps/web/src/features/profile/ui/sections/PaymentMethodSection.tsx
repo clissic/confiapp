@@ -210,8 +210,13 @@ export function PaymentMethodSection({ profile }: { profile: UserProfile }) {
                 <>
                   <option value="">Moneda</option>
                   {PAYOUT_CURRENCY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      disabled={option.disabled}
+                    >
                       {option.label}
+                      {option.disabled ? ' (próximamente)' : ''}
                     </option>
                   ))}
                 </>

@@ -2,8 +2,8 @@ import { apiClient } from '@/shared/api/client';
 
 import type { ChatMessage, ChatSummary, MessageAttachment } from '../model/types';
 
-const DEMO_CHATS_KEY = 'confiapp.demo.chats';
-const DEMO_MSGS_KEY = 'confiapp.demo.chat-messages';
+const DEMO_CHATS_KEY = 'confiapp.demo.chats.v2';
+const DEMO_MSGS_KEY = 'confiapp.demo.chat-messages.v2';
 
 function hasApiAuth(): boolean {
   return Boolean(localStorage.getItem('accessToken'));
@@ -35,11 +35,7 @@ function demoChats(): ChatSummary[] {
         { id: 'demo-buyer', name: 'Ana Compradora', role: 'BUYER' },
         { id: 'demo-agent', name: 'Vos (Agente)', role: 'AGENT' },
       ],
-      lastMessageAt: new Date(Date.now() - 60_000).toISOString(),
-      lastMessagePreview: '¿A qué hora nos encontramos?',
-      lastMessageSenderId: 'demo-buyer',
-      lastMessageSenderName: 'Ana Compradora',
-      unreadCount: 1,
+      unreadCount: 0,
       createdAt: new Date().toISOString(),
     },
     {
@@ -58,11 +54,6 @@ function demoChats(): ChatSummary[] {
         { id: 'demo-seller', name: 'Luis Vendedor', role: 'SELLER' },
         { id: 'demo-agent', name: 'Vos (Agente)', role: 'AGENT' },
       ],
-      lastMessageAt: new Date(Date.now() - 120_000).toISOString(),
-      lastMessagePreview: 'El equipo está en caja original',
-      lastMessageSenderId: 'demo-agent',
-      lastMessageSenderName: 'Vos',
-      lastMessageReadByPeer: true,
       unreadCount: 0,
       createdAt: new Date().toISOString(),
     },
@@ -73,62 +64,11 @@ function demoChats(): ChatSummary[] {
 
 function demoMessages(chatId: string): ChatMessage[] {
   const all = readDemoMessages();
-  if (all[chatId]?.length) return all[chatId]!;
+  if (all[chatId]) return all[chatId]!;
 
-  const seed: ChatMessage[] =
-    chatId === 'demo-chat-buyer'
-      ? [
-          {
-            id: 'm1',
-            chatId,
-            senderId: 'demo-buyer',
-            senderName: 'Ana Compradora',
-            type: 'TEXT',
-            body: 'Hola, ¿confirmamos el punto de encuentro?',
-            attachments: [],
-            readBy: ['demo-buyer'],
-            createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
-          },
-          {
-            id: 'm2',
-            chatId,
-            senderId: 'demo-agent',
-            senderName: 'Vos (Agente)',
-            type: 'TEXT',
-            body: 'Sí, en la esquina de Florida y Córdoba.',
-            attachments: [],
-            readBy: ['demo-agent', 'demo-buyer'],
-            createdAt: new Date(Date.now() - 3 * 60_000).toISOString(),
-          },
-          {
-            id: 'm3',
-            chatId,
-            senderId: 'demo-buyer',
-            senderName: 'Ana Compradora',
-            type: 'TEXT',
-            body: '¿A qué hora nos encontramos?',
-            attachments: [],
-            readBy: ['demo-buyer'],
-            createdAt: new Date(Date.now() - 60_000).toISOString(),
-          },
-        ]
-      : [
-          {
-            id: 's1',
-            chatId,
-            senderId: 'demo-seller',
-            senderName: 'Luis Vendedor',
-            type: 'TEXT',
-            body: 'El equipo está en caja original',
-            attachments: [],
-            readBy: ['demo-seller', 'demo-agent'],
-            createdAt: new Date(Date.now() - 120_000).toISOString(),
-          },
-        ];
-
-  all[chatId] = seed;
+  all[chatId] = [];
   localStorage.setItem(DEMO_MSGS_KEY, JSON.stringify(all));
-  return seed;
+  return [];
 }
 
 function readDemoMessages(): Record<string, ChatMessage[]> {
@@ -192,7 +132,7 @@ export async function sendMessage(
       createdAt: new Date().toISOString(),
     };
     const all = readDemoMessages();
-    all[chatId] = [...(all[chatId] ?? demoMessages(chatId)), msg];
+    all[chatId] = [...(all[chatId] ?? []), msg];
     writeDemoMessages(all);
     const chats = demoChats().map((c) =>
       c.id === chatId

@@ -32,7 +32,7 @@ export interface OpenJobsFilters {
   lng: number;
   lat: number;
   radiusKm: number;
-  minCommissionUsd?: number;
+  minCommissionUyu?: number;
   minBuyerRating?: number;
   maxBuyerRating?: number;
   minSellerRating?: number;

@@ -8,13 +8,29 @@ export type AppCurrency = (typeof APP_CURRENCIES)[number];
 export const PAYMENT_CURRENCIES = ['UYU', 'USD'] as const;
 export type PaymentCurrency = (typeof PAYMENT_CURRENCIES)[number];
 
+/** Moneda operativa (escrow / MP Uruguay). */
+export const OPERATIONAL_CURRENCY: PaymentCurrency = 'UYU';
+
 export const DEFAULT_CURRENCY: AppCurrency = 'UYU';
 export const APP_LOCALE = 'es-UY';
 
-export const CURRENCY_OPTIONS: Array<{ code: AppCurrency; label: string }> = [
+export const CURRENCY_OPTIONS: Array<{
+  code: AppCurrency;
+  label: string;
+  disabled?: boolean;
+}> = [
   { code: 'UYU', label: 'UYU $' },
-  { code: 'USD', label: 'USD $' },
-  { code: 'BRL', label: 'BRL $' },
+  { code: 'USD', label: 'USD $', disabled: true },
+  { code: 'BRL', label: 'BRL $', disabled: true },
+];
+
+export const PAYMENT_CURRENCY_OPTIONS: Array<{
+  code: PaymentCurrency;
+  label: string;
+  disabled?: boolean;
+}> = [
+  { code: 'UYU', label: 'UYU $' },
+  { code: 'USD', label: 'USD $', disabled: true },
 ];
 
 export function isAppCurrency(value: string): value is AppCurrency {
@@ -25,10 +41,9 @@ export function isPaymentCurrency(value: string): value is PaymentCurrency {
   return (PAYMENT_CURRENCIES as readonly string[]).includes(value.toUpperCase());
 }
 
-/** Moneda por defecto al crear cobros (BRL de display → USD). */
-export function defaultPaymentCurrency(preferred?: string): PaymentCurrency {
-  const code = (preferred ?? DEFAULT_CURRENCY).toUpperCase();
-  return isPaymentCurrency(code) ? code : 'USD';
+/** Moneda al crear cobros: siempre UYU mientras MP Uruguay sea el rail. */
+export function defaultPaymentCurrency(_preferred?: string): PaymentCurrency {
+  return OPERATIONAL_CURRENCY;
 }
 
 /** Monto numérico en locale es-UY: miles con punto, decimales con coma. */

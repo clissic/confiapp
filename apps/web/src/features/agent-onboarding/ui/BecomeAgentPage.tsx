@@ -318,7 +318,7 @@ export function BecomeAgentPage() {
               try {
                 await saveDraft.mutateAsync({
                   ratesAccepted: true,
-                  currency: 'USD',
+                  currency: 'UYU',
                   draftStep: 5,
                 });
                 toast.success('Esquema de tarifas aceptado.');
@@ -361,7 +361,7 @@ export function BecomeAgentPage() {
                   workAreaCity: current.workAreaCity,
                   workAreaCountry: current.workAreaCountry,
                   coverageRadiusKm: current.coverageRadiusKm,
-                  currency: current.currency || 'USD',
+                  currency: current.currency || 'UYU',
                 });
                 toast.success('¡Ya sos agente de ConfiApp!');
               } catch {
@@ -840,25 +840,27 @@ function RateStep({
             </p>
             <ul className="ca-rates-tiers">
               <li>
-                <strong>Hasta USD $200</strong> (doscientos dólares americanos): la tarifa para los
-                usuarios será de <strong>USD $10</strong> (diez dólares americanos).
+                <strong>Hasta UYU $8.000</strong> (ocho mil pesos uruguayos): la tarifa para los
+                usuarios será de <strong>UYU $400</strong> (cuatrocientos pesos uruguayos).
               </li>
               <li>
-                <strong>De USD $200 a USD $600</strong> (doscientos a seiscientos dólares
-                americanos): la tarifa será de <strong>USD $15</strong> (quince dólares americanos).
+                <strong>De UYU $8.000 a UYU $24.000</strong> (ocho mil a veinticuatro mil pesos
+                uruguayos): la tarifa será de <strong>UYU $600</strong> (seiscientos pesos
+                uruguayos).
               </li>
               <li>
-                <strong>De USD $600 a USD $1.200</strong> (seiscientos a mil doscientos dólares
-                americanos): la tarifa será de <strong>USD $20</strong> (veinte dólares americanos).
+                <strong>De UYU $24.000 a UYU $48.000</strong> (veinticuatro mil a cuarenta y ocho
+                mil pesos uruguayos): la tarifa será de <strong>UYU $800</strong> (ochocientos
+                pesos uruguayos).
               </li>
               <li>
-                <strong>De USD $1.200 a USD $2.000</strong> (mil doscientos a dos mil dólares
-                americanos): la tarifa será de <strong>USD $25</strong> (veinticinco dólares
-                americanos).
+                <strong>De UYU $48.000 a UYU $80.000</strong> (cuarenta y ocho mil a ochenta mil
+                pesos uruguayos): la tarifa será de <strong>UYU $1.000</strong> (mil pesos
+                uruguayos).
               </li>
               <li>
-                <strong>De USD $2.000 en adelante</strong> (dos mil dólares americanos): la tarifa
-                será de <strong>USD $35</strong> (treinta y cinco dólares americanos).
+                <strong>De UYU $80.000 en adelante</strong> (ochenta mil pesos uruguayos): la
+                tarifa será de <strong>UYU $1.400</strong> (mil cuatrocientos pesos uruguayos).
               </li>
             </ul>
             <p>

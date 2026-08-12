@@ -20,8 +20,8 @@ import { ThemeSelect } from './ThemeSelect';
 import { TimezoneSelect } from './TimezoneSelect';
 
 function normalizeCurrency(value: string | undefined): AppCurrency {
-  const code = (value ?? 'USD').toUpperCase();
-  return isAppCurrency(code) ? code : 'USD';
+  const code = (value ?? 'UYU').toUpperCase();
+  return isAppCurrency(code) ? code : 'UYU';
 }
 
 function preferencesToFormValues(profile: UserProfile): SettingsFormValues {

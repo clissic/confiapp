@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 
 import { useZodForm } from '@/shared/lib/form';
-import { defaultPaymentCurrency, formatOperationMoney } from '@/shared/lib/money';
+import { defaultPaymentCurrency, formatOperationMoney, PAYMENT_CURRENCY_OPTIONS } from '@/shared/lib/money';
 import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
 import { getApiErrorMessage } from '@/shared/api/client';
 import { useProfile } from '@/features/profile/hooks/useProfile';
@@ -222,7 +222,7 @@ export function JoinTransactionPage() {
     );
     form.setValue(
       'currency',
-      preview.currency === 'USD' || preview.currency === 'UYU' ? preview.currency : 'UYU',
+      'UYU',
     );
     if (preview.feePayer) {
       form.setValue('feePayer', preview.feePayer);
@@ -762,8 +762,16 @@ export function JoinTransactionPage() {
                 <Form.Group className="col-6 col-md-3" controlId="sale-currency">
                   <Form.Label>Moneda</Form.Label>
                   <Form.Select {...form.register('currency')}>
-                    <option value="UYU">UYU $</option>
-                    <option value="USD">USD $</option>
+                    {PAYMENT_CURRENCY_OPTIONS.map((option) => (
+                      <option
+                        key={option.code}
+                        value={option.code}
+                        disabled={option.disabled}
+                      >
+                        {option.label}
+                        {option.disabled ? ' (próximamente)' : ''}
+                      </option>
+                    ))}
                   </Form.Select>
                 </Form.Group>
               </div>

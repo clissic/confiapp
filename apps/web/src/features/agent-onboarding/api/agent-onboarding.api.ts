@@ -29,7 +29,7 @@ function createDemoOnboarding(): AgentOnboarding {
     weeklySlots: [],
     unspecifiedSchedule: false,
     workAreaCountry: 'UY',
-    currency: 'USD',
+    currency: 'UYU',
     ratesAccepted: false,
     draftStep: 1,
     isAgent: false,

@@ -118,7 +118,7 @@ export function ReputationPage() {
           <strong>{data.operations.successRate.toFixed(1)}%</strong>
           <span>
             Agente {data.operations.asAgent} · Volume{' '}
-            {formatMoney(data.operations.totalVolumeCents, 'USD')}
+            {formatMoney(data.operations.totalVolumeCents, 'UYU')}
           </span>
         </div>
       </section>

@@ -39,14 +39,14 @@ const DEFAULT_PREFS: {
 } = {
   language: 'es',
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Montevideo',
-  currency: 'USD',
+  currency: 'UYU',
   theme: 'SYSTEM',
   distanceUnit: 'KM',
 };
 
 function normalizeCurrency(value: string | undefined): AppCurrency {
-  const code = (value ?? 'USD').toUpperCase();
-  return isAppCurrency(code) ? code : 'USD';
+  const code = (value ?? 'UYU').toUpperCase();
+  return isAppCurrency(code) ? code : 'UYU';
 }
 
 function prefsFromProfile(profile: UserProfile | undefined): {
@@ -56,7 +56,7 @@ function prefsFromProfile(profile: UserProfile | undefined): {
   theme: ThemePreference;
   distanceUnit: DistanceUnit;
 } {
-  if (!profile) return { ...DEFAULT_PREFS, currency: 'USD' };
+  if (!profile) return { ...DEFAULT_PREFS, currency: 'UYU' };
   return {
     language: profile.preferences.language || DEFAULT_PREFS.language,
     timezone: profile.preferences.timezone || DEFAULT_PREFS.timezone,

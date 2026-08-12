@@ -308,7 +308,7 @@ export class AgentsRepository {
       status: AgentOnboardingStatus.NONE,
       termsAccepted: false,
       ratesAccepted: false,
-      currency: user.agent?.currency ?? 'USD',
+      currency: user.agent?.currency ?? 'UYU',
       draftStep: 1,
     };
 

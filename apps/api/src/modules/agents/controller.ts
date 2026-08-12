@@ -63,7 +63,7 @@ export class AgentsController {
       lng: query.lng,
       lat: query.lat,
       radiusKm: query.radiusKm,
-      minCommissionUsd: query.minCommissionUsd,
+      minCommissionUyu: query.minCommissionUyu,
       minBuyerRating: query.minBuyerRating,
       maxBuyerRating: query.maxBuyerRating,
       minSellerRating: query.minSellerRating,
