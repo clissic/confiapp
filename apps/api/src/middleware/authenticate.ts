@@ -9,7 +9,7 @@ import { UserModel } from '../database/models';
 function extractBearer(req: Request): string {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
-    throw new UnauthorizedError('Missing Bearer token');
+    throw new UnauthorizedError('Falta el token de autenticación');
   }
   return header.slice('Bearer '.length).trim();
 }
@@ -28,18 +28,18 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
       .lean()
       .exec();
     if (!user) {
-      throw new UnauthorizedError('User not found');
+      throw new UnauthorizedError('Usuario no encontrado');
     }
 
     if (user.status === UserStatus.SUSPENDED) {
-      throw new ForbiddenError('Account suspended');
+      throw new ForbiddenError('Cuenta suspendida');
     }
 
     if (user.passwordChangedAt) {
       const changedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
       const iat = (payload as unknown as { iat?: number }).iat ?? 0;
       if (iat < changedAtSec) {
-        throw new UnauthorizedError('Token invalidated by password change');
+        throw new UnauthorizedError('Sesión invalidada por cambio de contraseña');
       }
     }
 

@@ -1,0 +1,315 @@
+.ca-admin-fin {
+  --ca-fin-accent: var(--color-secondary-400, #55c5b5);
+  --ca-fin-border: var(--border-default);
+  --ca-fin-muted: var(--text-muted);
+  display: grid;
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ca-admin-fin__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ca-admin-fin__kicker {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ca-fin-muted);
+}
+
+.ca-admin-fin__title {
+  margin: 0.15rem 0 0;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-admin-fin__lead {
+  margin: 0.4rem 0 0;
+  max-width: 44rem;
+  color: var(--ca-fin-muted);
+  line-height: 1.55;
+}
+
+.ca-admin-fin__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.ca-admin-fin__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--ca-fin-border);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+.ca-admin-fin__chip--ok {
+  border-color: color-mix(in srgb, var(--ca-fin-accent) 45%, var(--ca-fin-border));
+  background: color-mix(in srgb, var(--ca-fin-accent) 14%, var(--surface-base));
+  color: var(--color-secondary-800, #174740);
+}
+
+.ca-admin-fin__chip--warn {
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--ca-fin-border));
+  background: color-mix(in srgb, #f59e0b 12%, var(--surface-base));
+  color: #92400e;
+}
+
+.ca-admin-fin__steps {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+}
+
+.ca-admin-fin__step {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--ca-fin-border);
+  background: var(--surface-sunken);
+}
+
+.ca-admin-fin__step-num {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ca-fin-accent);
+}
+
+.ca-admin-fin__step-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-admin-fin__step-text {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ca-fin-muted);
+}
+
+.ca-admin-fin-panel {
+  border: 1px solid var(--ca-fin-border);
+  border-radius: 0.85rem;
+  background: var(--surface-raised, var(--surface-base));
+  padding: 1rem 1.1rem;
+}
+
+.ca-admin-fin-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.ca-admin-fin-panel__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-admin-fin-panel__lead {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--ca-fin-muted);
+  max-width: 36rem;
+  line-height: 1.5;
+}
+
+.ca-admin-fin-empty {
+  margin: 0;
+  padding: 1.25rem 0.5rem;
+  text-align: center;
+  color: var(--ca-fin-muted);
+  font-size: 0.875rem;
+}
+
+.ca-admin-fin-table-wrap {
+  overflow-x: auto;
+}
+
+.ca-admin-fin-table {
+  width: 100%;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.ca-admin-fin-table th {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ca-fin-muted);
+  white-space: nowrap;
+}
+
+.ca-admin-fin-table td {
+  vertical-align: middle;
+}
+
+.ca-admin-fin-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.ca-admin-fin-status--pending {
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  color: #b45309;
+}
+
+.ca-admin-fin-status--progress {
+  background: color-mix(in srgb, var(--color-primary-700) 12%, transparent);
+  color: var(--color-primary-700);
+}
+
+.ca-admin-fin-status--ok {
+  background: color-mix(in srgb, var(--ca-fin-accent) 18%, transparent);
+  color: var(--color-secondary-800, #174740);
+}
+
+.ca-admin-fin-status--muted {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+}
+
+.ca-admin-fin-status--danger {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: #b91c1c;
+}
+
+.ca-admin-fin-detail {
+  border-color: color-mix(in srgb, var(--ca-fin-accent) 35%, var(--ca-fin-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ca-fin-accent) 8%, transparent);
+}
+
+.ca-admin-fin-detail__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.65rem;
+  background: var(--surface-sunken);
+}
+
+.ca-admin-fin-detail__stat {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.ca-admin-fin-detail__stat-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ca-fin-muted);
+}
+
+.ca-admin-fin-detail__stat-value {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-admin-fin-payments {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ca-admin-fin-payment {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border: 1px solid var(--ca-fin-border);
+  border-radius: 0.75rem;
+  background: var(--surface-base);
+}
+
+@media (min-width: 768px) {
+  .ca-admin-fin-payment {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+  }
+}
+
+.ca-admin-fin-payment__agent {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ca-admin-fin-payment__agent-id {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ca-fin-muted);
+  font-family: ui-monospace, monospace;
+}
+
+.ca-admin-fin-payment__amount {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.ca-admin-fin-payment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.ca-admin-fin-payment__ref {
+  font-size: 0.78rem;
+  color: var(--ca-fin-muted);
+}
+
+[data-theme='dark'] .ca-admin-fin__chip--ok {
+  color: var(--color-secondary-200, #a8e3d8);
+}
+
+[data-theme='dark'] .ca-admin-fin__chip--warn {
+  color: #fcd34d;
+}
+
+[data-theme='dark'] .ca-admin-fin-status--pending {
+  color: #fcd34d;
+}
+
+[data-theme='dark'] .ca-admin-fin-status--ok {
+  color: var(--color-secondary-200, #a8e3d8);
+}
+
+[data-theme='dark'] .ca-admin-fin-status--danger {
+  color: #fca5a5;
+}

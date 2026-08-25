@@ -145,6 +145,7 @@ function BrandMark() {
         alt=""
         width={36}
         height={36}
+        decoding="async"
       />
       <span className="ca-landing__brand-name">
         <span className="ca-landing__brand-name--dark">Confi</span>
@@ -483,6 +484,15 @@ export function LandingPage() {
                 </li>
                 <li>
                   <Link to="/registro">Crear cuenta</Link>
+                </li>
+                <li>
+                  <Link to="/terminos">Términos y Condiciones</Link>
+                </li>
+                <li>
+                  <Link to="/privacidad">Privacidad</Link>
+                </li>
+                <li>
+                  <Link to="/ayuda">Ayuda</Link>
                 </li>
               </ul>
             </div>

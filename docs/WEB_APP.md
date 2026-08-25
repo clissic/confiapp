@@ -41,7 +41,8 @@ Reglas Cursor: `.cursor/rules/frontend-bootstrap.mdc`, `.cursor/rules/web-aesthe
 | `/operaciones/:code/pagar/simular` | Mock de pago | Dev / demo |
 | `/mensajes` | Chat | Composer **excluido** de reglas de botones full-width |
 | `/pagos` | Checkout / pagos | |
-| `/wallet` | Saldos, retiros, movimientos | |
+| `/wallet` | Saldos, retiros, movimientos | Agentes: Ganado/Pendiente/Disponible/Liquidado; sin retiro self-service de comisiones |
+| `/admin/finanzas` | Liquidaciones manuales | Solo admin · PayoutBatch 1–10 |
 | `/auditoria` | Audit log paginado | Solo admin (`RequireAdmin`) |
 | `/reputacion` | Reputación | |
 | `/notificaciones` | Inbox in-app | Campana en topbar → últimas 5 + “Ver más” |

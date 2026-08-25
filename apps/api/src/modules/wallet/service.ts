@@ -1,5 +1,6 @@
 import {
   PaymentType,
+  PlatformRole,
   WalletMovementDirection,
   WalletMovementType,
   WalletStatus,
@@ -18,6 +19,7 @@ import { defaultCurrency } from '../../shared/config/currency';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { logger } from '../../utils/logger';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
+import { agentCommissionService } from '../finance/commission.service';
 
 const MIN_WITHDRAWAL_CENTS = 1000;
 
@@ -77,7 +79,10 @@ export const walletLedger = new WalletLedgerService();
 
 export class WalletService {
   async getSummary(userId: string) {
-    const user = await UserModel.findById(userId).select('wallet').lean().exec();
+    const user = await UserModel.findById(userId)
+      .select('wallet roles role')
+      .lean()
+      .exec();
     if (!user) throw new NotFoundError('Usuario no encontrado');
 
     const wallet = user.wallet ?? {
@@ -109,6 +114,13 @@ export class WalletService {
       ]),
     ]);
 
+    const isAgent =
+      user.role === PlatformRole.AGENT ||
+      (user.roles ?? []).includes(PlatformRole.AGENT);
+    const agentCommissions = isAgent
+      ? await agentCommissionService.getAgentBalances(userId)
+      : null;
+
     return {
       status: wallet.status,
       /** Ledger retenido siempre en UYU (Mercado Pago). La UI convierte con preferencia. */
@@ -125,6 +137,8 @@ export class WalletService {
       movementsCount,
       pendingWithdrawalsCount: pendingWithdrawals,
       commissionsTotalCents: commissionsAgg[0]?.total ?? 0,
+      agentCommissions,
+      agentSelfServiceWithdrawalsEnabled: !isAgent,
     };
   }
 
@@ -253,6 +267,15 @@ export class WalletService {
     if (!user.wallet) throw new ValidationError('Wallet no inicializada');
     if (user.wallet.status !== WalletStatus.ACTIVE) {
       throw new ForbiddenError(`Wallet ${user.wallet.status}: no admite retiros`);
+    }
+
+    const isAgent =
+      user.role === PlatformRole.AGENT ||
+      (user.roles ?? []).includes(PlatformRole.AGENT);
+    if (isAgent) {
+      throw new ValidationError(
+        'Las comisiones de agente se liquidan por transferencia manual del 1 al 10 de cada mes. No hay retiro self-service.',
+      );
     }
 
     const amount = Math.trunc(input.amountCents);

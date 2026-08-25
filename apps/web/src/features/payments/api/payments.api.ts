@@ -98,6 +98,66 @@ export async function releaseEscrow(code: string): Promise<unknown> {
   return data;
 }
 
+export type MercadoPagoConnectionStatus =
+  | 'NOT_CONNECTED'
+  | 'CONNECTED'
+  | 'EXPIRED'
+  | 'ERROR';
+
+export interface MercadoPagoConnection {
+  status: MercadoPagoConnectionStatus;
+  connected: boolean;
+  oauthConfigured: boolean;
+  mpUserId?: string;
+  publicNickname?: string;
+  email?: string;
+  connectedAt?: string;
+  lastError?: string;
+}
+
+export async function getMercadoPagoConnection(): Promise<{
+  data: MercadoPagoConnection;
+  source: 'api' | 'demo';
+}> {
+  if (!hasApiAuth()) {
+    return {
+      data: {
+        status: 'NOT_CONNECTED',
+        connected: false,
+        oauthConfigured: false,
+      },
+      source: 'demo',
+    };
+  }
+  try {
+    const { data } = await apiClient.get<MercadoPagoConnection>(
+      '/payments/mercadopago/connection',
+    );
+    return { data, source: 'api' };
+  } catch {
+    return {
+      data: {
+        status: 'NOT_CONNECTED',
+        connected: false,
+        oauthConfigured: false,
+      },
+      source: 'demo',
+    };
+  }
+}
+
+export async function startMercadoPagoOAuth(): Promise<{ authorizationUrl: string }> {
+  const { data } = await apiClient.get<{ authorizationUrl: string }>(
+    '/payments/mercadopago/oauth/start',
+  );
+  return data;
+}
+
+export async function disconnectMercadoPago(): Promise<{ ok: true }> {
+  const { data } = await apiClient.delete<{ ok: true }>('/payments/mercadopago/connection');
+  return data;
+}
+
 export async function listPaymentLogs(): Promise<{
   items: PaymentEventLog[];
   source: 'api' | 'demo';

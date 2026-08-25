@@ -18,7 +18,9 @@ import { Types, type HydratedDocument } from 'mongoose';
 
 import { PaymentEventLogModel } from '../../database/models/payment-event-log.model';
 import { PaymentModel, TransactionModel, UserModel } from '../../database/models';
-import { mercadoPagoClient } from '../../infrastructure/payments/mercadopago.client';
+import { paymentProvider } from '../../infrastructure/payments/mercadopago.payment-provider';
+import { agentCommissionService } from '../finance/commission.service';
+import { financialAudit } from '../finance/financial-audit.service';
 import { env } from '../../shared/config/env';
 import {
   assertAppCurrency,
@@ -222,7 +224,7 @@ export class PaymentsService {
       feePayer: split.feePayer,
       split,
       parties,
-      providerMode: mercadoPagoClient.isMock() ? 'MOCK' : 'MERCADOPAGO',
+      providerMode: paymentProvider.isMock() ? 'MOCK' : 'MERCADOPAGO',
       payments: payments.map((p) => toPaymentDto(p)),
     };
   }
@@ -305,7 +307,7 @@ export class PaymentsService {
         payee: new Types.ObjectId(parties.sellerId),
         type: PaymentType.ESCROW_HOLD,
         status: PaymentStatus.PENDING,
-        provider: mercadoPagoClient.isMock()
+        provider: paymentProvider.isMock()
           ? PaymentProvider.MOCK
           : PaymentProvider.MERCADOPAGO,
         amountCents: buyerPays,
@@ -327,7 +329,7 @@ export class PaymentsService {
     const notificationUrl = `${env.API_PUBLIC_URL}/payments/webhooks/mercadopago`;
     const backBase = `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}`;
 
-    const preference = await mercadoPagoClient.createPreference({
+    const preference = await paymentProvider.createCheckout({
       items: [
         {
           title: `Pago protegido ConfiApp ${tx.code} — ${tx.title}`.slice(0, 250),
@@ -551,7 +553,7 @@ export class PaymentsService {
   }
 
   async confirmMockCheckout(paymentId: string) {
-    if (!mercadoPagoClient.isMock()) {
+    if (!paymentProvider.isMock()) {
       throw new ValidationError('Confirmación mock solo disponible sin MERCADOPAGO_ACCESS_TOKEN');
     }
     const result = await this.confirmHold(paymentId, {
@@ -598,7 +600,7 @@ export class PaymentsService {
       payload: { topic, query: input.query, body: input.body },
     });
 
-    const signatureOk = mercadoPagoClient.verifyWebhookSignature({
+    const signatureOk = paymentProvider.verifyWebhookSignature({
       xSignature: input.headers.xSignature,
       xRequestId: input.headers.xRequestId,
       dataId,
@@ -624,7 +626,7 @@ export class PaymentsService {
       return { handled: false, reason: 'ignored_topic', topic };
     }
 
-    const mpPayment = await mercadoPagoClient.getPayment(dataId);
+    const mpPayment = await paymentProvider.getPayment(dataId);
     const externalRef = mpPayment.externalReference;
     if (!externalRef || !Types.ObjectId.isValid(externalRef)) {
       await persistLog({
@@ -752,44 +754,44 @@ export class PaymentsService {
         payer: hold.payer,
         payee: new Types.ObjectId(parties.agentId),
         type: PaymentType.AGENT_PAYOUT,
-        status: PaymentStatus.RELEASED,
+        status: PaymentStatus.CAPTURED,
         provider,
         amountCents: agentFee,
         currency,
         idempotencyKey: `agent:${String(tx._id)}`,
-        releasedAt: now,
         capturedAt: now,
-        metadata: { split, bps: env.PAYMENTS_AGENT_FEE_BPS },
+        metadata: {
+          split,
+          bps: env.PAYMENTS_AGENT_FEE_BPS,
+          holdDays: 21,
+          accounting: 'PENDING_COMMISSION',
+        },
       });
 
-      await UserModel.updateOne(
-        { _id: parties.agentId },
-        {
-          $inc: {
-            'wallet.availableCents': agentFee,
-            'wallet.lifetimeEarnedCents': agentFee,
-          },
-          $set: { 'wallet.lastMovementAt': now },
-        },
-      ).exec();
+      await agentCommissionService.recordOnCompleted({
+        transactionId: String(tx._id),
+        transactionCode: tx.code,
+        agentId: parties.agentId,
+        commissionCents: split.commissionCents,
+        agentShareCents: agentFee,
+        platformShareCents: platformFee,
+        currency,
+        completedAt: now,
+        paymentId: String(agentPayment._id),
+        actorId: userId,
+        metadata: { split },
+      });
 
-      const agentAfter = await UserModel.findById(parties.agentId).select('wallet').lean();
-      await walletLedger.record({
-        userId: parties.agentId,
-        type: WalletMovementType.AGENT_PAYOUT,
-        direction: WalletMovementDirection.CREDIT,
+      await financialAudit.record({
+        action: 'ESCROW_RELEASED',
+        idempotencyKey: `fa:release:${String(tx._id)}`,
+        operationId: String(tx._id),
+        paymentId: String(agentPayment._id),
+        agentId: parties.agentId,
+        actorId: userId,
         amountCents: agentFee,
         currency,
-        description: `Pago agente · ${tx.code}`,
-        paymentId: String(agentPayment._id),
-        transactionId: String(tx._id),
-        balanceAfter: agentAfter
-          ? {
-              availableCents: agentAfter.wallet?.availableCents ?? 0,
-              pendingCents: agentAfter.wallet?.pendingCents ?? 0,
-              heldCents: agentAfter.wallet?.heldCents ?? 0,
-            }
-          : undefined,
+        newStatus: 'COMPLETED',
       });
     }
 

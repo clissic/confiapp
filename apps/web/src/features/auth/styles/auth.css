@@ -158,9 +158,9 @@ a.ca-auth__submit {
 .ca-auth__brand-logo {
   width: 36px;
   height: 36px;
-  object-fit: contain;
   flex-shrink: 0;
   display: block;
+  object-fit: contain;
 }
 
 .ca-auth__brand-name {
@@ -247,6 +247,60 @@ a.ca-auth__submit {
   line-height: 1.4;
 }
 
+.ca-auth__hint--error {
+  color: #b91c1c;
+}
+
+.ca-auth__hint--ok {
+  color: var(--color-secondary-700, #0f766e);
+}
+
+.ca-auth__field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ca-auth__pw-reqs {
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.ca-auth__pw-req {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 450;
+  color: var(--text-muted);
+  line-height: 1.25;
+  transition: color 0.15s ease;
+}
+
+.ca-auth__pw-req-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.ca-auth__pw-req--met {
+  color: var(--color-secondary-700, #0f766e);
+  font-weight: 500;
+}
+
+.ca-auth__pw-req--met .ca-auth__pw-req-icon {
+  color: var(--color-secondary-600, #0d9488);
+  opacity: 1;
+}
+
 .ca-auth__input {
   width: 100%;
   min-height: 44px;
@@ -317,6 +371,37 @@ a.ca-auth__submit {
   background: var(--success-bg);
   color: var(--color-secondary-800);
   font-size: 0.875rem;
+}
+
+.ca-auth__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.ca-auth__check input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary-700, #01285d);
+  cursor: pointer;
+}
+
+.ca-auth__check-link {
+  color: var(--color-primary-700, #01285d);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ca-auth__check-link:hover {
+  color: var(--color-secondary-600, #2a9d8f);
 }
 
 .ca-auth__footer {

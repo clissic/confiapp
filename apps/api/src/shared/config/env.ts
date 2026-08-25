@@ -35,14 +35,33 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
-  /** Access Token de Mercado Pago Uruguay (cuenta MLU). Vacío = MOCK. */
+  /** Access Token de Mercado Pago Uruguay (cuenta MLU / plataforma). Vacío = MOCK. */
   MERCADOPAGO_ACCESS_TOKEN: z.string().optional().default(''),
   /** Secret para validar firmas x-signature del webhook (opcional en dev). */
   MERCADOPAGO_WEBHOOK_SECRET: z.string().optional().default(''),
+  /** OAuth app (vendedores): Application ID / Client ID. */
+  MERCADOPAGO_CLIENT_ID: z.string().optional().default(''),
+  /** OAuth app: Client Secret (solo servidor). */
+  MERCADOPAGO_CLIENT_SECRET: z.string().optional().default(''),
+  /**
+   * Redirect URI estática registrada en el panel MP.
+   * Debe coincidir exactamente (sin query extra).
+   */
+  MERCADOPAGO_OAUTH_REDIRECT_URI: z.string().optional().default(''),
+  /**
+   * Clave AES-256 para cifrar access/refresh tokens de sellers.
+   * Preferible: 64 hex chars (32 bytes). Si no, se deriva con SHA-256.
+   */
+  MERCADOPAGO_TOKEN_ENCRYPTION_KEY: z.string().optional().default(''),
   /** País del seller MP: UY = Uruguay. */
   MERCADOPAGO_COUNTRY: z.enum(['UY', 'AR', 'BR', 'MX', 'CL', 'CO', 'PE']).default('UY'),
   /** Site ID Checkout: MLU = Mercado Libre Uruguay. */
   MERCADOPAGO_SITE_ID: z.string().default('MLU'),
+  /** Habilitar refunds live vía API MP (MOCK siempre simula). */
+  MERCADOPAGO_ENABLE_REFUNDS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   /** Moneda por defecto de la app. */
   PAYMENTS_DEFAULT_CURRENCY: z.enum(['UYU', 'USD']).default('UYU'),
   /**
@@ -71,6 +90,13 @@ const envSchema = z.object({
    * Header `x-job-secret`. Vacío = deshabilitado en production; en dev permite sin secret.
    */
   TRANSACTIONS_JOB_SECRET: z.string().optional().default(''),
+  /**
+   * Admin bootstrap (opcional). Si email+password están definidos, al arrancar
+   * se asegura un usuario ADMIN activo con email verificado.
+   */
+  ADMIN_EMAIL: z.string().optional().default(''),
+  ADMIN_PASSWORD: z.string().optional().default(''),
+  ADMIN_FULL_NAME: z.string().optional().default('ConfiApp Admin'),
 });
 
 const parsed = envSchema.safeParse(process.env);

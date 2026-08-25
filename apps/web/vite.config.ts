@@ -17,6 +17,7 @@ const API_PROXY_PATHS = [
   '/chats',
   '/payments',
   '/wallet',
+  '/finance',
   '/reviews',
   '/evidence',
   '/disputes',

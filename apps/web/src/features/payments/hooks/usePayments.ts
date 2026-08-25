@@ -1,16 +1,43 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  disconnectMercadoPago,
   getEscrow,
+  getMercadoPagoConnection,
   listMyPayments,
   listPaymentLogs,
   releaseEscrow,
   startCheckout,
+  startMercadoPagoOAuth,
 } from '../api/payments.api';
 
 export const paymentsQueryKey = ['payments'] as const;
 export const escrowQueryKey = (code: string) => ['payments', 'escrow', code] as const;
 export const paymentLogsQueryKey = ['payments', 'logs'] as const;
+export const mpConnectionQueryKey = ['payments', 'mercadopago', 'connection'] as const;
+
+export function useMercadoPagoConnection() {
+  return useQuery({
+    queryKey: mpConnectionQueryKey,
+    queryFn: getMercadoPagoConnection,
+  });
+}
+
+export function useStartMercadoPagoOAuth() {
+  return useMutation({
+    mutationFn: startMercadoPagoOAuth,
+  });
+}
+
+export function useDisconnectMercadoPago() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: disconnectMercadoPago,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: mpConnectionQueryKey });
+    },
+  });
+}
 
 export function useMyPayments() {
   return useQuery({

@@ -4,15 +4,15 @@ import { isStrongPassword } from '../../utils/crypto-tokens';
 
 const strongPassword = z
   .string()
-  .min(8)
-  .max(128)
+  .min(8, 'La contraseña debe tener al menos 8 caracteres')
+  .max(128, 'La contraseña es demasiado larga')
   .refine(isStrongPassword, {
     message:
-      'Password must include upper, lower, number and special character (8–128 chars)',
+      'La contraseña debe incluir mayúscula, minúscula, número y un carácter especial (8–128)',
   });
 
 export const registerBodySchema = z.object({
-  email: z.string().email().max(320),
+  email: z.string().email('Email inválido').max(320),
   password: strongPassword,
   fullName: z
     .string()
@@ -35,8 +35,8 @@ export const registerBodySchema = z.object({
 });
 
 export const loginBodySchema = z.object({
-  email: z.string().email().max(320),
-  password: z.string().min(1).max(128),
+  email: z.string().email('Email inválido').max(320),
+  password: z.string().min(1, 'Ingresá tu contraseña').max(128),
 });
 
 export const refreshBodySchema = z.object({
@@ -49,25 +49,25 @@ export const logoutBodySchema = z.object({
 });
 
 export const changePasswordBodySchema = z.object({
-  currentPassword: z.string().min(1).max(128),
+  currentPassword: z.string().min(1, 'Ingresá tu contraseña actual').max(128),
   newPassword: strongPassword,
 });
 
 export const forgotPasswordBodySchema = z.object({
-  email: z.string().email().max(320),
+  email: z.string().email('Email inválido').max(320),
 });
 
 export const resetPasswordBodySchema = z.object({
-  token: z.string().min(20),
+  token: z.string().min(20, 'Enlace inválido'),
   newPassword: strongPassword,
 });
 
 export const verifyEmailBodySchema = z.object({
-  token: z.string().min(20),
+  token: z.string().min(20, 'Enlace inválido'),
 });
 
 export const resendVerificationBodySchema = z.object({
-  email: z.string().email().max(320),
+  email: z.string().email('Email inválido').max(320),
 });
 
 export type RegisterBody = z.infer<typeof registerBodySchema>;

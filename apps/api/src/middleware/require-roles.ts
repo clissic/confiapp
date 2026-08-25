@@ -7,7 +7,7 @@ import { ForbiddenError, UnauthorizedError } from '../shared/errors/app-error';
 export function requireRoles(...roles: PlatformRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
-      next(new UnauthorizedError('Authentication required'));
+      next(new UnauthorizedError('Tenés que iniciar sesión'));
       return;
     }
 

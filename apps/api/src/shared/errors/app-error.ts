@@ -11,28 +11,28 @@ export class AppError extends Error {
 }
 
 export class NotFoundError extends AppError {
-  constructor(message = 'Resource not found') {
+  constructor(message = 'Recurso no encontrado') {
     super(404, message, undefined, 'NOT_FOUND');
     this.name = 'NotFoundError';
   }
 }
 
 export class ValidationError extends AppError {
-  constructor(message = 'Validation failed', details?: unknown) {
+  constructor(message = 'Datos inválidos', details?: unknown) {
     super(400, message, details, 'VALIDATION_ERROR');
     this.name = 'ValidationError';
   }
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message = 'Unauthorized') {
+  constructor(message = 'No autorizado') {
     super(401, message, undefined, 'UNAUTHORIZED');
     this.name = 'UnauthorizedError';
   }
 }
 
 export class ForbiddenError extends AppError {
-  constructor(message = 'Forbidden') {
+  constructor(message = 'Acceso denegado') {
     super(403, message, undefined, 'FORBIDDEN');
     this.name = 'ForbiddenError';
   }

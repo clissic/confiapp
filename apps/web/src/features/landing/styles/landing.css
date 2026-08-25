@@ -56,9 +56,9 @@
 .ca-landing__brand-logo {
   width: 36px;
   height: 36px;
-  object-fit: contain;
   flex-shrink: 0;
   display: block;
+  object-fit: contain;
 }
 
 .ca-landing__brand-name {
@@ -771,9 +771,10 @@
   color: var(--lp-navy);
 }
 
-.ca-landing__copy {
-  max-width: 1120px;
-  margin: 2rem auto 0;
+.ca-landing__footer .ca-landing__copy {
+  max-width: none;
+  width: 100%;
+  margin: 2rem 0 0;
   padding-top: 1.25rem;
   border-top: 1px solid var(--lp-line);
   font-size: 0.85rem;

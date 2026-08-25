@@ -8,3 +8,4 @@ export {
 export { VerifiedName } from './VerifiedName';
 export { AppAlert, type AppAlertProps } from './AppAlert';
 export { AlertScrollObserver } from './AlertScrollObserver';
+export { BrandLogo } from './BrandLogo';

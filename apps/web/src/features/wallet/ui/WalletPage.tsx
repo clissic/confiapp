@@ -145,9 +145,63 @@ export function WalletPage() {
         </div>
       </section>
 
+      {summary?.agentCommissions ? (
+        <section className="ca-wallet-panel mb-3">
+          <h3 className="h6">Comisiones de agente</h3>
+          <p className="ca-wallet__hint mb-2">
+            Tras completar una operación, tu 80% queda pendiente 21 días. Las transferencias del
+            saldo disponible las realiza un administrador del <strong>1 al 10</strong> de cada mes.
+          </p>
+          <div className="ca-wallet-balances">
+            <div className="ca-wallet-balance">
+              <span>Ganado</span>
+              <strong>
+                {formatMoney(
+                  summary.agentCommissions.earnedCents,
+                  summary.agentCommissions.currency,
+                )}
+              </strong>
+            </div>
+            <div className="ca-wallet-balance">
+              <span>Pendiente (21 días)</span>
+              <strong>
+                {formatMoney(
+                  summary.agentCommissions.pendingCents,
+                  summary.agentCommissions.currency,
+                )}
+              </strong>
+            </div>
+            <div className="ca-wallet-balance">
+              <span>Disponible</span>
+              <strong>
+                {formatMoney(
+                  summary.agentCommissions.availableCents,
+                  summary.agentCommissions.currency,
+                )}
+              </strong>
+            </div>
+            <div className="ca-wallet-balance">
+              <span>Liquidado</span>
+              <strong>
+                {formatMoney(
+                  summary.agentCommissions.paidCents,
+                  summary.agentCommissions.currency,
+                )}
+              </strong>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div className="ca-wallet__grid">
         <section className="ca-wallet-panel">
           <h3>Retiros</h3>
+          {summary?.agentSelfServiceWithdrawalsEnabled === false ? (
+            <Alert variant="light" className="border">
+              Como agente, tus comisiones se liquidan por transferencia manual del 1 al 10 de cada
+              mes. No hay retiro self-service de comisiones.
+            </Alert>
+          ) : (
           <Form className="ca-wallet-withdraw" onSubmit={(e) => void onWithdraw(e)}>
             <Form.Group>
               <Form.Label>Monto ({displayCurrencyLabel})</Form.Label>
@@ -172,6 +226,7 @@ export function WalletPage() {
               {requestWd.isPending ? 'Solicitando…' : 'Solicitar retiro'}
             </Button>
           </Form>
+          )}
 
           {(withdrawalsRes?.items.length ?? 0) === 0 ? (
             <p className="ca-wallet__hint">Sin retiros todavía.</p>

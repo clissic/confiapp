@@ -135,6 +135,7 @@ Modelo de datos: [`packages/database/ARCHITECTURE.md`](../packages/database/ARCH
 
 | Doc | Contenido |
 |-----|-----------|
+| [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md) | Spec financiera MVP (UYU, 21 días, payouts manuales) |
 | [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | Diseño SaaS a escala |
 | [`WEB_APP.md`](./WEB_APP.md) | Estado del producto web / UI |
 | [`BACKEND_BOOTSTRAP.md`](./BACKEND_BOOTSTRAP.md) | Snapshot histórico del bootstrap Express |

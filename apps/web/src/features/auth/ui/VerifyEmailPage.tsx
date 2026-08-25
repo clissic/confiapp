@@ -10,7 +10,7 @@ type Phase = 'pending' | 'verifying' | 'success' | 'error';
 
 function friendlyVerifyMessage(raw?: string | null): string {
   const value = (raw ?? '').trim();
-  if (!value || /email verified successfully/i.test(value)) {
+  if (!value || /email verified successfully|email quedó confirmado|cuenta ya está activa/i.test(value)) {
     return 'Tu cuenta ya está activa. Ingresá y empezá a operar con tranquilidad.';
   }
   return value;

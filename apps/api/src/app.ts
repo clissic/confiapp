@@ -26,6 +26,7 @@ import {
   walletRoutes,
   reviewsRoutes,
 } from './modules';
+import { financeRoutes } from './modules/finance';
 import { env } from './shared/config/env';
 import { logger, morganStream } from './utils/logger';
 import { openApiDocument } from './utils/openapi';
@@ -154,6 +155,7 @@ export function createApp(): Express {
   app.use('/chats', chatsRoutes);
   app.use('/payments', paymentsRoutes);
   app.use('/wallet', walletRoutes);
+  app.use('/finance', financeRoutes);
   app.use('/audit', auditRoutes);
   app.use('/reviews', reviewsRoutes);
   app.use('/evidence', evidenceRoutes);

@@ -106,7 +106,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     statusCode: 500,
     error: 'InternalServerError',
     code: 'INTERNAL_ERROR',
-    message: 'Unexpected error',
+    message: 'Ocurrió un error inesperado',
     path: req.path,
     timestamp: new Date().toISOString(),
   });

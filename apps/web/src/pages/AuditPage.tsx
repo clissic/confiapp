@@ -1,1 +1,1 @@
-export { AuditPage } from '@/features/audit';
+export { AuditLayout as AuditPage, AuditSectionRouter } from '@/features/audit';

@@ -79,14 +79,34 @@ const WalletPage = lazy(() =>
 const AuditPage = lazy(() =>
   import('@/pages/AuditPage').then((m) => ({ default: m.AuditPage })),
 );
+const AuditSectionRouter = lazy(() =>
+  import('@/pages/AuditPage').then((m) => ({ default: m.AuditSectionRouter })),
+);
 const ReputationPage = lazy(() =>
   import('@/pages/ReputationPage').then((m) => ({ default: m.ReputationPage })),
 );
 const AdminKycReviewPage = lazy(() =>
   import('@/pages/AdminKycReviewPage').then((m) => ({ default: m.AdminKycReviewPage })),
 );
+const AdminFinancePage = lazy(() =>
+  import('@/pages/AdminFinancePage').then((m) => ({ default: m.AdminFinancePage })),
+);
 const NotificationsPage = lazy(() =>
   import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsInboxPage })),
+);
+const TermsPage = lazy(() =>
+  import('@/pages/TermsPage').then((m) => ({ default: m.TermsPage })),
+);
+const PrivacyPage = lazy(() =>
+  import('@/pages/PrivacyPage').then((m) => ({ default: m.PrivacyPage })),
+);
+const HelpPage = lazy(() =>
+  import('@/pages/HelpPage').then((m) => ({ default: m.HelpPage })),
+);
+const LegalAccessLayout = lazy(() =>
+  import('@/features/legal/ui/LegalAccessLayout').then((m) => ({
+    default: m.LegalAccessLayout,
+  })),
 );
 
 function RouteFallback() {
@@ -109,6 +129,12 @@ export function AppRouter() {
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/verificar-email" element={<VerifyEmailPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+          <Route element={<LegalAccessLayout />}>
+            <Route path="terminos" element={<TermsPage />} />
+            <Route path="privacidad" element={<PrivacyPage />} />
+            <Route path="ayuda" element={<HelpPage />} />
+          </Route>
 
           <Route element={<RequireAuth />}>
             <Route element={<MainLayout />}>
@@ -136,12 +162,19 @@ export function AppRouter() {
               <Route path="reputacion" element={<ReputationPage />} />
               <Route path="notificaciones" element={<NotificationsPage />} />
               <Route element={<RequireAdmin />}>
-                <Route path="auditoria" element={<AuditPage />} />
+                <Route path="auditoria" element={<AuditPage />}>
+                  <Route path=":sectionId" element={<AuditSectionRouter />} />
+                </Route>
+                <Route path="admin/finanzas" element={<AdminFinancePage />} />
                 <Route path="admin/kyc/:token" element={<AdminKycReviewPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/inicio" replace />} />
             </Route>
           </Route>
+
+          <Route path="/terminos-y-condiciones" element={<Navigate to="/terminos" replace />} />
+          <Route path="/politica-de-privacidad" element={<Navigate to="/privacidad" replace />} />
+          <Route path="/help" element={<Navigate to="/ayuda" replace />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

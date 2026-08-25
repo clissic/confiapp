@@ -3,6 +3,7 @@ import { Moon, Sun } from 'lucide-react';
 
 import { NotificationsMenu } from '@/features/notifications/ui/NotificationsMenu';
 import type { ResolvedTheme } from '@/shared/preferences';
+import { BrandLogo } from '@/shared/ui';
 import { UserMenu } from './UserMenu';
 
 export interface TopbarProps {
@@ -15,13 +16,7 @@ export function Topbar({ theme, onToggleTheme }: TopbarProps) {
   return (
     <header className="ca-topbar">
       <Link to="/inicio" className="ca-topbar__brand" aria-label="ConfiApp — Inicio">
-        <img
-          className="ca-topbar__logo"
-          src="/landing/ConfiApp-logo.png"
-          alt=""
-          width={36}
-          height={36}
-        />
+        <BrandLogo className="ca-topbar__logo" width={36} height={36} />
         <span className="ca-topbar__brand-name">
           <span className="ca-topbar__brand-name--dark">Confi</span>
           <span className="ca-topbar__brand-name--accent">App</span>

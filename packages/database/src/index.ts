@@ -59,6 +59,14 @@ export type {
   AvailabilitySlot,
   AvailabilityException,
 } from './interfaces/agent-availability.interface';
+export type { IAgentCommission } from './interfaces/agent-commission.interface';
+export type { IPayoutBatch } from './interfaces/payout-batch.interface';
+export type { IAgentPayout } from './interfaces/agent-payout.interface';
+export type { IFinancialAuditEvent } from './interfaces/financial-audit-event.interface';
+export type {
+  IMercadoPagoSellerAccount,
+  IMercadoPagoOAuthState,
+} from './interfaces/mercadopago-seller-account.interface';
 
 export { UserModel, type UserDocument } from './models/user.model';
 export { ProfileModel, type ProfileDocument } from './models/profile.model';
@@ -81,3 +89,27 @@ export {
   AgentAvailabilityModel,
   type AgentAvailabilityDocument,
 } from './models/agent-availability.model';
+export {
+  AgentCommissionModel,
+  type AgentCommissionDocument,
+} from './models/agent-commission.model';
+export {
+  PayoutBatchModel,
+  type PayoutBatchDocument,
+} from './models/payout-batch.model';
+export {
+  AgentPayoutModel,
+  type AgentPayoutDocument,
+} from './models/agent-payout.model';
+export {
+  FinancialAuditEventModel,
+  type FinancialAuditEventDocument,
+} from './models/financial-audit-event.model';
+export {
+  MercadoPagoSellerAccountModel,
+  type MercadoPagoSellerAccountDocument,
+} from './models/mercadopago-seller-account.model';
+export {
+  MercadoPagoOAuthStateModel,
+  type MercadoPagoOAuthStateDocument,
+} from './models/mercadopago-oauth-state.model';

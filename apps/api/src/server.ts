@@ -13,6 +13,13 @@ async function bootstrap(): Promise<void> {
     exitOnFailure: env.NODE_ENV === 'production',
   });
 
+  if (DatabaseModule.isReady()) {
+    const { ensureBootstrapAdmin } = await import('./modules/auth/bootstrap-admin');
+    await ensureBootstrapAdmin().catch((error) => {
+      logger.error('bootstrap admin failed', error);
+    });
+  }
+
   const app = createApp();
 
   const server: Server = app.listen(env.PORT, env.HOST, () => {
@@ -43,10 +50,19 @@ async function bootstrap(): Promise<void> {
   }, 60 * 60_000);
   deadlineTimer.unref();
 
+  const { agentCommissionService } = await import('./modules/finance/commission.service');
+  const commissionTimer = setInterval(() => {
+    void agentCommissionService.releaseDue().catch((error) => {
+      logger.error('release agent commissions failed', error);
+    });
+  }, 15 * 60_000);
+  commissionTimer.unref();
+
   const shutdown = (signal: string) => {
     logger.info(`${signal} received — graceful shutdown`);
     clearInterval(expireTimer);
     clearInterval(deadlineTimer);
+    clearInterval(commissionTimer);
 
     void (async () => {
       try {

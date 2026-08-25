@@ -166,6 +166,35 @@ export function UserMenu() {
               <LogOut size={16} strokeWidth={1.75} />
               Cerrar sesión
             </button>
+            <nav className="ca-user-menu__legal" aria-label="Legal y ayuda">
+              <Link
+                to="/terminos"
+                className="ca-user-menu__legal-link"
+                onClick={() => setOpen(false)}
+              >
+                Términos y Condiciones
+              </Link>
+              <span className="ca-user-menu__legal-sep" aria-hidden>
+                ·
+              </span>
+              <Link
+                to="/privacidad"
+                className="ca-user-menu__legal-link"
+                onClick={() => setOpen(false)}
+              >
+                Privacidad
+              </Link>
+              <span className="ca-user-menu__legal-sep" aria-hidden>
+                ·
+              </span>
+              <Link
+                to="/ayuda"
+                className="ca-user-menu__legal-link"
+                onClick={() => setOpen(false)}
+              >
+                Ayuda
+              </Link>
+            </nav>
           </motion.div>
         ) : null}
       </AnimatePresence>

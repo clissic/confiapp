@@ -128,6 +128,8 @@ type Props = {
   onChange: (next: DeliveryLocationValue) => void;
   profile?: UserProfile | null;
   disabled?: boolean;
+  /** Oculta título/lead internos (cuando el padre ya muestra una sección). */
+  hideHeader?: boolean;
 };
 
 export function DeliveryLocationPicker({
@@ -135,6 +137,7 @@ export function DeliveryLocationPicker({
   onChange,
   profile,
   disabled = false,
+  hideHeader = false,
 }: Props) {
   const hasHome = hasRegisteredAddress(profile);
   const homeLabel = profile?.address ? formatRegisteredAddress(profile.address) : '';
@@ -277,12 +280,14 @@ export function DeliveryLocationPicker({
 
   return (
     <div className="ca-tx-delivery">
-      <div className="ca-tx-delivery__head">
-        <h4 className="ca-tx-delivery__title">Punto de entrega</h4>
-        <p className="ca-tx-delivery__lead">
-          Elegí cómo van a coordinar el encuentro o la entrega del producto.
-        </p>
-      </div>
+      {hideHeader ? null : (
+        <div className="ca-tx-delivery__head">
+          <h4 className="ca-tx-delivery__title">Punto de entrega</h4>
+          <p className="ca-tx-delivery__lead">
+            Elegí cómo van a coordinar el encuentro o la entrega del producto.
+          </p>
+        </div>
+      )}
 
       <div className="ca-tx-delivery__modes" role="radiogroup" aria-label="Modo de entrega">
         {(

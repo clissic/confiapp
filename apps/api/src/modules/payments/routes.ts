@@ -68,3 +68,21 @@ if (env.NODE_ENV !== 'production' && mercadoPagoClient.isMock()) {
 /** Webhook público Mercado Pago (verifica firma si hay secret). */
 paymentsRoutes.post('/webhooks/mercadopago', asyncHandler(controller.webhook));
 paymentsRoutes.get('/webhooks/mercadopago', asyncHandler(controller.webhook));
+
+/** OAuth vendedor: estado / start / disconnect (JWT) + callback público. */
+paymentsRoutes.get(
+  '/mercadopago/connection',
+  authenticate,
+  asyncHandler(controller.mpConnectionStatus),
+);
+paymentsRoutes.get(
+  '/mercadopago/oauth/start',
+  authenticate,
+  asyncHandler(controller.mpOAuthStart),
+);
+paymentsRoutes.get('/mercadopago/oauth/callback', asyncHandler(controller.mpOAuthCallback));
+paymentsRoutes.delete(
+  '/mercadopago/connection',
+  authenticate,
+  asyncHandler(controller.mpDisconnect),
+);

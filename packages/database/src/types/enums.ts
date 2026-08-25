@@ -206,6 +206,14 @@ export enum PaymentProvider {
   MERCADOPAGO = 'MERCADOPAGO',
 }
 
+/** Estado de vinculación OAuth de la cuenta MP del vendedor. */
+export enum MercadoPagoConnectionStatus {
+  NOT_CONNECTED = 'NOT_CONNECTED',
+  CONNECTED = 'CONNECTED',
+  EXPIRED = 'EXPIRED',
+  ERROR = 'ERROR',
+}
+
 export enum DayOfWeek {
   MONDAY = 'MONDAY',
   TUESDAY = 'TUESDAY',
@@ -233,6 +241,48 @@ export enum WalletMovementType {
   WITHDRAWAL_REJECTED = 'WITHDRAWAL_REJECTED',
   REFUND = 'REFUND',
   ADJUSTMENT = 'ADJUSTMENT',
+  /** Comisión del agente al completar la operación (PENDING). */
+  COMMISSION_EARNED = 'COMMISSION_EARNED',
+  /** Comisión liberada tras 21 días (AVAILABLE). */
+  COMMISSION_AVAILABLE = 'COMMISSION_AVAILABLE',
+  /** Saldo reservado en un payout batch. */
+  PAYOUT_RESERVED = 'PAYOUT_RESERVED',
+  /** Transferencia manual confirmada por admin. */
+  PAYOUT_COMPLETED = 'PAYOUT_COMPLETED',
+  /** Reserva/payout revertido. */
+  PAYOUT_REVERSED = 'PAYOUT_REVERSED',
+}
+
+/** Estado de la comisión del agente (ledger financiero MVP). */
+export enum AgentCommissionStatus {
+  PENDING = 'PENDING',
+  AVAILABLE = 'AVAILABLE',
+  /** Reservada en un payout (no liquidable en otro batch). */
+  RESERVED = 'RESERVED',
+  PAID = 'PAID',
+  REVERSED = 'REVERSED',
+  BLOCKED = 'BLOCKED',
+}
+
+export enum PayoutBatchStatus {
+  DRAFT = 'DRAFT',
+  PENDING_TRANSFER = 'PENDING_TRANSFER',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum AgentPayoutStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum RefundKind {
+  REFUND_TOTAL = 'REFUND_TOTAL',
+  REFUND_PARTIAL = 'REFUND_PARTIAL',
 }
 
 export enum WalletMovementDirection {

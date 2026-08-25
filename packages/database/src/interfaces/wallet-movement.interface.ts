@@ -22,6 +22,9 @@ export interface IWalletMovement {
   payment?: Types.ObjectId;
   transaction?: Types.ObjectId;
   withdrawal?: Types.ObjectId;
+  agentCommission?: Types.ObjectId;
+  agentPayout?: Types.ObjectId;
+  payoutBatch?: Types.ObjectId;
   metadata?: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;

@@ -1,5 +1,9 @@
 import type { Request, Response } from 'express';
 
+import { PlatformRole } from '@confiapp/database';
+
+import { ForbiddenError } from '../../shared/errors/app-error';
+
 import { DisputesService } from './service';
 
 export class DisputesController {
@@ -8,5 +12,31 @@ export class DisputesController {
   getStatus = async (_req: Request, res: Response): Promise<void> => {
     const payload = await this.service.getStatus();
     res.status(200).json(payload);
+  };
+
+  open = async (req: Request, res: Response): Promise<void> => {
+    const data = await this.service.openDispute({
+      userId: req.user!.id,
+      transactionCode: String(req.params.code),
+      reason: String((req.body as { reason?: string }).reason ?? 'Disputa abierta'),
+    });
+    res.status(201).json(data);
+  };
+
+  resolve = async (req: Request, res: Response): Promise<void> => {
+    if (req.user?.role !== PlatformRole.ADMIN) {
+      throw new ForbiddenError('Se requiere rol ADMIN');
+    }
+    const body = req.body as {
+      outcome: 'RESUME' | 'CANCEL' | 'COMPLETE_WITH_REFUND';
+      notes?: string;
+    };
+    const data = await this.service.resolveDispute({
+      adminId: req.user!.id,
+      disputeId: String(req.params.disputeId),
+      outcome: body.outcome,
+      notes: body.notes,
+    });
+    res.status(200).json(data);
   };
 }

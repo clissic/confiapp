@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-/** Marca ConfiApp para pantallas de auth (mismo logo que la plataforma). */
+/** Marca ConfiApp para pantallas públicas de auth (logo con contraste en fondo claro). */
 export function AuthBrand() {
   return (
     <Link to="/" className="ca-auth__brand" aria-label="ConfiApp">
@@ -10,6 +10,7 @@ export function AuthBrand() {
         alt=""
         width={36}
         height={36}
+        decoding="async"
       />
       <span className="ca-auth__brand-name">
         <span className="ca-auth__brand-name--dark">Confi</span>

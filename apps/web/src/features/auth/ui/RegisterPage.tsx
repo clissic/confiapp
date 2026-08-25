@@ -8,11 +8,12 @@ import {
 import { CountryDialSelect } from '@/features/profile/ui/sections/CountryDialSelect';
 
 import { registerRequest } from '../api/auth.api';
-import { isStrongPassword, PASSWORD_HINT } from '../lib/password';
+import { isStrongPassword } from '../lib/password';
 import { clearLocalVerifiedPhone } from '@/features/profile/model/phone-verification';
 import { AuthBrand } from './AuthBrand';
 import { useAuth } from './AuthProvider';
 import { PasswordInput } from './PasswordInput';
+import { PasswordRequirementsList } from './PasswordRequirementsList';
 import '../styles/auth.css';
 
 function safeNextPath(raw: string | null): string {
@@ -36,6 +37,8 @@ export function RegisterPage() {
   const [nationalNumber, setNationalNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -61,7 +64,15 @@ export function RegisterPage() {
       return;
     }
     if (!isStrongPassword(password)) {
-      setError(PASSWORD_HINT);
+      setError('La contraseña no cumple todos los requisitos.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden.');
+      return;
+    }
+    if (!acceptedTerms) {
+      setError('Tenés que aceptar los Términos y Condiciones para crear la cuenta.');
       return;
     }
 
@@ -91,6 +102,9 @@ export function RegisterPage() {
   if (!isBootstrapping && isAuthenticated) {
     return <Navigate to={next} replace />;
   }
+
+  const passwordsMatch = confirmPassword.length > 0 && password === confirmPassword;
+  const confirmMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
   return (
     <div className="ca-auth">
@@ -169,16 +183,71 @@ export function RegisterPage() {
             />
           </label>
 
-          <label className="ca-auth__label">
-            Contraseña
+          <div className="ca-auth__field">
+            <label className="ca-auth__label" htmlFor="register-password">
+              Contraseña
+            </label>
             <PasswordInput
+              id="register-password"
               autoComplete="new-password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-describedby="register-password-reqs"
             />
-            <span className="ca-auth__hint">{PASSWORD_HINT}</span>
+            <div id="register-password-reqs">
+              <PasswordRequirementsList password={password} />
+            </div>
+          </div>
+
+          <div className="ca-auth__field">
+            <label className="ca-auth__label" htmlFor="register-password-confirm">
+              Confirmar contraseña
+            </label>
+            <PasswordInput
+              id="register-password-confirm"
+              autoComplete="new-password"
+              required
+              minLength={8}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              aria-invalid={confirmMismatch || undefined}
+              aria-describedby={
+                confirmMismatch || passwordsMatch ? 'register-password-match' : undefined
+              }
+            />
+            {confirmMismatch ? (
+              <p id="register-password-match" className="ca-auth__hint ca-auth__hint--error">
+                Las contraseñas no coinciden
+              </p>
+            ) : null}
+            {passwordsMatch ? (
+              <p id="register-password-match" className="ca-auth__hint ca-auth__hint--ok">
+                Las contraseñas coinciden
+              </p>
+            ) : null}
+          </div>
+
+          <label className="ca-auth__check">
+            <input
+              type="checkbox"
+              name="accept-terms"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              required
+            />
+            <span>
+              Acepto los{' '}
+              <Link
+                to={`/terminos?volver=${encodeURIComponent(`/registro?next=${encodeURIComponent(next)}`)}`}
+                className="ca-auth__check-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Términos y Condiciones
+              </Link>
+            </span>
           </label>
 
           <button className="ca-auth__submit ca-auth__submit--block" type="submit" disabled={loading}>

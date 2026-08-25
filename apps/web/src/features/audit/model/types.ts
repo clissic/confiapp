@@ -25,4 +25,4 @@ export interface AuditListResponse {
   totalPages: number;
 }
 
-export const AUDIT_PAGE_SIZE = 20;
+export const AUDIT_PAGE_SIZE = 15;

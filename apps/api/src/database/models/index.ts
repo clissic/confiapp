@@ -21,3 +21,13 @@ export {
   type WalletMovementDocument,
   type WithdrawalDocument,
 } from './wallet.models';
+export {
+  AgentCommissionModel,
+  type AgentCommissionDocument,
+  PayoutBatchModel,
+  type PayoutBatchDocument,
+  AgentPayoutModel,
+  type AgentPayoutDocument,
+  FinancialAuditEventModel,
+  type FinancialAuditEventDocument,
+} from './finance.models';

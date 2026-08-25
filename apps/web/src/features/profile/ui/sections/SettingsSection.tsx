@@ -14,6 +14,7 @@ import type { UserProfile } from '../../model/types';
 import { CurrencySelect } from './CurrencySelect';
 import { EditProfileSection } from './EditProfileSection';
 import { KycDocumentsSection } from './KycDocumentsSection';
+import { MercadoPagoConnectSection } from './MercadoPagoConnectSection';
 import { PaymentMethodSection } from './PaymentMethodSection';
 import { LanguageSelect, normalizeAppLanguage } from './LanguageSelect';
 import { ThemeSelect } from './ThemeSelect';
@@ -274,6 +275,7 @@ export function SettingsSection({
 
       <EditProfileSection profile={profile} onPhoneVerifiedUiChange={onPhoneVerifiedUiChange} />
       <KycDocumentsSection profile={profile} />
+      <MercadoPagoConnectSection />
       <PaymentMethodSection profile={profile} />
     </div>
   );

@@ -1,6 +1,6 @@
 import { Alert, Badge, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { Award, Star } from 'lucide-react';
+import { Star } from 'lucide-react';
 
 import { useMyReputation, useMyReviews } from '../hooks/useReputation';
 import { formatDateTime, formatMoney } from '@/shared/lib/money';
@@ -62,10 +62,7 @@ export function ReputationPage() {
       <header className="ca-rep__header">
         <div>
           <p className="ca-rep__kicker">Confianza</p>
-          <h2 className="ca-rep__title">
-            <Award size={28} className="me-2" aria-hidden />
-            Reputación
-          </h2>
+          <h2 className="ca-rep__title">Reputación</h2>
           <p className="ca-rep__lead">
             Score ponderado por calificaciones (buyer / seller / agent), volumen de operaciones y
             señales anti-fraude.

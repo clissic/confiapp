@@ -49,18 +49,18 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET);
     if (typeof decoded !== 'object' || decoded === null) {
-      throw new UnauthorizedError('Invalid access token');
+      throw new UnauthorizedError('Token de acceso inválido');
     }
 
     const payload = decoded as AccessTokenPayload;
     if (payload.typ !== 'access' || !payload.sub || !payload.email || !payload.role) {
-      throw new UnauthorizedError('Invalid access token payload');
+      throw new UnauthorizedError('Token de acceso inválido');
     }
 
     return payload;
   } catch (error) {
     if (error instanceof UnauthorizedError) throw error;
-    throw new UnauthorizedError('Invalid or expired access token');
+    throw new UnauthorizedError('Token de acceso inválido o expirado');
   }
 }
 
@@ -68,18 +68,18 @@ export function verifyRefreshToken(token: string): RefreshTokenJwtPayload {
   try {
     const decoded = jwt.verify(token, env.JWT_REFRESH_SECRET);
     if (typeof decoded !== 'object' || decoded === null) {
-      throw new UnauthorizedError('Invalid refresh token');
+      throw new UnauthorizedError('Sesión inválida');
     }
 
     const payload = decoded as RefreshTokenJwtPayload;
     if (payload.typ !== 'refresh' || !payload.sub || !payload.jti) {
-      throw new UnauthorizedError('Invalid refresh token payload');
+      throw new UnauthorizedError('Sesión inválida');
     }
 
     return payload;
   } catch (error) {
     if (error instanceof UnauthorizedError) throw error;
-    throw new UnauthorizedError('Invalid or expired refresh token');
+    throw new UnauthorizedError('Sesión inválida o expirada');
   }
 }
 

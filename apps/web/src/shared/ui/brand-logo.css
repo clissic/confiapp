@@ -1,0 +1,27 @@
+.ca-brand-logo {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.ca-brand-logo__img {
+  grid-area: 1 / 1;
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.ca-brand-logo__img--dark-theme {
+  display: none;
+}
+
+[data-theme='dark'] .ca-brand-logo__img--light-theme {
+  display: none;
+}
+
+[data-theme='dark'] .ca-brand-logo__img--dark-theme {
+  display: block;
+}

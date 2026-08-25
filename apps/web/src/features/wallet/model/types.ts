@@ -1,3 +1,12 @@
+export interface AgentCommissionBalances {
+  currency: string;
+  earnedCents: number;
+  pendingCents: number;
+  availableCents: number;
+  reservedCents: number;
+  paidCents: number;
+}
+
 export interface WalletSummary {
   status: string;
   currency: string;
@@ -10,6 +19,8 @@ export interface WalletSummary {
   movementsCount: number;
   pendingWithdrawalsCount: number;
   commissionsTotalCents: number;
+  agentCommissions?: AgentCommissionBalances | null;
+  agentSelfServiceWithdrawalsEnabled?: boolean;
 }
 
 export interface WalletMovement {

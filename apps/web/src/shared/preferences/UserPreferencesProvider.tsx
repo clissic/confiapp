@@ -118,15 +118,18 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    setResolvedTheme(resolveTheme(prefs.theme));
-    applyResolvedTheme(resolveTheme(prefs.theme));
-    if (prefs.theme !== 'SYSTEM') return;
+    // Sin sesión no hay preferencia de tema: siempre light (landing, auth, legal público).
+    const preference: ThemePreference = isAuthenticated ? prefs.theme : 'LIGHT';
+    const next = resolveTheme(preference);
+    setResolvedTheme(next);
+    applyResolvedTheme(next);
+    if (!isAuthenticated || preference !== 'SYSTEM') return;
     return subscribeSystemTheme(() => {
-      const next = resolveTheme('SYSTEM');
-      setResolvedTheme(next);
-      applyResolvedTheme(next);
+      const systemNext = resolveTheme('SYSTEM');
+      setResolvedTheme(systemNext);
+      applyResolvedTheme(systemNext);
     });
-  }, [prefs.theme]);
+  }, [prefs.theme, isAuthenticated]);
 
   useEffect(() => {
     let cancelled = false;

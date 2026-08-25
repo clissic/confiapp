@@ -134,7 +134,7 @@ export class AuthService {
   }): Promise<{ user: AuthUserDto; message: string; needsVerification: true }> {
     const existing = await this.repository.findByEmail(input.email);
     if (existing) {
-      throw new AppError(409, 'Email already registered', undefined, 'EMAIL_TAKEN');
+      throw new AppError(409, 'Ese email ya está registrado', undefined, 'EMAIL_TAKEN');
     }
 
     const verificationToken = generateOpaqueToken();
@@ -178,7 +178,7 @@ export class AuthService {
 
     // Respuesta genérica (anti user enumeration).
     const invalid = () =>
-      new UnauthorizedError('Invalid email or password');
+      new UnauthorizedError('Email o contraseña incorrectos');
 
     if (!user?.passwordHash) {
       throw invalid();
@@ -194,7 +194,7 @@ export class AuthService {
         metadata: { reason: 'suspended' },
         ...meta,
       });
-      throw new ForbiddenError('Account suspended');
+      throw new ForbiddenError('Cuenta suspendida');
     }
 
     if (isLocked(user)) {
@@ -207,7 +207,7 @@ export class AuthService {
         metadata: { reason: 'locked' },
         ...meta,
       });
-      throw new ForbiddenError('Account temporarily locked. Try again later.');
+      throw new ForbiddenError('Cuenta bloqueada temporalmente. Probá de nuevo más tarde.');
     }
 
     const passwordOk = await verifyPassword(password, user.passwordHash);
@@ -273,7 +273,7 @@ export class AuthService {
   ): Promise<AuthSessionDto> {
     const raw = this.extractRefreshToken(req);
     if (!raw) {
-      throw new UnauthorizedError('Refresh token required');
+      throw new UnauthorizedError('Se requiere token de sesión');
     }
 
     const payload = verifyRefreshToken(raw);
@@ -285,16 +285,16 @@ export class AuthService {
       if (stored?.user) {
         await this.repository.revokeAllRefreshTokensForUser(String(stored.user));
       }
-      throw new UnauthorizedError('Invalid refresh token');
+      throw new UnauthorizedError('Sesión inválida o expirada');
     }
 
     if (String(stored.user) !== payload.sub) {
-      throw new UnauthorizedError('Invalid refresh token');
+      throw new UnauthorizedError('Sesión inválida o expirada');
     }
 
     const user = await this.repository.findById(payload.sub);
     if (!user || user.status === UserStatus.SUSPENDED) {
-      throw new UnauthorizedError('Invalid refresh token');
+      throw new UnauthorizedError('Sesión inválida o expirada');
     }
 
     const nextSession = await this.issueSession(user, meta);
@@ -317,7 +317,7 @@ export class AuthService {
         outcome: AuditOutcome.SUCCESS,
         metadata: { allDevices: true },
       });
-      return { message: 'Logged out from all devices' };
+      return { message: 'Sesión cerrada en todos los dispositivos' };
     }
 
     if (raw) {
@@ -344,7 +344,7 @@ export class AuthService {
       });
     }
 
-    return { message: 'Logged out' };
+    return { message: 'Sesión cerrada' };
   }
 
   async changePassword(
@@ -354,16 +354,16 @@ export class AuthService {
   ): Promise<MessageDto> {
     const user = await this.repository.findById(userId);
     if (!user?.passwordHash) {
-      throw new UnauthorizedError('User not found');
+      throw new UnauthorizedError('Usuario no encontrado');
     }
 
     const ok = await verifyPassword(currentPassword, user.passwordHash);
     if (!ok) {
-      throw new UnauthorizedError('Current password is incorrect');
+      throw new UnauthorizedError('La contraseña actual es incorrecta');
     }
 
     if (await verifyPassword(newPassword, user.passwordHash)) {
-      throw new AppError(400, 'New password must be different', undefined, 'PASSWORD_REUSE');
+      throw new AppError(400, 'La nueva contraseña debe ser distinta', undefined, 'PASSWORD_REUSE');
     }
 
     user.passwordHash = await hashPassword(newPassword);
@@ -390,7 +390,7 @@ export class AuthService {
       channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
     });
 
-    return { message: 'Password changed successfully' };
+    return { message: 'Contraseña actualizada correctamente' };
   }
 
   async forgotPassword(email: string): Promise<MessageDto> {
@@ -432,7 +432,7 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string): Promise<MessageDto> {
     const user = await this.repository.findByPasswordResetHash(hashToken(token));
     if (!user) {
-      throw new AppError(400, 'Invalid or expired reset token', undefined, 'INVALID_TOKEN');
+      throw new AppError(400, 'Enlace inválido o expirado', undefined, 'INVALID_TOKEN');
     }
 
     user.passwordHash = await hashPassword(newPassword);
@@ -463,13 +463,13 @@ export class AuthService {
       channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
     });
 
-    return { message: 'Password reset successfully' };
+    return { message: 'Contraseña restablecida correctamente' };
   }
 
   async verifyEmail(token: string): Promise<MessageDto> {
     const user = await this.repository.findByEmailVerificationHash(hashToken(token));
     if (!user) {
-      throw new AppError(400, 'Invalid or expired verification token', undefined, 'INVALID_TOKEN');
+      throw new AppError(400, 'Enlace de verificación inválido o expirado', undefined, 'INVALID_TOKEN');
     }
 
     const verifiedAt = new Date();
@@ -517,7 +517,7 @@ export class AuthService {
   async me(userId: string): Promise<AuthUserDto> {
     const user = await this.repository.findById(userId);
     if (!user) {
-      throw new UnauthorizedError('User not found');
+      throw new UnauthorizedError('Usuario no encontrado');
     }
     return toAuthUser(user);
   }

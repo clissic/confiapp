@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 
+import { getAuditSection } from '@/features/audit/model/sections';
+
 /** Breadcrumbs según ruta actual. */
 export function AppBreadcrumbs() {
   const { pathname } = useLocation();
@@ -62,11 +64,27 @@ export function AppBreadcrumbs() {
                   { label: 'Wallet', current: true as const },
                 ]
               : pathname.startsWith('/auditoria')
-                ? [
-                    { label: 'Inicio', to: '/inicio' },
-                    { label: 'Auditoría', current: true as const },
-                  ]
-                : pathname.startsWith('/reputacion')
+                ? (() => {
+                    const sectionMatch = pathname.match(/^\/auditoria\/([^/]+)/);
+                    const section = sectionMatch
+                      ? getAuditSection(sectionMatch[1]!)
+                      : undefined;
+                    return [
+                      { label: 'Inicio', to: '/inicio' },
+                      section
+                        ? { label: 'Auditoría', to: '/auditoria/acceso' }
+                        : { label: 'Auditoría', current: true as const },
+                      ...(section
+                        ? [{ label: section.label, current: true as const }]
+                        : []),
+                    ];
+                  })()
+                : pathname.startsWith('/admin/finanzas')
+                  ? [
+                      { label: 'Inicio', to: '/inicio' },
+                      { label: 'Pagos a agentes', current: true as const },
+                    ]
+                  : pathname.startsWith('/reputacion')
                   ? [
                       { label: 'Inicio', to: '/inicio' },
                       { label: 'Reputación', current: true as const },
@@ -76,7 +94,22 @@ export function AppBreadcrumbs() {
                         { label: 'Inicio', to: '/inicio' },
                         { label: 'Notificaciones', current: true as const },
                       ]
-                    : [{ label: 'Inicio', current: true as const }];
+                    : pathname.startsWith('/terminos')
+                      ? [
+                          { label: 'Inicio', to: '/inicio' },
+                          { label: 'Términos y Condiciones', current: true as const },
+                        ]
+                      : pathname.startsWith('/privacidad')
+                        ? [
+                            { label: 'Inicio', to: '/inicio' },
+                            { label: 'Política de Privacidad', current: true as const },
+                          ]
+                        : pathname.startsWith('/ayuda')
+                          ? [
+                              { label: 'Inicio', to: '/inicio' },
+                              { label: 'Centro de Ayuda', current: true as const },
+                            ]
+                          : [{ label: 'Inicio', current: true as const }];
   return (
     <nav className="ca-breadcrumbs" aria-label="Miga de pan">
       <ol className="ca-breadcrumbs__list">

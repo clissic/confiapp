@@ -1,5 +1,8 @@
 import { Form } from 'react-bootstrap';
 import {
+  amountCentsToUyu,
+  commissionForProductUyu,
+  commissionUyuToCents,
   computeIntermediationFees,
   DEFAULT_UYU_PER_USD,
   FEE_PAYER_LABELS,
@@ -28,6 +31,32 @@ type FeePayerFieldsProps = {
   controlId?: string;
 };
 
+function commissionCentsForPrice(
+  productCents: number,
+  currency: string,
+): number {
+  if (productCents < 100) return 0;
+  const productUyu = amountCentsToUyu(productCents, currency, DEFAULT_UYU_PER_USD);
+  const commissionUyu = commissionForProductUyu(productUyu);
+  return commissionUyuToCents(commissionUyu, currency, DEFAULT_UYU_PER_USD);
+}
+
+function coverageHint(
+  feePayer: string,
+  commissionCents: number,
+  currency: string,
+): string {
+  const commissionLabel = formatOperationMoney(commissionCents, currency);
+  if (feePayer === 'SELLER') {
+    return `Para este precio la comisión es ${commissionLabel}. Si el vendedor la asume, el precio del producto debe ser al menos ese monto (o elegí que la pague el comprador).`;
+  }
+  if (feePayer === 'SPLIT_50_50') {
+    const half = Math.ceil(commissionCents / 2);
+    return `Para este precio la comisión es ${commissionLabel}. En el reparto 50/50, el precio del producto debe cubrir al menos ${formatOperationMoney(half, currency)} (parte del vendedor), o cambiá quién paga.`;
+  }
+  return `Para este precio la comisión es ${commissionLabel}.`;
+}
+
 export function FeePayerFields({
   feePayer,
   onFeePayerChange,
@@ -43,6 +72,8 @@ export function FeePayerFields({
       ? Math.round(priceMajor * 100)
       : 0;
 
+  const commissionCents = commissionCentsForPrice(productCents, currency);
+
   let preview: ReturnType<typeof computeIntermediationFees> | null = null;
   let previewError: string | null = null;
   if (productCents >= 100) {
@@ -56,8 +87,30 @@ export function FeePayerFields({
     } catch (err) {
       previewError =
         err instanceof IntermediationFeeError
-          ? err.message
+          ? coverageHint(feePayer, commissionCents, currency)
           : 'No se pudo calcular la comisión';
+    }
+  }
+
+  const commissionLabel =
+    commissionCents > 0 ? formatOperationMoney(commissionCents, currency) : null;
+
+  let helperText: string | null = null;
+  if (!error) {
+    if (!commissionLabel) {
+      helperText = 'Ingresá el precio del producto para ver cuánto suma la comisión.';
+    } else if (feePayer === 'BUYER') {
+      helperText =
+        viewerHint === 'buyer'
+          ? `Según el precio, la comisión a adicionar es ${commissionLabel}.`
+          : `Según el precio, el comprador adiciona ${commissionLabel} de comisión.`;
+    } else if (feePayer === 'SELLER') {
+      helperText =
+        viewerHint === 'seller'
+          ? `Según el precio, se descuenta ${commissionLabel} de comisión de lo que recibís.`
+          : `Según el precio, se descuenta ${commissionLabel} de comisión al vendedor.`;
+    } else {
+      helperText = `Según el precio, la comisión total es ${commissionLabel} y se reparte en partes iguales.`;
     }
   }
 
@@ -79,22 +132,40 @@ export function FeePayerFields({
         </Form.Select>
         {error ? (
           <Form.Control.Feedback type="invalid">{error}</Form.Control.Feedback>
-        ) : (
-          <Form.Text className="text-muted">
-            La comisión es un monto fijo según el precio (no un % del producto). ConfiApp se
-            queda con el 20% de esa comisión y el agente con el 80%.
-          </Form.Text>
-        )}
+        ) : helperText ? (
+          <Form.Text className="text-muted">{helperText}</Form.Text>
+        ) : null}
       </Form.Group>
 
       {preview ? (
         <div className="ca-tx-fee-preview mt-3">
-          <div className="ca-tx-fee-preview__row">
-            <span>Comisión de intermediación</span>
-            <strong>
-              {formatOperationMoney(preview.commissionCents, currency)}
-            </strong>
-          </div>
+          {feePayer === 'BUYER' ? (
+            <div className="ca-tx-fee-preview__row">
+              <span>Comisión a adicionar al precio</span>
+              <strong>{formatOperationMoney(preview.commissionCents, currency)}</strong>
+            </div>
+          ) : feePayer === 'SPLIT_50_50' ? (
+            <>
+              <div className="ca-tx-fee-preview__row">
+                <span>Comisión total</span>
+                <strong>{formatOperationMoney(preview.commissionCents, currency)}</strong>
+              </div>
+              <div className="ca-tx-fee-preview__row">
+                <span>Parte a adicionar (comprador)</span>
+                <strong>
+                  {formatOperationMoney(
+                    preview.buyerPaysCents - preview.productCents,
+                    currency,
+                  )}
+                </strong>
+              </div>
+            </>
+          ) : (
+            <div className="ca-tx-fee-preview__row">
+              <span>Comisión (se descuenta al vendedor)</span>
+              <strong>{formatOperationMoney(preview.commissionCents, currency)}</strong>
+            </div>
+          )}
           <div className="ca-tx-fee-preview__row">
             <span>
               {viewerHint === 'seller' ? 'Vas a recibir' : 'El vendedor recibe'}
@@ -107,16 +178,9 @@ export function FeePayerFields({
             </span>
             <strong>{formatOperationMoney(preview.buyerPaysCents, currency)}</strong>
           </div>
-          <div className="ca-tx-fee-preview__split">
-            <span>
-              ConfiApp 20%: {formatOperationMoney(preview.platformFeeCents, currency)}
-            </span>
-            <span>
-              Agente 80%: {formatOperationMoney(preview.agentFeeCents, currency)}
-            </span>
-          </div>
         </div>
       ) : null}
+
       {previewError ? (
         <p className="text-danger small mt-2 mb-0">{previewError}</p>
       ) : null}
