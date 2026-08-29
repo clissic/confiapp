@@ -1,0 +1,528 @@
+.ca-admin-pay {
+  display: grid;
+  gap: 1.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.ca-admin-pay__header {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.ca-admin-pay__title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+.ca-admin-pay__kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ca-admin-pay__title {
+  margin: 0.1rem 0 0;
+  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.ca-admin-pay__info {
+  margin-top: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.ca-admin-pay__info:hover,
+.ca-admin-pay__info:focus-visible {
+  color: var(--text-brand);
+  background: color-mix(in srgb, var(--text-brand) 12%, transparent);
+  outline: none;
+}
+
+.ca-admin-pay-help {
+  max-width: 18.5rem;
+}
+
+.ca-admin-pay-help .popover-body {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ca-admin-pay-help .popover-body a {
+  color: var(--text-link);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ca-admin-pay-help .popover-body a:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+}
+
+.ca-admin-pay__meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.ca-admin-pay__dot {
+  opacity: 0.55;
+}
+
+.ca-admin-pay__body {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+@media (min-width: 992px) {
+  .ca-admin-pay__body.has-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    gap: 0 1.75rem;
+    align-items: start;
+  }
+
+  .ca-admin-pay__body.has-detail .ca-admin-pay__detail {
+    border-left: 1px solid var(--border-subtle);
+    padding-left: 1.75rem;
+  }
+}
+
+.ca-admin-pay__list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.ca-admin-pay__section-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-admin-pay__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--text-brand) 14%, transparent);
+  color: var(--text-brand);
+}
+
+.ca-admin-pay__quiet {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.ca-admin-pay__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ca-admin-pay__row {
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  padding: 0.85rem 0.35rem;
+  background: transparent;
+  display: grid;
+  gap: 0.2rem;
+  transition: background 0.12s ease;
+  color: var(--text-primary);
+}
+
+.ca-admin-pay__row:hover,
+.ca-admin-pay__row.is-active {
+  background: color-mix(in srgb, var(--text-brand) 8%, transparent);
+}
+
+.ca-admin-pay__row.is-active {
+  box-shadow: inset 3px 0 0 var(--text-brand);
+  padding-left: 0.55rem;
+}
+
+.ca-admin-pay__row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ca-admin-pay__row-top strong {
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
+}
+
+.ca-admin-pay__amount {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.ca-admin-pay__row-title {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.ca-admin-pay__row-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.ca-admin-pay__status {
+  font-weight: 600;
+  color: var(--text-brand);
+}
+
+.ca-admin-pay__pending {
+  font-weight: 600;
+  color: var(--warning-solid, #d97706);
+}
+
+.ca-admin-pay__buyer {
+  color: var(--text-muted);
+}
+
+.ca-admin-pay__confirm {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-sunken) 70%, transparent);
+  border: 1px solid var(--border-subtle);
+}
+
+.ca-admin-pay__confirm-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.ca-admin-pay__confirm-label {
+  min-width: 6.5rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color 0.18s ease, opacity 0.18s ease;
+  user-select: none;
+}
+
+.ca-admin-pay__confirm-label--off {
+  text-align: right;
+}
+
+.ca-admin-pay__confirm-label--on {
+  text-align: left;
+}
+
+.ca-admin-pay__confirm-label--off.is-active {
+  color: var(--danger-solid, #dc2626);
+}
+
+.ca-admin-pay__confirm-label--on.is-active {
+  color: var(--success-solid, #1b9e78);
+}
+
+.ca-admin-pay__confirm-toggle {
+  --ca-confirm-track-w: 3.1rem;
+  --ca-confirm-track-h: 1.65rem;
+  --ca-confirm-knob: 1.25rem;
+  position: relative;
+  flex-shrink: 0;
+  width: var(--ca-confirm-track-w);
+  height: var(--ca-confirm-track-h);
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ca-admin-pay__confirm-toggle:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.ca-admin-pay__confirm-toggle:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.ca-admin-pay__confirm-toggle.is-off {
+  background: color-mix(in srgb, var(--danger-solid, #dc2626) 82%, #000 18%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger-solid, #dc2626) 55%, transparent);
+}
+
+.ca-admin-pay__confirm-toggle.is-on {
+  background: color-mix(in srgb, var(--success-solid, #1b9e78) 82%, #000 12%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success-solid, #1b9e78) 50%, transparent);
+}
+
+.ca-admin-pay__confirm-knob {
+  position: absolute;
+  top: 50%;
+  left: 0.2rem;
+  width: var(--ca-confirm-knob);
+  height: var(--ca-confirm-knob);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+  transform: translateY(-50%);
+  transition: left 0.2s ease;
+}
+
+.ca-admin-pay__confirm-toggle.is-on .ca-admin-pay__confirm-knob {
+  left: calc(var(--ca-confirm-track-w) - var(--ca-confirm-knob) - 0.2rem);
+}
+
+.ca-admin-pay__audit-link {
+  margin: 1rem 0 0;
+  font-size: 0.84rem;
+}
+
+.ca-admin-pay__audit-link a {
+  color: var(--text-link);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.ca-admin-pay__audit-link a:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+}
+
+.ca-admin-pay__detail {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding-top: 0.25rem;
+}
+
+@media (max-width: 991.98px) {
+  .ca-admin-pay__detail {
+    margin-top: 0.5rem;
+    padding-top: 1.15rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+}
+
+.ca-admin-pay__detail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.ca-admin-pay__detail-code {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.ca-admin-pay__detail-title {
+  margin: 0.2rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ca-admin-pay__close {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.2rem;
+  border-radius: 8px;
+  line-height: 0;
+}
+
+.ca-admin-pay__close:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-brand) 12%, transparent);
+}
+
+.ca-admin-pay__facts {
+  margin: 0;
+  display: grid;
+  gap: 0.7rem 1.25rem;
+}
+
+@media (min-width: 576px) {
+  .ca-admin-pay__facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.ca-admin-pay__facts dt {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.12rem;
+}
+
+.ca-admin-pay__facts dd {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.ca-admin-pay__sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.ca-admin-pay__mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.ca-admin-pay__receipt {
+  overflow: auto;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--text-brand) 6%, transparent);
+  padding: 0.5rem;
+}
+
+.ca-admin-pay__receipt img {
+  display: block;
+  max-width: 100%;
+  max-height: 420px;
+  margin-inline: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ca-admin-pay__receipt object {
+  display: block;
+  width: 100%;
+  min-height: 320px;
+  border: none;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ca-admin-pay__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+/* Paginación (reutiliza AuditPager) */
+.ca-admin-pay .ca-audit__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.ca-admin-pay .ca-audit__pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  min-width: 2.25rem;
+}
+
+.ca-admin-pay .ca-audit__pager-label {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .ca-admin-pay .ca-audit__pager-label {
+    display: inline;
+  }
+}
+
+.ca-admin-pay .ca-audit__pager-status {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ca-admin-pay .ca-audit__pager-status--solo {
+  margin: 1rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-default);
+}
+
+.ca-admin-pay .ca-audit__pager-total {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .ca-admin-pay__confirm-label--off.is-active {
+  color: #fca5a5;
+}
+
+[data-theme='dark'] .ca-admin-pay__confirm-label--on.is-active {
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .ca-admin-pay__confirm-toggle.is-off {
+  background: color-mix(in srgb, #ef4444 75%, #1a2b42 25%);
+}
+
+[data-theme='dark'] .ca-admin-pay__confirm-toggle.is-on {
+  background: color-mix(in srgb, #34d399 72%, #1a2b42 28%);
+}
+
+[data-theme='dark'] .ca-admin-pay__receipt img,
+[data-theme='dark'] .ca-admin-pay__receipt object {
+  background: #fff;
+}

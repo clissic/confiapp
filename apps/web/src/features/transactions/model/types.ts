@@ -99,6 +99,9 @@ export interface Transaction {
   amountCents?: number;
   currency?: string;
   feePayer?: FeePayer;
+  /** Tip ConfiAnza en centavos; lo paga siempre el creador. */
+  confiAnzaCents?: number;
+  confiAnzaCurrency?: string;
   /** @deprecated Preferir party.*.meetingLocation */
   meetingLocation?: MeetingLocation;
   party?: {
@@ -163,6 +166,9 @@ export interface CreateTransactionPayload extends AgentInstructionsPayload {
   inviteExpiresInDays?: number;
   productTitle: string;
   productDescription: string;
+  /** Tip ConfiAnza (unidades mayores); lo paga el creador. */
+  confiAnzaAmount?: number;
+  confiAnzaCurrency?: string;
 }
 
 export interface CreateSellerTransactionPayload {
@@ -175,6 +181,8 @@ export interface CreateSellerTransactionPayload {
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocation;
   returnInstructions: string;
+  confiAnzaAmount?: number;
+  confiAnzaCurrency?: string;
   product: ConfirmSaleProductFields;
 }
 

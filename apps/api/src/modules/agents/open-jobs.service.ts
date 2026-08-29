@@ -26,6 +26,11 @@ import { notificationsService } from '../notifications/service';
 
 import { ACTIVE_AGENT_JOB_STATUSES } from './agent-jobs';
 import { AgentAssignmentService } from './assignment.service';
+import {
+  isEscrowVisibleToAgents,
+  loadManualPrexEscrowGate,
+  loadManualPrexEscrowGates,
+} from '../payments/manual-prex-gate';
 
 export interface OpenJobsQuery {
   lng: number;
@@ -196,9 +201,16 @@ export class OpenJobsService {
       return !hasAgent;
     });
 
+    const escrowGates = await loadManualPrexEscrowGates(
+      candidateTxs.map((tx) => String(tx._id)),
+    );
+    const gatedCandidates = candidateTxs.filter((tx) =>
+      isEscrowVisibleToAgents(escrowGates.get(String(tx._id))),
+    );
+
     const allUserIds = [
       ...new Set(
-        candidateTxs.flatMap((tx) => {
+        gatedCandidates.flatMap((tx) => {
           const counter = tx.participants.find(
             (p) => p.role === ParticipantRole.COUNTERPARTY,
           );
@@ -218,7 +230,7 @@ export class OpenJobsService {
 
     const jobs: OpenJobDto[] = [];
 
-    for (const tx of candidateTxs) {
+    for (const tx of gatedCandidates) {
       const creatorId = String(tx.createdBy);
       const counterparty = tx.participants.find(
         (p) => p.role === ParticipantRole.COUNTERPARTY,
@@ -312,6 +324,13 @@ export class OpenJobsService {
 
     if (!OPEN_JOB_STATUSES.includes(tx.status)) {
       throw new ValidationError('Este trabajo ya no está abierto');
+    }
+
+    const escrowGate = await loadManualPrexEscrowGate(String(tx._id));
+    if (!isEscrowVisibleToAgents(escrowGate)) {
+      throw new ValidationError(
+        'Este trabajo todavía no está disponible: el pago Prex está pendiente de confirmación',
+      );
     }
 
     if (hasAcceptedIntermediary(tx)) {

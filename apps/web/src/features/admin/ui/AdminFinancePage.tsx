@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
-import { Alert, Button, Form, Spinner } from 'react-bootstrap';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Alert, Button, Form, OverlayTrigger, Popover, Spinner } from 'react-bootstrap';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import { isWithinAgentPayoutWindow } from '@confiapp/shared';
 
 import { apiClient, getApiErrorMessage } from '@/shared/api/client';
@@ -68,6 +68,44 @@ function mensajeErrorFinanzas(error: unknown): string {
     return 'Todavía no hay comisiones listas para liquidar. Las comisiones quedan disponibles 21 días después de completar cada operación.';
   }
   return raw.replace(/\bAVAILABLE\b/gi, 'disponibles');
+}
+
+function HelpInfo({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  const popover = (
+    <Popover id={id} className="ca-admin-fin-help">
+      <Popover.Header as="h3">{title}</Popover.Header>
+      <Popover.Body>{children}</Popover.Body>
+    </Popover>
+  );
+
+  return (
+    <OverlayTrigger trigger={['hover', 'focus', 'click']} placement="bottom" overlay={popover}>
+      <button type="button" className="ca-admin-fin__info" aria-label={title}>
+        <Info size={16} strokeWidth={1.75} aria-hidden />
+      </button>
+    </OverlayTrigger>
+  );
+}
+
+function PanelTitle({
+  title,
+  helpId,
+  helpTitle,
+  help,
+}: {
+  title: string;
+  helpId: string;
+  helpTitle: string;
+  help: ReactNode;
+}) {
+  return (
+    <div className="ca-admin-fin-panel__title-row">
+      <h2 className="ca-admin-fin-panel__title">{title}</h2>
+      <HelpInfo id={helpId} title={helpTitle}>
+        {help}
+      </HelpInfo>
+    </div>
+  );
 }
 
 /** Admin: liquidación manual de comisiones de agentes. */
@@ -154,13 +192,17 @@ export function AdminFinancePage() {
   return (
     <div className="ca-admin-fin">
       <header className="ca-admin-fin__header">
-        <div>
+        <div className="ca-admin-fin__intro">
           <p className="ca-admin-fin__kicker">Administración</p>
-          <h1 className="ca-admin-fin__title">Pagos a agentes</h1>
-          <p className="ca-admin-fin__lead">
-            Acá preparás la liquidación mensual de comisiones ya disponibles, transferís el dinero
-            por fuera de ConfiApp y registrás cada comprobante para cerrar el pago.
-          </p>
+          <div className="ca-admin-fin__title-row">
+            <h1 className="ca-admin-fin__title">Pagos a agentes</h1>
+            <HelpInfo id="admin-fin-page" title="Pagos a agentes">
+              <p className="mb-0">
+                Acá preparás la liquidación mensual de comisiones ya disponibles, transferís el
+                dinero por fuera de ConfiApp y registrás cada comprobante para cerrar el pago.
+              </p>
+            </HelpInfo>
+          </div>
         </div>
         <div className="ca-admin-fin__chips">
           {enVentana ? (
@@ -203,24 +245,34 @@ export function AdminFinancePage() {
 
       <section className="ca-admin-fin-panel">
         <div className="ca-admin-fin-panel__head">
-          <div>
-            <h2 className="ca-admin-fin-panel__title">Nueva liquidación</h2>
-            <p className="ca-admin-fin-panel__lead">
+          <PanelTitle
+            title="Nueva liquidación"
+            helpId="admin-fin-new-batch"
+            helpTitle="Nueva liquidación"
+          >
+            <p className="mb-0">
               Genera un cierre con todas las comisiones disponibles para pagar. Lo habitual es
               hacerlo entre el 1 y el 10 de cada mes.
             </p>
-          </div>
+          </PanelTitle>
         </div>
         <Form
-          className="row g-3"
+          className="ca-admin-fin-form"
           onSubmit={(e) => {
             e.preventDefault();
             setError(null);
             crearLiquidacion.mutate();
           }}
         >
-          <Form.Group className="col-12">
-            <Form.Label>Notas internas (opcional)</Form.Label>
+          <Form.Group>
+            <div className="ca-admin-fin-form__label-row">
+              <Form.Label className="mb-0">Notas internas (opcional)</Form.Label>
+              <HelpInfo id="admin-fin-notes" title="Notas internas">
+                <p className="mb-0">
+                  Solo visible para el equipo admin. Sirve para dejar contexto del cierre.
+                </p>
+              </HelpInfo>
+            </div>
             <Form.Control
               as="textarea"
               rows={2}
@@ -232,12 +284,9 @@ export function AdminFinancePage() {
                   : 'Obligatorias si liquidás fuera del 1 al 10'
               }
             />
-            <Form.Text className="text-muted">
-              Solo visible para el equipo admin. Sirve para dejar contexto del cierre.
-            </Form.Text>
           </Form.Group>
           {!enVentana ? (
-            <Form.Group className="col-12">
+            <Form.Group>
               <Form.Check
                 type="checkbox"
                 id="permitir-fuera-ventana"
@@ -247,7 +296,7 @@ export function AdminFinancePage() {
               />
             </Form.Group>
           ) : null}
-          <div className="col-12">
+          <div>
             <Button type="submit" className="ca-btn-cta" disabled={crearLiquidacion.isPending}>
               {crearLiquidacion.isPending ? 'Preparando…' : 'Preparar liquidación del mes'}
             </Button>
@@ -257,12 +306,15 @@ export function AdminFinancePage() {
 
       <section className="ca-admin-fin-panel">
         <div className="ca-admin-fin-panel__head">
-          <div>
-            <h2 className="ca-admin-fin-panel__title">Historial de liquidaciones</h2>
-            <p className="ca-admin-fin-panel__lead">
+          <PanelTitle
+            title="Historial de liquidaciones"
+            helpId="admin-fin-history"
+            helpTitle="Historial de liquidaciones"
+          >
+            <p className="mb-0">
               Cierres ya generados. Abrí uno para ver cuánto corresponde a cada agente.
             </p>
-          </div>
+          </PanelTitle>
         </div>
         {liquidacionesQuery.isLoading ? (
           <div className="d-flex align-items-center gap-2 py-3">
@@ -323,12 +375,15 @@ export function AdminFinancePage() {
       {liquidacionSeleccionadaId ? (
         <section className="ca-admin-fin-panel ca-admin-fin-detail">
           <div className="ca-admin-fin-panel__head">
-            <div>
-              <h2 className="ca-admin-fin-panel__title">Detalle de la liquidación</h2>
-              <p className="ca-admin-fin-panel__lead">
+            <PanelTitle
+              title="Detalle de la liquidación"
+              helpId="admin-fin-detail"
+              helpTitle="Detalle de la liquidación"
+            >
+              <p className="mb-0">
                 Confirmá cada pago cuando la transferencia al agente ya esté hecha.
               </p>
-            </div>
+            </PanelTitle>
             <Button
               type="button"
               size="sm"

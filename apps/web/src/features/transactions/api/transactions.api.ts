@@ -92,6 +92,14 @@ function createDemoTransaction(payload: CreateTransactionPayload): Transaction {
     amountCents: Math.round(payload.amount * 100),
     currency: payload.currency ?? 'UYU',
     feePayer: payload.feePayer,
+    confiAnzaCents:
+      payload.confiAnzaAmount && payload.confiAnzaAmount > 0
+        ? Math.round(payload.confiAnzaAmount * 100)
+        : undefined,
+    confiAnzaCurrency:
+      payload.confiAnzaAmount && payload.confiAnzaAmount > 0
+        ? payload.confiAnzaCurrency ?? payload.currency ?? 'UYU'
+        : undefined,
     meetingLocation,
     party: {
       buyer: {
@@ -164,6 +172,15 @@ function createDemoSellerTransaction(
     },
     amountCents,
     currency,
+    feePayer: payload.feePayer,
+    confiAnzaCents:
+      payload.confiAnzaAmount && payload.confiAnzaAmount > 0
+        ? Math.round(payload.confiAnzaAmount * 100)
+        : undefined,
+    confiAnzaCurrency:
+      payload.confiAnzaAmount && payload.confiAnzaAmount > 0
+        ? payload.confiAnzaCurrency ?? currency
+        : undefined,
     meetingLocation,
     party: {
       seller: {

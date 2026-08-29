@@ -86,7 +86,7 @@ export async function registerRequest(input: {
     user: AuthUser;
     message: string;
     needsVerification?: boolean;
-  }>('/auth/register', input);
+  }>('/auth/register', input, { timeout: 45_000 });
   return {
     ...data,
     needsVerification: data.needsVerification ?? true,
@@ -99,9 +99,11 @@ export async function verifyEmailRequest(token: string): Promise<{ message: stri
 }
 
 export async function resendVerificationRequest(email: string): Promise<{ message: string }> {
-  const { data } = await apiClient.post<{ message: string }>('/auth/resend-verification', {
-    email,
-  });
+  const { data } = await apiClient.post<{ message: string }>(
+    '/auth/resend-verification',
+    { email },
+    { timeout: 45_000 },
+  );
   return data;
 }
 

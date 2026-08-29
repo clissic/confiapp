@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Mail, Sparkles } from 'lucide-react';
 
 import { resendVerificationRequest, verifyEmailRequest } from '../api/auth.api';
+import { isRequestTimeoutError } from '@/shared/api/client';
 import { AuthBrand } from './AuthBrand';
 import '../styles/auth.css';
 
@@ -22,12 +23,17 @@ export function VerifyEmailPage() {
   const token = params.get('token')?.trim() ?? '';
   const emailFromQuery = params.get('email')?.trim() ?? '';
   const next = params.get('next') ?? '/inicio';
+  const cameFromSlowRegister = params.get('slow') === '1';
 
   const [phase, setPhase] = useState<Phase>(token ? 'verifying' : 'pending');
   const [message, setMessage] = useState<string | null>(null);
   const [email, setEmail] = useState(emailFromQuery);
   const [resending, setResending] = useState(false);
-  const [resendInfo, setResendInfo] = useState<string | null>(null);
+  const [resendInfo, setResendInfo] = useState<string | null>(
+    cameFromSlowRegister
+      ? 'La confirmación puede demorar unos segundos. Revisá tu bandeja (y spam): el email suele llegar igual.'
+      : null,
+  );
 
   useEffect(() => {
     if (!token) return;
@@ -64,7 +70,13 @@ export function VerifyEmailPage() {
       const result = await resendVerificationRequest(mail);
       setResendInfo(result.message);
     } catch (err) {
-      setResendInfo(err instanceof Error ? err.message : 'No se pudo reenviar el email.');
+      if (isRequestTimeoutError(err)) {
+        setResendInfo(
+          'El reenvío está demorando, pero el email puede llegar igual. Revisá tu bandeja y spam en unos minutos.',
+        );
+      } else {
+        setResendInfo(err instanceof Error ? err.message : 'No se pudo reenviar el email.');
+      }
     } finally {
       setResending(false);
     }

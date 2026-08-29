@@ -37,6 +37,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
 const PROVIDER_LABELS: Record<string, string> = {
   MOCK: 'Prueba',
   MERCADOPAGO: 'Mercado Pago',
+  MANUAL_PREX: 'Prex (manual)',
   STRIPE: 'Stripe',
 };
 
@@ -115,8 +116,8 @@ export function PaymentsPage() {
           <p className="ca-payments__kicker">Pagos</p>
           <h2 className="ca-payments__title">Pago protegido</h2>
           <p className="ca-payments__lead">
-            Seguimiento de la retención y tus movimientos. El pago principal se inicia desde
-            la operación.
+            Seguimiento de la retención y tus movimientos. El pago principal se inicia desde la
+            operación {escrow?.checkoutMode === 'manual_prex' ? 'con transferencia Prex' : ''}.
           </p>
         </div>
       </header>
@@ -211,13 +212,19 @@ export function PaymentsPage() {
 
               <div className="ca-form-actions">
                 {escrow.status === 'ACCEPTED' ? (
-                  <Button
-                    className="ca-btn-cta"
-                    disabled={checkout.isPending}
-                    onClick={() => void onCheckout()}
-                  >
-                    {checkout.isPending ? 'Creando…' : 'Pagar ahora'}
-                  </Button>
+                  escrow.checkoutMode === 'manual_prex' ? (
+                    <Link className="btn ca-btn-cta" to={`/operaciones/${escrow.code}/pagar`}>
+                      Transferir y subir comprobante
+                    </Link>
+                  ) : (
+                    <Button
+                      className="ca-btn-cta"
+                      disabled={checkout.isPending}
+                      onClick={() => void onCheckout()}
+                    >
+                      {checkout.isPending ? 'Creando…' : 'Pagar con Mercado Pago'}
+                    </Button>
+                  )
                 ) : null}
                 {escrow.status === 'FUNDED' || escrow.status === 'IN_PROGRESS' ? (
                   <Button

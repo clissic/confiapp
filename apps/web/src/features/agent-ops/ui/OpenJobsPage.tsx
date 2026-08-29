@@ -13,7 +13,6 @@ import { motion } from 'framer-motion';
 import { BriefcaseBusiness, CircleHelp, MapPin, Star } from 'lucide-react';
 import {
   MapContainer,
-  TileLayer,
   Marker,
   Popup,
   Circle,
@@ -32,6 +31,8 @@ import {
   formatFeeTierPopoverLine,
   formatFeeTierSelectLabel,
 } from '@confiapp/shared';
+
+import { ThemeAwareTileLayer } from '@/shared/ui/map/ThemeAwareTileLayer';
 
 import { useAcceptOpenJob, useOpenJobs } from '../hooks/useAgentOps';
 import type { OpenJob, OpenJobsFilters } from '../model/open-jobs.types';
@@ -377,10 +378,7 @@ export function OpenJobsPage() {
                 setPinLng(Number(lng.toFixed(5)));
               }}
             />
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <ThemeAwareTileLayer />
             <Circle
               center={[pinLat, pinLng]}
               radius={radiusKm * 1000}

@@ -12,10 +12,16 @@ import {
 import { getApiErrorMessage } from '@/shared/api/client';
 import { formatOperationMoney } from '@/shared/lib/money';
 import { useAppToast } from '@/shared/ui';
-import { useStartCheckout } from '@/features/payments/hooks/usePayments';
+import {
+  useEscrow,
+  useStartCheckout,
+  useSubmitManualPrexTransfer,
+} from '@/features/payments/hooks/usePayments';
 
 import { useTransaction } from '../hooks/useTransactions';
 import { STATUS_LABELS } from '../model/types';
+import { ConfiAnzaMark } from './ConfiAnzaBonusFields';
+import { PrexTransferPanel } from './PrexTransferPanel';
 import '../styles/transactions.css';
 
 export function TransactionPayPage() {
@@ -26,8 +32,22 @@ export function TransactionPayPage() {
   const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useTransaction(code);
+  const { data: escrowData } = useEscrow(code);
   const checkout = useStartCheckout(code);
+  const manualTransfer = useSubmitManualPrexTransfer(code);
   const tx = data?.data;
+  const escrow = escrowData?.data;
+
+  const checkoutMode = escrow?.checkoutMode ?? 'manual_prex';
+  const isManualPrex = checkoutMode === 'manual_prex';
+  const pendingAdminReview = useMemo(
+    () =>
+      escrow?.payments?.some(
+        (payment) =>
+          payment.provider === 'MANUAL_PREX' && payment.status === 'REQUIRES_ACTION',
+      ) ?? false,
+    [escrow?.payments],
+  );
 
   const feePreview = useMemo(() => {
     if (!tx?.amountCents || tx.amountCents <= 0) return null;
@@ -126,10 +146,42 @@ export function TransactionPayPage() {
     }
   };
 
+  const onSubmitPrexReceipt = async (payload: {
+    receiptDataUrl: string;
+    receiptFileName: string;
+  }) => {
+    setError(null);
+    try {
+      await manualTransfer.mutateAsync(payload);
+      toast.success(
+        'Comprobante enviado. Verificaremos la transferencia y te avisaremos cuando quede en resguardo.',
+      );
+      navigate(`/operaciones/${tx.code}`, { replace: true });
+    } catch (err) {
+      setError(
+        getApiErrorMessage(
+          err,
+          'No se pudo registrar el comprobante. Revisá el archivo y que la operación siga aceptada.',
+        ),
+      );
+    }
+  };
+
   const feePayerLabel =
     FEE_PAYER_LABELS[(tx.feePayer ?? feePreview.feePayer) as FeePayer] ??
     tx.feePayer ??
     feePreview.feePayer;
+
+  const confiAnzaCents = tx.confiAnzaCents && tx.confiAnzaCents > 0 ? tx.confiAnzaCents : 0;
+  const tipCurrency = (tx.confiAnzaCurrency || tx.currency || 'UYU').toUpperCase();
+  const tipSameCurrency = tipCurrency === (tx.currency || 'UYU').toUpperCase();
+  const creatorIsBuyer = (tx.initiatedBy ?? 'BUYER') === 'BUYER';
+  const totalPayNow =
+    escrow?.amountDueCents ??
+    (creatorIsBuyer && tipSameCurrency
+      ? feePreview.buyerPaysCents + confiAnzaCents
+      : feePreview.buyerPaysCents);
+  const amountLabel = formatOperationMoney(totalPayNow, tx.currency);
 
   return (
     <div className="ca-tx ca-tx--pay">
@@ -144,8 +196,9 @@ export function TransactionPayPage() {
         </p>
         <h1 className="ca-tx-pay-hero__title">Resumen del pago</h1>
         <p className="ca-tx-pay-hero__lead">
-          Revisá los montos. Al continuar vas a la pasarela de Mercado Pago para completar el
-          cobro; el dinero queda en resguardo hasta confirmar la entrega.
+          {isManualPrex
+            ? 'Revisá los montos, transferí el total a la cuenta Prex indicada y subí el comprobante. Verificaremos la transferencia antes de habilitar el trabajo para agentes.'
+            : 'Revisá los montos. Al continuar vas a la pasarela de Mercado Pago para completar el cobro; el dinero queda en resguardo hasta confirmar la entrega.'}
         </p>
         <div className="ca-tx-pay-hero__meta">
           <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
@@ -161,31 +214,34 @@ export function TransactionPayPage() {
         <ul className="ca-tx-pay-summary__list">
           <li>
             <span>Precio acordado</span>
-            <strong>
-              {formatOperationMoney(feePreview.productCents, tx.currency)}
-            </strong>
+            <strong>{formatOperationMoney(feePreview.productCents, tx.currency)}</strong>
           </li>
           <li>
             <span>Comisión de intermediación</span>
-            <strong>
-              {formatOperationMoney(feePreview.commissionCents, tx.currency)}
-            </strong>
+            <strong>{formatOperationMoney(feePreview.commissionCents, tx.currency)}</strong>
           </li>
           <li>
             <span>Quién paga la comisión</span>
             <strong>{feePayerLabel}</strong>
           </li>
+          {confiAnzaCents > 0 ? (
+            <li>
+              <span>
+                <ConfiAnzaMark />{' '}
+                <span className="text-muted">
+                  ({creatorIsBuyer ? 'lo pagás vos' : 'lo paga el vendedor'})
+                </span>
+              </span>
+              <strong>{formatOperationMoney(confiAnzaCents, tipCurrency)}</strong>
+            </li>
+          ) : null}
           <li className="ca-tx-pay-summary__total">
             <span>Total a pagar ahora</span>
-            <strong>
-              {formatOperationMoney(feePreview.buyerPaysCents, tx.currency)}
-            </strong>
+            <strong>{amountLabel}</strong>
           </li>
           <li>
             <span>El vendedor recibe</span>
-            <strong>
-              {formatOperationMoney(feePreview.sellerNetCents, tx.currency)}
-            </strong>
+            <strong>{formatOperationMoney(feePreview.sellerNetCents, tx.currency)}</strong>
           </li>
         </ul>
 
@@ -204,37 +260,68 @@ export function TransactionPayPage() {
         </div>
       </section>
 
-      <section className="ca-tx-panel ca-tx-pay-cta">
-        <div className="ca-tx-pay-cta__copy">
-          <h2 className="ca-tx-pay-cta__title">Último paso</h2>
-          <p className="ca-tx-pay-cta__lead mb-0">
-            Vas a pagar{' '}
-            <strong>
-              {formatOperationMoney(feePreview.buyerPaysCents, tx.currency)}
-            </strong>{' '}
-            en Mercado Pago. Si estás en modo prueba (sin credenciales), se simula la pasarela.
-          </p>
-        </div>
-        <div className="ca-tx-pay-cta__actions">
-          <Button
-            className="ca-btn-cta"
-            disabled={checkout.isPending}
-            onClick={() => void onContinueToCheckout()}
-          >
-            {checkout.isPending ? (
-              <>
-                <Spinner size="sm" animation="border" className="me-2" />
-                Abriendo pasarela…
-              </>
-            ) : (
-              'Continuar a Mercado Pago'
-            )}
-          </Button>
-          <Link to={`/operaciones/${tx.code}`} className="btn btn-link px-0">
-            Cancelar
-          </Link>
-        </div>
-      </section>
+      {isManualPrex ? (
+        pendingAdminReview ? (
+          <section className="ca-tx-panel ca-tx-pay-cta">
+            <Alert variant="info" className="mb-0">
+              Ya recibimos tu comprobante. Estamos verificando la transferencia; cuando se
+              confirme, el pago quedará en resguardo y los agentes podrán tomar el trabajo.
+            </Alert>
+            <div className="ca-tx-pay-cta__actions mt-3">
+              <Link to={`/operaciones/${tx.code}`} className="btn btn-primary">
+                Volver a la operación
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <PrexTransferPanel
+            amountLabel={amountLabel}
+            operationCode={tx.code}
+            account={escrow?.prexAccount}
+            disabled={manualTransfer.isPending}
+            isPending={manualTransfer.isPending}
+            onSubmit={onSubmitPrexReceipt}
+          />
+        )
+      ) : (
+        <section className="ca-tx-panel ca-tx-pay-cta">
+          <div className="ca-tx-pay-cta__copy">
+            <h2 className="ca-tx-pay-cta__title">Último paso</h2>
+            <p className="ca-tx-pay-cta__lead mb-0">
+              Vas a pagar <strong>{amountLabel}</strong> en Mercado Pago. Si estás en modo
+              prueba (sin credenciales), se simula la pasarela.
+            </p>
+          </div>
+          <div className="ca-tx-pay-cta__actions">
+            <Button
+              className="ca-btn-cta"
+              disabled={checkout.isPending}
+              onClick={() => void onContinueToCheckout()}
+            >
+              {checkout.isPending ? (
+                <>
+                  <Spinner size="sm" animation="border" className="me-2" />
+                  Abriendo pasarela…
+                </>
+              ) : (
+                'Continuar a Mercado Pago'
+              )}
+            </Button>
+            <Link to={`/operaciones/${tx.code}`} className="btn btn-link px-0">
+              Cancelar
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {isManualPrex ? (
+        <p className="ca-tx-pay-standby text-muted mb-0">
+          <Link to={`/operaciones/${tx.code}`}>Cancelar y volver</Link>
+          {' · '}
+          Mercado Pago queda en standby hasta tener credenciales (
+          <code>PAYMENTS_CHECKOUT_MODE=mercadopago</code>).
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -2,7 +2,14 @@ import { computeIntermediationFees } from '@confiapp/shared';
 
 import { apiClient } from '@/shared/api/client';
 
-import type { EscrowView, PaymentEventLog, PaymentRecord } from '../model/types';
+import {
+  ADMIN_TRANSFERS_PAGE_SIZE,
+  type EscrowView,
+  type ManualPrexTransferDetail,
+  type ManualPrexTransferSummary,
+  type PaymentEventLog,
+  type PaymentRecord,
+} from '../model/types';
 
 function hasApiAuth(): boolean {
   return Boolean(localStorage.getItem('accessToken'));
@@ -31,7 +38,14 @@ function demoEscrow(code: string): EscrowView {
       sellerId: 'demo-seller',
       agentId: 'demo-agent',
     },
-    providerMode: 'MOCK',
+    providerMode: 'MANUAL_PREX',
+    checkoutMode: 'manual_prex',
+    amountDueCents: split.buyerPaysCents,
+    prexAccount: {
+      bank: 'Prex',
+      accountName: 'Ignacio La Cava',
+      accountNumber: '1065233',
+    },
     payments: [],
   };
 }
@@ -85,6 +99,25 @@ export async function startCheckout(code: string): Promise<{
     split: EscrowView['split'];
     providerMode: string;
   }>(`/payments/transactions/${encodeURIComponent(code)}/checkout`);
+  return data;
+}
+
+export async function submitManualPrexTransfer(
+  code: string,
+  payload: { receiptDataUrl: string; receiptFileName?: string },
+): Promise<{
+  transactionCode?: string;
+  providerMode: string;
+  amountDueCents?: number;
+}> {
+  if (!hasApiAuth()) {
+    return { transactionCode: code.toUpperCase(), providerMode: 'MANUAL_PREX' };
+  }
+  const { data } = await apiClient.post<{
+    transactionCode?: string;
+    providerMode: string;
+    amountDueCents?: number;
+  }>(`/payments/transactions/${encodeURIComponent(code)}/manual-transfer`, payload);
   return data;
 }
 
@@ -183,4 +216,80 @@ export async function listPaymentLogs(): Promise<{
   } catch {
     return { items: [], source: 'demo' };
   }
+}
+
+export async function listManualPrexTransfers(params?: {
+  page?: number;
+  limit?: number;
+}): Promise<{
+  items: ManualPrexTransferSummary[];
+  checkoutMode: string;
+  prexAccount?: { bank?: string; accountName: string; accountNumber: string };
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  source: 'api' | 'demo';
+}> {
+  if (!hasApiAuth()) {
+    return {
+      checkoutMode: 'manual_prex',
+      prexAccount: {
+        bank: 'Prex',
+        accountName: 'Ignacio La Cava',
+        accountNumber: '1065233',
+      },
+      items: [],
+      total: 0,
+      page: 1,
+      limit: ADMIN_TRANSFERS_PAGE_SIZE,
+      totalPages: 0,
+      source: 'demo',
+    };
+  }
+  const { data } = await apiClient.get<{
+    items: ManualPrexTransferSummary[];
+    checkoutMode: string;
+    prexAccount?: { bank?: string; accountName: string; accountNumber: string };
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }>('/payments/admin/manual-transfers', {
+    params: {
+      page: params?.page ?? 1,
+      limit: params?.limit ?? ADMIN_TRANSFERS_PAGE_SIZE,
+    },
+  });
+  return { ...data, source: 'api' };
+}
+
+export async function getManualPrexTransfer(
+  paymentId: string,
+): Promise<{ data: ManualPrexTransferDetail; source: 'api' | 'demo' }> {
+  if (!hasApiAuth()) {
+    throw new Error('No autenticado');
+  }
+  const { data } = await apiClient.get<ManualPrexTransferDetail>(
+    `/payments/admin/manual-transfers/${encodeURIComponent(paymentId)}`,
+  );
+  return { data, source: 'api' };
+}
+
+export async function setManualPrexAdminConfirmation(
+  paymentId: string,
+  confirmed: boolean,
+): Promise<{
+  adminConfirmed: boolean;
+  transactionCode?: string;
+  transactionStatus?: string;
+}> {
+  const { data } = await apiClient.patch<{
+    adminConfirmed: boolean;
+    transactionCode?: string;
+    transactionStatus?: string;
+  }>(`/payments/admin/manual-transfers/${encodeURIComponent(paymentId)}/confirmation`, {
+    confirmed,
+  });
+  return data;
 }

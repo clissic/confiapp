@@ -158,7 +158,23 @@ export function getApiErrorMessage(error: unknown, fallback = 'Unexpected API er
   const fromDetails = formatDetails(data?.details);
   if (fromDetails) return fromDetails;
 
+  if (!error.response && (error.code === 'ECONNABORTED' || /timeout/i.test(error.message))) {
+    return 'La solicitud tardó demasiado. Si acabás de registrarte, revisá tu email o pedí reenviar la confirmación.';
+  }
+
   return data?.message ?? error.message ?? fallback;
+}
+
+/** Timeout de red / axios (sin respuesta HTTP). Útil para altas con SMTP lento. */
+export function isRequestTimeoutError(error: unknown): boolean {
+  if (error instanceof ApiClientError) {
+    return /tardó demasiado|timeout/i.test(error.message);
+  }
+  if (!axios.isAxiosError(error)) return false;
+  return (
+    !error.response &&
+    (error.code === 'ECONNABORTED' || /timeout/i.test(error.message ?? ''))
+  );
 }
 
 function formatDetails(details: ApiErrorBody['details'] | undefined): string | null {

@@ -84,7 +84,7 @@ export function ChecklistEditor({
         disabled={items.length >= maxItems}
       >
         <Plus size={16} className="me-1" strokeWidth={1.75} aria-hidden />
-        Agregar ítem
+        Agregar paso
       </Button>
     </div>
   );

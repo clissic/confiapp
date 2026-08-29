@@ -53,7 +53,7 @@ export const AUDIT_SECTIONS: AuditSectionConfig[] = [
     id: 'pagos',
     path: 'pagos',
     label: 'Pagos y wallet',
-    lead: 'Retenciones, liberaciones, reembolsos y movimientos de billetera.',
+    lead: 'Retenciones, liberaciones, comprobantes Prex, reembolsos y movimientos de billetera.',
     defaultEntityType: 'Payment',
     entityTypes: ['Payment', 'Withdrawal'],
     actionCodes: [

@@ -52,10 +52,10 @@ infrastructure ───────┘
 
 | Módulo | Rol |
 |--------|-----|
-| `auth` | Registro, login, verify email, reset password |
+| `auth` | Registro, login, verify email, reset password. **Previsto:** step-up ID Digital Abitab solo para Agentes en cada login ([`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md); aún no implementado) |
 | `users` | Perfil, KYC (review admin), preferencias, payout methods |
 | `transactions` | Ciclo de vida escrow + invites + checklist |
-| `payments` | Checkout / hold / webhooks (Mercado Pago / mock) |
+| `payments` | Cobro MVP Prex (`manual-transfer`) + Checkout / hold / webhooks MP (standby) |
 | `wallet` | Saldos, retiros, comisiones, export |
 | `notifications` | Inbox + `NotificationsService.notify` + gating prefs |
 | `chats` | Mensajería + realtime |
@@ -162,5 +162,6 @@ Modelo de datos: [`packages/database/ARCHITECTURE.md`](../packages/database/ARCH
 1. Completar cableado de eventos de notificación restantes (P0–P2 en skill `notifications/reference.md`).
 2. Verificación de teléfono real (hoy stub UI + limpieza de `phoneVerified` al cambiar número).
 3. UI/API reales de **evidence** y **disputes** (hoy stubs `/status`).
-4. Migrar módulos API hacia carpetas Clean Architecture target.
-5. Workers/outbox para email/push reales a escala.
+4. **Step-up Identidad Digital Abitab** para Agentes en cada login (diseño en [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md); aún sin código).
+5. Migrar módulos API hacia carpetas Clean Architecture target.
+6. Workers/outbox para email/push reales a escala.

@@ -204,6 +204,8 @@ export enum PaymentProvider {
   MOCK = 'MOCK',
   STRIPE = 'STRIPE',
   MERCADOPAGO = 'MERCADOPAGO',
+  /** MVP: transferencia manual a cuenta Prex de la plataforma (sin PSP). */
+  MANUAL_PREX = 'MANUAL_PREX',
 }
 
 /** Estado de vinculación OAuth de la cuenta MP del vendedor. */

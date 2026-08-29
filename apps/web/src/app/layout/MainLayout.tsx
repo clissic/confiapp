@@ -17,6 +17,14 @@ export function MainLayout() {
   const { pathname } = useLocation();
   const isHome = pathname === '/inicio' || pathname === '/inicio/';
   const isChat = pathname === '/mensajes' || pathname.startsWith('/mensajes/');
+  const isBuyerStart =
+    pathname === '/operaciones/nueva/comprador' ||
+    pathname.startsWith('/operaciones/nueva/comprador/');
+  const isSellerStart =
+    pathname === '/operaciones/nueva/vendedor' ||
+    pathname.startsWith('/operaciones/nueva/vendedor/');
+  const isJoinInvite = pathname.startsWith('/operaciones/unirse/');
+  const pageFlush = isHome || isChat || isBuyerStart || isSellerStart || isJoinInvite;
 
   return (
     <div className="ca-shell" data-theme={theme}>
@@ -37,7 +45,7 @@ export function MainLayout() {
             <motion.main
               className={[
                 'ca-page',
-                isHome || isChat ? 'ca-page--flush' : '',
+                pageFlush ? 'ca-page--flush' : '',
                 isChat ? 'ca-page--chat' : '',
               ]
                 .filter(Boolean)

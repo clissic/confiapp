@@ -117,6 +117,13 @@ export const USER_MENU_LINKS: UserMenuLink[] = [
     adminOnly: true,
   },
   {
+    id: 'pagos-admin',
+    label: 'Pagos entrantes',
+    to: '/admin/pagos',
+    icon: CircleDollarSign,
+    adminOnly: true,
+  },
+  {
     id: 'finanzas',
     label: 'Pagos a agentes',
     to: '/admin/finanzas',

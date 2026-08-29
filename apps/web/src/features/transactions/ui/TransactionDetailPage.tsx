@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Badge, Button, Spinner } from 'react-bootstrap';
 import { motion } from 'framer-motion';
@@ -82,6 +82,10 @@ function formatChangeValue(field: string, raw: string): string {
 const HISTORY_NOTE_LABELS: Record<string, string> = {
   'Escrow fondeado vía Mercado Pago (retención)':
     'Pago protegido confirmado con Mercado Pago',
+  'Pago protegido confirmado con Mercado Pago':
+    'Pago protegido confirmado con Mercado Pago',
+  'Pago protegido por transferencia Prex (MVP) — comprobante cargado':
+    'Pago protegido por transferencia Prex',
   'Comprador aceptó la compra — acuerdo cerrado, pendiente de fondeo':
     'Comprador aceptó la compra — acuerdo cerrado, pendiente de pago',
   'Vendedor confirmó la venta — acuerdo cerrado, pendiente de fondeo':
@@ -228,15 +232,20 @@ export function TransactionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
+  const navToastShownRef = useRef(false);
+  const pagoToastShownRef = useRef(false);
 
   useEffect(() => {
     const pago = searchParams.get('pago') ?? searchParams.get('status');
     if (!pago) return;
-    if (pago === 'ok' || pago === 'success') {
-      toast.success('Pago confirmado. El monto quedó en resguardo.');
-      void refetch();
-    } else if (pago === 'failure') {
-      setError('El pago falló o fue cancelado en Mercado Pago.');
+    if (!pagoToastShownRef.current) {
+      pagoToastShownRef.current = true;
+      if (pago === 'ok' || pago === 'success') {
+        toast.success('Pago confirmado. El monto quedó en resguardo.');
+        void refetch();
+      } else if (pago === 'failure') {
+        setError('El pago falló o fue cancelado en Mercado Pago.');
+      }
     }
     const next = new URLSearchParams(searchParams);
     next.delete('pago');
@@ -245,6 +254,17 @@ export function TransactionDetailPage() {
   }, [searchParams, setSearchParams, toast, refetch]);
 
   useEffect(() => {
+    // Strict Mode re-ejecuta effects: consumir una sola vez y limpiar location.state.
+    if (navToastShownRef.current) return;
+    const hasNavFeedback =
+      state?.agentAccepted ||
+      state?.buyerAccepted ||
+      state?.sellerConfirmed ||
+      state?.justCreated;
+    if (!hasNavFeedback) return;
+
+    navToastShownRef.current = true;
+
     if (state?.agentAccepted) {
       toast.success('Oferta aceptada. Usá el checklist como guía de la entrega.');
     } else if (state?.buyerAccepted) {
@@ -262,6 +282,8 @@ export function TransactionDetailPage() {
           : 'Operación creada. Compartí el enlace con el vendedor.',
       );
     }
+
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
     // Solo al montar (feedback inicial desde location.state).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -295,6 +317,19 @@ export function TransactionDetailPage() {
       return null;
     }
   }, [tx?.amountCents, tx?.currency, tx?.feePayer]);
+
+  const buyerTotalCents = useMemo(() => {
+    if (!feePreview) return tx?.amountCents;
+    const tip =
+      tx?.confiAnzaCents &&
+      tx.confiAnzaCents > 0 &&
+      (tx.initiatedBy ?? 'BUYER') === 'BUYER' &&
+      (tx.confiAnzaCurrency || tx.currency || 'UYU').toUpperCase() ===
+        (tx.currency || 'UYU').toUpperCase()
+        ? tx.confiAnzaCents
+        : 0;
+    return feePreview.buyerPaysCents + tip;
+  }, [feePreview, tx?.amountCents, tx?.confiAnzaCents, tx?.confiAnzaCurrency, tx?.currency, tx?.initiatedBy]);
 
   if (isLoading) {
     return (
@@ -533,16 +568,13 @@ export function TransactionDetailPage() {
             </p>
             <h2 className="ca-tx-pay-cta__title">Listo para pagar</h2>
             <p className="ca-tx-pay-cta__lead">
-              Revisá el resumen de montos y después continuá a Mercado Pago. El dinero queda
-              en resguardo hasta confirmar la entrega.
+              Revisá el resumen de montos y después completá la transferencia a Prex (MVP). El
+              dinero queda en resguardo hasta confirmar la entrega.
             </p>
             <p className="ca-tx-pay-cta__amount">
               Total a pagar:{' '}
               <strong>
-                {formatOperationMoney(
-                  feePreview?.buyerPaysCents ?? tx.amountCents,
-                  tx.currency,
-                )}
+                {formatOperationMoney(buyerTotalCents ?? tx.amountCents, tx.currency)}
               </strong>
             </p>
           </div>

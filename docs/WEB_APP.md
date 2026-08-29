@@ -31,18 +31,23 @@ Reglas Cursor: `.cursor/rules/frontend-bootstrap.mdc`, `.cursor/rules/web-aesthe
 | `/agente` | Onboarding + panel de agencia | Suspender / reactivar / cerrar; listado de ops activas como intermediario |
 | `/agente/buscar` | Búsqueda de agentes | |
 | `/agente/trabajos` | Open jobs + mapa | Guard `RequireAgent` |
+
+> **Previsto (no implementado):** en cada login, los Agentes deberán completar un step-up con Identidad Digital Abitab además de email/password. Ver [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md).
+
 | `/operaciones` | Listado | |
 | `/operaciones/nueva` | Hub rol comprador/vendedor | |
 | `/operaciones/nueva/comprador` | Crear como comprador | Hero con `/landing/Shopping.png` |
 | `/operaciones/nueva/vendedor` | Crear como vendedor | Hero con `/landing/Sale.png` |
 | `/operaciones/unirse/:token` | Join por invite | |
 | `/operaciones/:code` | Detalle | Checklist agente; CTA salida/reasignación; badge “Buscando nuevo agente” |
-| `/operaciones/:code/pagar` | Checkout MP | |
-| `/operaciones/:code/pagar/simular` | Mock de pago | Dev / demo |
+| `/operaciones/:code/pagar` | Pago protegido (MVP Prex / MP standby) | |
+| `/operaciones/:code/pagar/simular` | Mock de pago MP | Solo con `PAYMENTS_CHECKOUT_MODE=mercadopago` + MOCK |
 | `/mensajes` | Chat | Composer **excluido** de reglas de botones full-width |
 | `/pagos` | Checkout / pagos | |
 | `/wallet` | Saldos, retiros, movimientos | Agentes: Ganado/Pendiente/Disponible/Liquidado; sin retiro self-service de comisiones |
-| `/admin/finanzas` | Liquidaciones manuales | Solo admin · PayoutBatch 1–10 |
+| `/admin/pagos` | Transferencias Prex entrantes (admin) | Comprobantes + detalle |
+| `/auditoria/pagos` | Auditoría de pagos (paginado) | Incluye eventos Prex |
+| `/admin/finanzas` | Liquidaciones a agentes | Solo admin · PayoutBatch 1–10 |
 | `/auditoria` | Audit log paginado | Solo admin (`RequireAdmin`) |
 | `/reputacion` | Reputación | |
 | `/notificaciones` | Inbox in-app | Campana en topbar → últimas 5 + “Ver más” |
@@ -151,6 +156,17 @@ En `apps/web/src/app/styles/global.css`:
 
 ---
 
+## Pago protegido (MVP Prex)
+
+- Ruta: `/operaciones/:code/pagar`.
+- Default: transferencia a cuenta Prex (`Ignacio La Cava` / `1065233`) + QR + upload de comprobante.
+- API: `POST /payments/transactions/:code/manual-transfer`.
+- Reactivar Mercado Pago: `PAYMENTS_CHECKOUT_MODE=mercadopago` en la API (código MP intacto).
+- Admin: `/admin/pagos` — transferencias Prex con comprobante. Eventos en `/auditoria/pagos`.
+- Notas: [`FINANCE_MVP_NOTES.md`](./FINANCE_MVP_NOTES.md).
+
+---
+
 ## Assets públicos relevantes
 
 | Asset | Uso |
@@ -158,6 +174,7 @@ En `apps/web/src/app/styles/global.css`:
 | `/landing/ConfiApp-logo.png` | Landing, auth, topbar |
 | `/landing/Shopping.png` | Hero “Iniciar como comprador” |
 | `/landing/Sale.png` | Hero “Iniciar como vendedor” |
+| `/landing/QRprex.png` | QR cuenta Prex (pago MVP) |
 | `/landing/Folder.png` | Panel de agencia |
 | `/landing/flow-agents.png`, `cta-lifestyle.png` | Landing |
 

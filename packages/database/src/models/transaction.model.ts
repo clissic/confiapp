@@ -174,6 +174,23 @@ const transactionSchema = new Schema<ITransaction>(
       type: String,
       enum: Object.values(FeePayer),
     },
+    confiAnzaCents: {
+      type: Number,
+      min: 0,
+      validate: {
+        validator: (value: number | undefined) =>
+          value === undefined || Number.isInteger(value),
+        message: 'confiAnzaCents must be an integer',
+      },
+    },
+    confiAnzaCurrency: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      minlength: 3,
+      maxlength: 3,
+      match: [/^[A-Z]{3}$/, 'confiAnzaCurrency must be ISO 4217'],
+    },
     inviteTokenHash: {
       type: String,
       select: false,

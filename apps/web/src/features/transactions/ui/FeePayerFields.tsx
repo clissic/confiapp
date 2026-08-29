@@ -1,16 +1,23 @@
+import { useEffect, useId, useRef, useState } from 'react';
 import { Form } from 'react-bootstrap';
+import { CircleHelp } from 'lucide-react';
 import {
+  AGENT_FEE_TIERS,
   amountCentsToUyu,
   commissionForProductUyu,
   commissionUyuToCents,
   computeIntermediationFees,
   DEFAULT_UYU_PER_USD,
   FEE_PAYER_LABELS,
+  formatFeeTierPopoverLine,
   IntermediationFeeError,
   type FeePayer,
 } from '@confiapp/shared';
 
+import { useCompactTopbarMenus } from '@/app/layout/useCompactTopbarMenus';
 import { formatOperationMoney } from '@/shared/lib/money';
+
+import { ConfiAnzaMark } from './ConfiAnzaBonusFields';
 
 export const FEE_PAYER_OPTIONS: Array<{ value: FeePayer; label: string }> = [
   { value: 'BUYER', label: FEE_PAYER_LABELS.BUYER },
@@ -29,6 +36,9 @@ type FeePayerFieldsProps = {
   /** Comprador vs vendedor: copy del preview. */
   viewerHint?: 'buyer' | 'seller' | 'neutral';
   controlId?: string;
+  /** Tip ConfiAnza en unidades mayores (lo paga el creador). */
+  confiAnzaMajor?: number | null;
+  confiAnzaCurrency?: string;
 };
 
 function commissionCentsForPrice(
@@ -57,6 +67,79 @@ function coverageHint(
   return `Para este precio la comisión es ${commissionLabel}.`;
 }
 
+function FeeTiersHelp({ compact }: { compact: boolean }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const panelId = useId();
+
+  useEffect(() => {
+    if (!open || !compact) return;
+
+    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (target && !rootRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, compact]);
+
+  return (
+    <span
+      ref={rootRef}
+      className="ca-tx-fee-payer__help"
+      onMouseEnter={compact ? undefined : () => setOpen(true)}
+      onMouseLeave={compact ? undefined : () => setOpen(false)}
+    >
+      <button
+        type="button"
+        className="ca-tx-fee-payer__help-btn"
+        aria-label="Ver rangos de comisión"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={
+          compact
+            ? (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setOpen((value) => !value);
+              }
+            : undefined
+        }
+      >
+        <CircleHelp size={16} strokeWidth={1.75} aria-hidden />
+      </button>
+
+      {open ? (
+        <div
+          id={panelId}
+          className="ca-tx-fee-payer__popover"
+          role="tooltip"
+        >
+          <p className="ca-tx-fee-payer__popover-title">Rangos de comisión</p>
+          <ul className="ca-tx-fee-payer__popover-list">
+            {AGENT_FEE_TIERS.map((tier) => (
+              <li key={tier.commissionUyu}>{formatFeeTierPopoverLine(tier)}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </span>
+  );
+}
+
 export function FeePayerFields({
   feePayer,
   onFeePayerChange,
@@ -66,11 +149,21 @@ export function FeePayerFields({
   disabled,
   viewerHint = 'neutral',
   controlId = 'fee-payer',
+  confiAnzaMajor,
+  confiAnzaCurrency,
 }: FeePayerFieldsProps) {
+  const compact = useCompactTopbarMenus();
   const productCents =
     typeof priceMajor === 'number' && Number.isFinite(priceMajor) && priceMajor > 0
       ? Math.round(priceMajor * 100)
       : 0;
+
+  const confiAnzaCents =
+    typeof confiAnzaMajor === 'number' && Number.isFinite(confiAnzaMajor) && confiAnzaMajor > 0
+      ? Math.round(confiAnzaMajor * 100)
+      : 0;
+  const tipCurrency = (confiAnzaCurrency || currency || 'UYU').toUpperCase();
+  const tipSameCurrency = tipCurrency === (currency || 'UYU').toUpperCase();
 
   const commissionCents = commissionCentsForPrice(productCents, currency);
 
@@ -114,6 +207,17 @@ export function FeePayerFields({
     }
   }
 
+  const showTiersHelp = Boolean(helperText && commissionLabel);
+
+  /** Quien crea como comprador suma ConfiAnza al total a pagar. */
+  const buyerPaysWithTip =
+    preview &&
+    confiAnzaCents > 0 &&
+    viewerHint === 'buyer' &&
+    tipSameCurrency
+      ? preview.buyerPaysCents + confiAnzaCents
+      : preview?.buyerPaysCents;
+
   return (
     <div className="ca-tx-fee-payer">
       <Form.Group controlId={controlId}>
@@ -133,7 +237,10 @@ export function FeePayerFields({
         {error ? (
           <Form.Control.Feedback type="invalid">{error}</Form.Control.Feedback>
         ) : helperText ? (
-          <Form.Text className="text-muted">{helperText}</Form.Text>
+          <Form.Text as="div" className="text-muted ca-tx-fee-payer__hint">
+            <span>{helperText}</span>
+            {showTiersHelp ? <FeeTiersHelp compact={compact} /> : null}
+          </Form.Text>
         ) : null}
       </Form.Group>
 
@@ -166,6 +273,14 @@ export function FeePayerFields({
               <strong>{formatOperationMoney(preview.commissionCents, currency)}</strong>
             </div>
           )}
+          {confiAnzaCents > 0 ? (
+            <div className="ca-tx-fee-preview__row">
+              <span>
+                <ConfiAnzaMark /> <span className="text-muted">(lo pagás vos)</span>
+              </span>
+              <strong>{formatOperationMoney(confiAnzaCents, tipCurrency)}</strong>
+            </div>
+          ) : null}
           <div className="ca-tx-fee-preview__row">
             <span>
               {viewerHint === 'seller' ? 'Vas a recibir' : 'El vendedor recibe'}
@@ -176,7 +291,9 @@ export function FeePayerFields({
             <span>
               {viewerHint === 'buyer' ? 'Vas a pagar' : 'El comprador paga'}
             </span>
-            <strong>{formatOperationMoney(preview.buyerPaysCents, currency)}</strong>
+            <strong>
+              {formatOperationMoney(buyerPaysWithTip ?? preview.buyerPaysCents, currency)}
+            </strong>
           </div>
         </div>
       ) : null}

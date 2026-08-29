@@ -56,9 +56,25 @@ function summarize(item: AuditLogItem): string {
     bits.push(`→ ${meta.to}`);
   }
 
-  if (typeof meta.phase === 'string') bits.push(String(meta.phase));
+  if (typeof meta.phase === 'string') {
+    const phaseLabels: Record<string, string> = {
+      manual_prex_receipt: 'Comprobante Prex recibido',
+      manual_prex_admin_confirmed: 'Prex confirmado por admin',
+      manual_prex_admin_unconfirmed: 'Prex desconfirmado por admin',
+      confirm_hold: 'Pago confirmado en resguardo',
+      release: 'Fondos liberados',
+      refund: 'Reembolso',
+    };
+    bits.push(phaseLabels[meta.phase] ?? String(meta.phase));
+  }
   if (typeof meta.reason === 'string') bits.push(String(meta.reason));
   if (typeof meta.kycDecision === 'string') bits.push(`KYC ${meta.kycDecision}`);
+  if (typeof meta.provider === 'string' && meta.provider === 'MANUAL_PREX') {
+    bits.push('Transferencia Prex');
+  }
+  if (typeof meta.receiptFileName === 'string' && meta.receiptFileName.trim()) {
+    bits.push(meta.receiptFileName.trim());
+  }
   if (typeof meta.amountCents === 'number') {
     const currency = typeof meta.currency === 'string' ? meta.currency : 'UYU';
     bits.push(formatOperationMoney(meta.amountCents, currency));

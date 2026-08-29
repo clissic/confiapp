@@ -14,12 +14,14 @@ Plataforma de **escrow físico** con control digital de participantes, condicion
 ## Qué hace el producto hoy
 
 - **Operaciones** con invite, checklist de entrega y flujo de estados hasta fondeo / progreso.
-- **Pagos** (Mercado Pago / mock) con dinero en resguardo; **wallet** de saldos y retiros.
+- **Pagos**: MVP con transferencia Prex + comprobante; Mercado Pago / mock queda en standby (`PAYMENTS_CHECKOUT_MODE`). Wallet de saldos y retiros.
 - **Agentes intermediarios**: onboarding, búsqueda, trabajos abiertos, ofertas de asignación; **suspender / cerrar agencia** y **solicitar salida** de una operación (escrow intacto).
 - **Chat** y **notificaciones** in-app en tiempo real.
 - **KYC** (review admin), **reputación** y **auditoría** (admin).
+- **Previsto:** confirmación de identidad de **Agentes** con Identidad Digital Abitab en cada login (step-up; aún no implementado) — [`docs/ID_DIGITAL_AGENTS.md`](./docs/ID_DIGITAL_AGENTS.md).
 
 Detalle de pantallas: [`docs/WEB_APP.md`](./docs/WEB_APP.md).  
+Finanzas / cobro MVP: [`docs/FINANCE_MVP_NOTES.md`](./docs/FINANCE_MVP_NOTES.md).  
 Visión a escala: [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md).
 
 ## Estructura
@@ -64,6 +66,7 @@ Alternativa: `pnpm demo:tunnel` — ver [`docs/DEMO_PUBLICO.md`](./docs/DEMO_PUB
 | [`docs/WEB_APP.md`](./docs/WEB_APP.md) | Estado del producto web (rutas, UI, estados internos) |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Estructura del monorepo y módulos |
 | [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md) | Diseño SaaS (pagos, realtime, escala) |
+| [`docs/ID_DIGITAL_AGENTS.md`](./docs/ID_DIGITAL_AGENTS.md) | ID Digital Abitab — step-up de identidad de Agentes (diseño; no implementado) |
 | [`docs/BACKEND_BOOTSTRAP.md`](./docs/BACKEND_BOOTSTRAP.md) | Snapshot histórico del bootstrap Express |
 | [`docs/DEMO_PUBLICO.md`](./docs/DEMO_PUBLICO.md) | Demo público con túnel Cloudflare |
 | [`docs/design-system/GUIDE.md`](./docs/design-system/GUIDE.md) | Design system / tokens |

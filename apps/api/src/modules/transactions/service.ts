@@ -390,6 +390,8 @@ function toDto(
     amountCents: tx.amountCents,
     currency: tx.currency,
     feePayer: tx.feePayer,
+    confiAnzaCents: tx.confiAnzaCents,
+    confiAnzaCurrency: tx.confiAnzaCurrency,
     meetingLocation: legacyMeeting,
     party: {
       ...(partyBuyer ? { buyer: partyBuyer } : {}),
@@ -512,6 +514,12 @@ export class TransactionsService {
       amountCents,
       currency: (input.currency ?? 'UYU').toUpperCase(),
       feePayer: input.feePayer,
+      ...(input.confiAnzaAmount && input.confiAnzaAmount > 0
+        ? {
+            confiAnzaCents: toAmountCents(input.confiAnzaAmount),
+            confiAnzaCurrency: (input.confiAnzaCurrency ?? input.currency ?? 'UYU').toUpperCase(),
+          }
+        : {}),
       inviteTokenHash,
       inviteExpiresAt,
     });
@@ -623,6 +631,12 @@ export class TransactionsService {
       amountCents,
       currency,
       feePayer: input.feePayer,
+      ...(input.confiAnzaAmount && input.confiAnzaAmount > 0
+        ? {
+            confiAnzaCents: toAmountCents(input.confiAnzaAmount),
+            confiAnzaCurrency: (input.confiAnzaCurrency ?? currency).toUpperCase(),
+          }
+        : {}),
       inviteTokenHash,
       inviteExpiresAt,
     });

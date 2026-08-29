@@ -62,6 +62,16 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+  /**
+   * Modo de cobro al comprador.
+   * - `manual_prex`: MVP — transferencia a Prex + comprobante (MP en standby).
+   * - `mercadopago`: Checkout Pro / MOCK según MERCADOPAGO_ACCESS_TOKEN.
+   */
+  PAYMENTS_CHECKOUT_MODE: z.enum(['manual_prex', 'mercadopago']).default('manual_prex'),
+  /** Titular de la cuenta Prex de la plataforma (MVP). */
+  PAYMENTS_PREX_ACCOUNT_NAME: z.string().default('Ignacio La Cava'),
+  /** Número de cuenta Prex de la plataforma (MVP). */
+  PAYMENTS_PREX_ACCOUNT_NUMBER: z.string().default('1065233'),
   /** Moneda por defecto de la app. */
   PAYMENTS_DEFAULT_CURRENCY: z.enum(['UYU', 'USD']).default('UYU'),
   /**

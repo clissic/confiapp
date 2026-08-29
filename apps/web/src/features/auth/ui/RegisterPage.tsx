@@ -10,6 +10,7 @@ import { CountryDialSelect } from '@/features/profile/ui/sections/CountryDialSel
 import { registerRequest } from '../api/auth.api';
 import { isStrongPassword } from '../lib/password';
 import { clearLocalVerifiedPhone } from '@/features/profile/model/phone-verification';
+import { isRequestTimeoutError } from '@/shared/api/client';
 import { AuthBrand } from './AuthBrand';
 import { useAuth } from './AuthProvider';
 import { PasswordInput } from './PasswordInput';
@@ -93,6 +94,14 @@ export function RegisterPage() {
         { replace: true },
       );
     } catch (err) {
+      // La cuenta suele crearse igual; el SMTP puede demorar más que el timeout del cliente.
+      if (isRequestTimeoutError(err)) {
+        navigate(
+          `/verificar-email?email=${encodeURIComponent(mail)}&next=${encodeURIComponent(next)}&slow=1`,
+          { replace: true },
+        );
+        return;
+      }
       setError(err instanceof Error ? err.message : 'No se pudo crear la cuenta');
     } finally {
       setLoading(false);

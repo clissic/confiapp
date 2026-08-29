@@ -9,6 +9,8 @@ const envSchema = z.object({
   VITE_API_URL: z.string().default('http://localhost:3000'),
   VITE_APP_NAME: z.string().default('ConfiApp'),
   VITE_APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /** API key de CARTO Basemaps (raster). Pública en el cliente; no reutilizar en otros proyectos. */
+  VITE_CARTO_API_KEY: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(import.meta.env);
@@ -39,4 +41,5 @@ export const env = {
   appName: parsed.data.VITE_APP_NAME,
   appEnv: parsed.data.VITE_APP_ENV,
   isDev: parsed.data.VITE_APP_ENV === 'development' || isViteDev,
+  cartoApiKey: parsed.data.VITE_CARTO_API_KEY.trim(),
 } as const;

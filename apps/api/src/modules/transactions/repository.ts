@@ -55,6 +55,8 @@ export class TransactionsRepository {
     amountCents: number;
     currency: string;
     feePayer: string;
+    confiAnzaCents?: number;
+    confiAnzaCurrency?: string;
     inviteTokenHash: string;
     inviteExpiresAt: Date;
   }): Promise<TransactionDocument> {
@@ -84,6 +86,12 @@ export class TransactionsRepository {
       amountCents: data.amountCents,
       currency: data.currency,
       feePayer: data.feePayer,
+      ...(data.confiAnzaCents && data.confiAnzaCents > 0
+        ? {
+            confiAnzaCents: data.confiAnzaCents,
+            confiAnzaCurrency: (data.confiAnzaCurrency ?? data.currency).toUpperCase(),
+          }
+        : {}),
       inviteTokenHash: data.inviteTokenHash,
       inviteExpiresAt: data.inviteExpiresAt,
       status: TransactionStatus.WAITING_PARTICIPANT,

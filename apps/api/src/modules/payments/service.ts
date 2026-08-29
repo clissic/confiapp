@@ -34,6 +34,8 @@ import { assertNotPastDeadline } from '../transactions/operation-deadline';
 import { walletLedger } from '../wallet/service';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
+import { sendManualPrexReceiptEmail } from './manual-prex-email';
+import { isManualPrexAdminConfirmed } from './manual-prex-gate';
 import {
   computeEscrowSplit,
   IntermediationFeeError,
@@ -66,6 +68,39 @@ function partyRoles(initiatedBy: TransactionInitiator): {
     return { buyerRole: 'counterparty', sellerRole: 'creator' };
   }
   return { buyerRole: 'creator', sellerRole: 'counterparty' };
+}
+
+/** Monto que debe transferir el comprador ahora (comisión + tip ConfiAnza si aplica). */
+function buyerAmountDueCents(
+  tx: {
+    amountCents?: number;
+    currency?: string;
+    feePayer?: FeePayer | string | null;
+    initiatedBy?: TransactionInitiator | string;
+    confiAnzaCents?: number;
+    confiAnzaCurrency?: string;
+  },
+  split: EscrowSplit,
+): number {
+  let cents = split.buyerPaysCents;
+  const tip = tx.confiAnzaCents && tx.confiAnzaCents > 0 ? tx.confiAnzaCents : 0;
+  if (tip <= 0) return cents;
+  const tipCurrency = (tx.confiAnzaCurrency || tx.currency || split.currency).toUpperCase();
+  const opCurrency = (tx.currency || split.currency).toUpperCase();
+  const creatorIsBuyer =
+    (tx.initiatedBy ?? TransactionInitiator.BUYER) === TransactionInitiator.BUYER;
+  if (creatorIsBuyer && tipCurrency === opCurrency) {
+    cents += tip;
+  }
+  return cents;
+}
+
+function prexAccountDto() {
+  return {
+    bank: 'Prex',
+    accountName: env.PAYMENTS_PREX_ACCOUNT_NAME,
+    accountNumber: env.PAYMENTS_PREX_ACCOUNT_NUMBER,
+  };
 }
 
 function resolveParties(tx: TransactionDocument): {
@@ -219,12 +254,20 @@ export class PaymentsService {
       country: env.MERCADOPAGO_COUNTRY,
       siteId: env.MERCADOPAGO_SITE_ID,
       grossCents: split.buyerPaysCents,
+      amountDueCents: buyerAmountDueCents(tx, split),
       productCents: split.productCents,
       commissionCents: split.commissionCents,
       feePayer: split.feePayer,
       split,
       parties,
-      providerMode: paymentProvider.isMock() ? 'MOCK' : 'MERCADOPAGO',
+      checkoutMode: env.PAYMENTS_CHECKOUT_MODE,
+      prexAccount: env.PAYMENTS_CHECKOUT_MODE === 'manual_prex' ? prexAccountDto() : undefined,
+      providerMode:
+        env.PAYMENTS_CHECKOUT_MODE === 'manual_prex'
+          ? 'MANUAL_PREX'
+          : paymentProvider.isMock()
+            ? 'MOCK'
+            : 'MERCADOPAGO',
       payments: payments.map((p) => toPaymentDto(p)),
     };
   }
@@ -243,6 +286,12 @@ export class PaymentsService {
 
   /** Pago del comprador → Preference MP + ESCROW_HOLD pendiente (retención). */
   async createBuyerCheckout(userId: string, code: string) {
+    if (env.PAYMENTS_CHECKOUT_MODE === 'manual_prex') {
+      throw new ValidationError(
+        'El cobro MVP es por transferencia Prex. Usá el endpoint de comprobante manual.',
+      );
+    }
+
     const tx = await this.loadTxForParticipant(userId, code);
     const parties = resolveParties(tx);
 
@@ -400,8 +449,393 @@ export class PaymentsService {
     };
   }
 
+  /**
+   * MVP: comprador declara transferencia Prex + sube comprobante.
+   * Queda pendiente de revisión admin antes de pasar a FUNDED y visible para agentes.
+   */
+  async submitManualPrexTransfer(
+    userId: string,
+    code: string,
+    input: { receiptDataUrl: string; receiptFileName?: string },
+  ) {
+    if (env.PAYMENTS_CHECKOUT_MODE !== 'manual_prex') {
+      throw new ValidationError(
+        'La transferencia Prex solo está habilitada con PAYMENTS_CHECKOUT_MODE=manual_prex',
+      );
+    }
+
+    const receipt = input.receiptDataUrl.trim();
+    if (!/^data:(image\/(jpeg|jpg|png|webp)|application\/pdf);base64,/i.test(receipt)) {
+      throw new ValidationError(
+        'El comprobante debe ser una imagen (JPEG/PNG/WebP) o PDF en data URL base64',
+      );
+    }
+    // ~4MB en base64 ≈ 5.5MB string
+    if (receipt.length > 5_500_000) {
+      throw new ValidationError('El comprobante es demasiado grande (máx. ~4 MB)');
+    }
+
+    const tx = await this.loadTxForParticipant(userId, code);
+    const parties = resolveParties(tx);
+
+    if (parties.buyerId !== userId) {
+      throw new ForbiddenError('Solo el comprador puede declarar el pago');
+    }
+    if (tx.status !== TransactionStatus.ACCEPTED) {
+      throw new ValidationError(
+        `La operación debe estar ACCEPTED para pagar (actual: ${tx.status})`,
+      );
+    }
+    assertNotPastDeadline(tx);
+
+    const existingCaptured = await PaymentModel.findOne({
+      transaction: tx._id,
+      type: PaymentType.ESCROW_HOLD,
+      status: { $in: [PaymentStatus.CAPTURED, PaymentStatus.RELEASED] },
+      deletedAt: null,
+    }).exec();
+    if (existingCaptured) {
+      throw new ValidationError('La operación ya tiene el pago protegido');
+    }
+
+    const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
+    const split = this.splitForTransaction(tx);
+    const amountDue = buyerAmountDueCents(tx, split);
+    const productCents = split.productCents;
+
+    if (!tx.amountCents || tx.amountCents <= 0) {
+      tx.amountCents = productCents;
+      tx.currency = currency;
+      await tx.save();
+    } else if (!tx.currency) {
+      tx.currency = currency;
+      await tx.save();
+    }
+    if (!tx.feePayer) {
+      tx.feePayer = split.feePayer as ITransaction['feePayer'];
+      await tx.save();
+    }
+
+    const idempotencyKey = `hold:${String(tx._id)}`;
+    let hold = await PaymentModel.findOne({
+      transaction: tx._id,
+      type: PaymentType.ESCROW_HOLD,
+      idempotencyKey,
+      deletedAt: null,
+    }).exec();
+
+    if (!hold) {
+      hold = await PaymentModel.create({
+        transaction: tx._id,
+        payer: new Types.ObjectId(parties.buyerId),
+        payee: new Types.ObjectId(parties.sellerId),
+        type: PaymentType.ESCROW_HOLD,
+        status: PaymentStatus.PENDING,
+        provider: PaymentProvider.MANUAL_PREX,
+        amountCents: amountDue,
+        currency,
+        idempotencyKey,
+        metadata: {
+          split,
+          phase: 'manual_prex_pending',
+          checkoutMode: 'manual_prex',
+        },
+      });
+    } else if (
+      hold.status === PaymentStatus.CAPTURED ||
+      hold.status === PaymentStatus.RELEASED
+    ) {
+      throw new ValidationError('La operación ya tiene el pago protegido');
+    } else {
+      hold.amountCents = amountDue;
+      hold.provider = PaymentProvider.MANUAL_PREX;
+    }
+
+    const prex = prexAccountDto();
+    hold.externalId = hold.externalId || `PREX-${tx.code}`;
+    hold.status = PaymentStatus.REQUIRES_ACTION;
+    hold.metadata = {
+      ...(hold.metadata ?? {}),
+      split,
+      phase: 'manual_prex_receipt',
+      checkoutMode: 'manual_prex',
+      prexAccount: prex,
+      receiptFileName: input.receiptFileName?.slice(0, 180),
+      receiptDataUrl: receipt,
+      receiptUploadedAt: new Date().toISOString(),
+      amountDueCents: amountDue,
+      transactionCode: tx.code,
+    };
+    await hold.save();
+
+    await persistLog({
+      source: 'confirm',
+      event: 'manual_prex.receipt_submitted',
+      message: 'Comprobante Prex recibido — pendiente de confirmación admin',
+      transactionId: String(tx._id),
+      paymentId: String(hold._id),
+      externalId: hold.externalId,
+      payload: {
+        code: tx.code,
+        amountCents: amountDue,
+        receiptFileName: input.receiptFileName,
+        prex,
+      },
+    });
+
+    auditService.track({
+      actor: userId,
+      action: AuditAction.PAYMENT_UPDATED,
+      entityType: 'Payment',
+      entityId: String(hold._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        phase: 'manual_prex_receipt',
+        code: tx.code,
+        amountCents: amountDue,
+        provider: PaymentProvider.MANUAL_PREX,
+        receiptFileName: input.receiptFileName,
+        pendingAdminReview: true,
+        ...feesAuditMeta(split),
+      },
+    });
+
+    const buyer = await UserModel.findById(parties.buyerId).select('email fullName').lean();
+    setImmediate(() => {
+      void sendManualPrexReceiptEmail({
+        transactionCode: tx.code,
+        transactionTitle: tx.title,
+        amountCents: amountDue,
+        currency,
+        buyerName: buyer?.fullName ?? 'Comprador',
+        buyerEmail: buyer?.email ?? '',
+        receiptDataUrl: receipt,
+        receiptFileName: input.receiptFileName,
+        prexAccountName: prex.accountName,
+        prexAccountNumber: prex.accountNumber,
+        paymentId: String(hold._id),
+      });
+    });
+
+    return {
+      payment: toPaymentDto(hold.toObject()),
+      transactionCode: tx.code,
+      transactionStatus: tx.status,
+      split,
+      amountDueCents: amountDue,
+      checkoutMode: 'manual_prex' as const,
+      prexAccount: prex,
+      providerMode: 'MANUAL_PREX' as const,
+      pendingAdminReview: true,
+    };
+  }
+
+  /** Admin confirma o revierte la transferencia Prex tras revisar el comprobante. */
+  async setManualPrexAdminConfirmation(
+    adminUserId: string,
+    paymentId: string,
+    confirmed: boolean,
+  ) {
+    if (!Types.ObjectId.isValid(paymentId)) {
+      throw new NotFoundError('Pago no encontrado');
+    }
+
+    const hold = await PaymentModel.findOne({
+      _id: paymentId,
+      type: PaymentType.ESCROW_HOLD,
+      provider: PaymentProvider.MANUAL_PREX,
+      deletedAt: null,
+    }).exec();
+    if (!hold) throw new NotFoundError('Transferencia Prex no encontrada');
+
+    const tx = await TransactionModel.findById(hold.transaction).exec();
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+
+    const meta = (hold.metadata ?? {}) as Record<string, unknown>;
+    const hasReceipt = typeof meta.receiptDataUrl === 'string' && meta.receiptDataUrl.length > 0;
+    if (!hasReceipt) {
+      throw new ValidationError('No hay comprobante para confirmar en esta transferencia');
+    }
+
+    const currentlyConfirmed = isManualPrexAdminConfirmed(hold.status, meta);
+    if (confirmed === currentlyConfirmed) {
+      return {
+        payment: toPaymentDto(hold.toObject()),
+        transactionCode: tx.code,
+        transactionStatus: tx.status,
+        adminConfirmed: currentlyConfirmed,
+        unchanged: true as const,
+      };
+    }
+
+    if (confirmed) {
+      const result = await this.confirmHold(String(hold._id), {
+        source: 'confirm',
+        externalPaymentId: hold.externalId,
+        note: 'Pago protegido confirmado por admin tras revisar comprobante Prex',
+      });
+
+      const refreshed = await PaymentModel.findById(hold._id).exec();
+      if (refreshed) {
+        const now = new Date();
+        refreshed.metadata = {
+          ...(refreshed.metadata ?? {}),
+          adminConfirmedAt: now.toISOString(),
+          adminConfirmedBy: adminUserId,
+          phase: 'manual_prex_admin_confirmed',
+        };
+        await refreshed.save();
+      }
+
+      const updatedTx = await TransactionModel.findById(tx._id).select('status').lean().exec();
+
+      auditService.track({
+        actor: adminUserId,
+        action: AuditAction.PAYMENT_UPDATED,
+        entityType: 'Payment',
+        entityId: String(hold._id),
+        outcome: AuditOutcome.SUCCESS,
+        correlationId: tx.code,
+        metadata: {
+          phase: 'manual_prex_admin_confirmed',
+          code: tx.code,
+          amountCents: hold.amountCents,
+          provider: PaymentProvider.MANUAL_PREX,
+        },
+      });
+
+      await persistLog({
+        source: 'system',
+        event: 'manual_prex.admin_confirmed',
+        message: 'Admin confirmó comprobante Prex — operación disponible para agentes',
+        transactionId: String(tx._id),
+        paymentId: String(hold._id),
+        externalId: hold.externalId,
+        payload: { code: tx.code, adminUserId },
+      });
+
+      return {
+        ...result,
+        payment: toPaymentDto((refreshed ?? hold).toObject()),
+        transactionCode: tx.code,
+        transactionStatus: updatedTx?.status ?? tx.status,
+        adminConfirmed: true,
+      };
+    }
+
+    const hasAgent = tx.participants.some(
+      (p) =>
+        p.role === ParticipantRole.INTERMEDIARY &&
+        (p.status === ParticipantStatus.ACCEPTED ||
+          p.status === ParticipantStatus.INVITED),
+    );
+    if (hasAgent) {
+      throw new ValidationError(
+        'No se puede marcar como no confirmada: ya hay un agente asignado o invitado',
+      );
+    }
+
+    if (
+      hold.status !== PaymentStatus.CAPTURED &&
+      hold.status !== PaymentStatus.RELEASED
+    ) {
+      throw new ValidationError('La transferencia aún no fue confirmada por admin');
+    }
+
+    const parties = resolveParties(tx);
+    const now = new Date();
+
+    await UserModel.updateOne(
+      { _id: parties.sellerId, 'wallet.status': { $ne: WalletStatus.CLOSED } },
+      {
+        $inc: { 'wallet.heldCents': -hold.amountCents },
+        $set: { 'wallet.lastMovementAt': now },
+      },
+    ).exec();
+
+    const sellerAfter = await UserModel.findById(parties.sellerId).select('wallet').lean();
+    await walletLedger.record({
+      userId: parties.sellerId,
+      type: WalletMovementType.ESCROW_HOLD,
+      direction: WalletMovementDirection.DEBIT,
+      amountCents: hold.amountCents,
+      currency: hold.currency,
+      description: `Reversión retención escrow ${tx.code} (admin desconfirmó Prex)`,
+      paymentId: String(hold._id),
+      transactionId: String(tx._id),
+      balanceAfter: sellerAfter
+        ? {
+            availableCents: sellerAfter.wallet?.availableCents ?? 0,
+            pendingCents: sellerAfter.wallet?.pendingCents ?? 0,
+            heldCents: sellerAfter.wallet?.heldCents ?? 0,
+          }
+        : undefined,
+    });
+
+    hold.status = PaymentStatus.REQUIRES_ACTION;
+    hold.set('capturedAt', undefined);
+    hold.set('authorizedAt', undefined);
+    const nextMeta = { ...meta, phase: 'manual_prex_receipt' } as Record<string, unknown>;
+    delete nextMeta.adminConfirmedAt;
+    delete nextMeta.adminConfirmedBy;
+    hold.metadata = nextMeta;
+    await hold.save();
+
+    if (tx.status === TransactionStatus.FUNDED) {
+      tx.status = TransactionStatus.ACCEPTED;
+      tx.fundedAt = undefined;
+      tx.statusHistory.push({
+        status: TransactionStatus.ACCEPTED,
+        changedAt: now,
+        changedBy: new Types.ObjectId(adminUserId),
+        note: 'Admin marcó la transferencia Prex como no confirmada',
+      });
+      await tx.save();
+    }
+
+    auditService.track({
+      actor: adminUserId,
+      action: AuditAction.PAYMENT_UPDATED,
+      entityType: 'Payment',
+      entityId: String(hold._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        phase: 'manual_prex_admin_unconfirmed',
+        code: tx.code,
+        amountCents: hold.amountCents,
+        provider: PaymentProvider.MANUAL_PREX,
+      },
+    });
+
+    await persistLog({
+      source: 'system',
+      event: 'manual_prex.admin_unconfirmed',
+      message: 'Admin marcó transferencia Prex como no confirmada',
+      transactionId: String(tx._id),
+      paymentId: String(hold._id),
+      externalId: hold.externalId,
+      payload: { code: tx.code, adminUserId },
+    });
+
+    return {
+      payment: toPaymentDto(hold.toObject()),
+      transactionCode: tx.code,
+      transactionStatus: tx.status,
+      adminConfirmed: false,
+    };
+  }
+
   /** Confirmación MOCK (dev) o llamada interna post-webhook aprobado. */
-  async confirmHold(paymentId: string, opts: { externalPaymentId?: string; source: 'webhook' | 'confirm' }) {
+  async confirmHold(
+    paymentId: string,
+    opts: {
+      externalPaymentId?: string;
+      source: 'webhook' | 'confirm';
+      note?: string;
+    },
+  ) {
     if (!Types.ObjectId.isValid(paymentId)) {
       throw new NotFoundError('Pago no encontrado');
     }
@@ -427,9 +861,12 @@ export class PaymentsService {
     hold.authorizedAt = hold.authorizedAt ?? now;
     hold.capturedAt = now;
     if (opts.externalPaymentId) {
+      const isManualPrex = hold.provider === PaymentProvider.MANUAL_PREX;
       hold.metadata = {
         ...(hold.metadata ?? {}),
-        mpPaymentId: opts.externalPaymentId,
+        ...(isManualPrex
+          ? { prexReference: opts.externalPaymentId }
+          : { mpPaymentId: opts.externalPaymentId }),
         phase: 'retained',
       };
       hold.externalId = hold.externalId || opts.externalPaymentId;
@@ -476,7 +913,9 @@ export class PaymentsService {
         status: TransactionStatus.FUNDED,
         changedAt: now,
         changedBy: hold.payer,
-        note: 'Pago protegido confirmado con Mercado Pago',
+        note:
+          opts.note ??
+          'Pago protegido confirmado con Mercado Pago',
       });
       await tx.save();
       justFunded = true;
@@ -966,6 +1405,156 @@ export class PaymentsService {
         payload: row.payload,
         createdAt: row.createdAt.toISOString(),
       })),
+    };
+  }
+
+  /** Admin: transferencias Prex declaradas por compradores (sin payload pesado del comprobante). */
+  async listManualPrexTransfersForAdmin(opts?: { page?: number; limit?: number }) {
+    const limit = Math.min(Math.max(opts?.limit ?? 15, 1), 200);
+    const page = Math.max(opts?.page ?? 1, 1);
+    const filter = {
+      provider: PaymentProvider.MANUAL_PREX,
+      type: PaymentType.ESCROW_HOLD,
+      deletedAt: null,
+    };
+
+    const [total, payments] = await Promise.all([
+      PaymentModel.countDocuments(filter).exec(),
+      PaymentModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean()
+        .exec(),
+    ]);
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+    const txIds = [...new Set(payments.map((p) => String(p.transaction)))];
+    const payerIds = [...new Set(payments.map((p) => String(p.payer)))];
+
+    const [transactions, payers] = await Promise.all([
+      TransactionModel.find({ _id: { $in: txIds } })
+        .select('code title status currency')
+        .lean()
+        .exec(),
+      UserModel.find({ _id: { $in: payerIds } })
+        .select('email fullName')
+        .lean()
+        .exec(),
+    ]);
+
+    const txById = new Map(transactions.map((tx) => [String(tx._id), tx]));
+    const payerById = new Map(payers.map((u) => [String(u._id), u]));
+
+    return {
+      checkoutMode: env.PAYMENTS_CHECKOUT_MODE,
+      prexAccount: prexAccountDto(),
+      items: payments.map((p) => {
+        const meta = (p.metadata ?? {}) as Record<string, unknown>;
+        const tx = txById.get(String(p.transaction));
+        const payer = payerById.get(String(p.payer));
+        const receiptDataUrl =
+          typeof meta.receiptDataUrl === 'string' ? meta.receiptDataUrl : undefined;
+        return {
+          id: String(p._id),
+          transactionId: String(p.transaction),
+          transactionCode: tx?.code ?? (meta.transactionCode as string | undefined),
+          transactionTitle: tx?.title,
+          transactionStatus: tx?.status,
+          status: p.status,
+          amountCents: p.amountCents,
+          currency: p.currency,
+          externalId: p.externalId,
+          capturedAt: p.capturedAt?.toISOString(),
+          createdAt: p.createdAt.toISOString(),
+          buyer: payer
+            ? { id: String(payer._id), email: payer.email, fullName: payer.fullName }
+            : { id: String(p.payer) },
+          receiptFileName:
+            typeof meta.receiptFileName === 'string' ? meta.receiptFileName : undefined,
+          receiptUploadedAt:
+            typeof meta.receiptUploadedAt === 'string' ? meta.receiptUploadedAt : undefined,
+          hasReceipt: Boolean(receiptDataUrl),
+          adminConfirmed: isManualPrexAdminConfirmed(p.status, meta),
+        };
+      }),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  }
+
+  /** Admin: detalle con comprobante (data URL) para revisión. */
+  async getManualPrexTransferForAdmin(paymentId: string) {
+    if (!Types.ObjectId.isValid(paymentId)) {
+      throw new NotFoundError('Pago no encontrado');
+    }
+    const payment = await PaymentModel.findOne({
+      _id: paymentId,
+      provider: PaymentProvider.MANUAL_PREX,
+      type: PaymentType.ESCROW_HOLD,
+      deletedAt: null,
+    })
+      .lean()
+      .exec();
+    if (!payment) throw new NotFoundError('Transferencia Prex no encontrada');
+
+    const [tx, payer] = await Promise.all([
+      TransactionModel.findById(payment.transaction)
+        .select('code title status currency amountCents')
+        .lean()
+        .exec(),
+      UserModel.findById(payment.payer).select('email fullName phone').lean().exec(),
+    ]);
+
+    const meta = (payment.metadata ?? {}) as Record<string, unknown>;
+    const receiptDataUrl =
+      typeof meta.receiptDataUrl === 'string' ? meta.receiptDataUrl : undefined;
+
+    return {
+      payment: {
+        id: String(payment._id),
+        status: payment.status,
+        amountCents: payment.amountCents,
+        currency: payment.currency,
+        externalId: payment.externalId,
+        capturedAt: payment.capturedAt?.toISOString(),
+        createdAt: payment.createdAt.toISOString(),
+        receiptFileName:
+          typeof meta.receiptFileName === 'string' ? meta.receiptFileName : undefined,
+        receiptUploadedAt:
+          typeof meta.receiptUploadedAt === 'string' ? meta.receiptUploadedAt : undefined,
+        receiptDataUrl,
+        prexAccount:
+          meta.prexAccount && typeof meta.prexAccount === 'object'
+            ? meta.prexAccount
+            : prexAccountDto(),
+        adminConfirmed: isManualPrexAdminConfirmed(payment.status, meta),
+        adminConfirmedAt:
+          typeof meta.adminConfirmedAt === 'string' ? meta.adminConfirmedAt : undefined,
+        adminConfirmedBy:
+          typeof meta.adminConfirmedBy === 'string' ? meta.adminConfirmedBy : undefined,
+      },
+      transaction: tx
+        ? {
+            id: String(tx._id),
+            code: tx.code,
+            title: tx.title,
+            status: tx.status,
+            currency: tx.currency,
+            amountCents: tx.amountCents,
+          }
+        : null,
+      buyer: payer
+        ? {
+            id: String(payer._id),
+            email: payer.email,
+            fullName: payer.fullName,
+            phone: payer.phone,
+          }
+        : { id: String(payment.payer) },
     };
   }
 

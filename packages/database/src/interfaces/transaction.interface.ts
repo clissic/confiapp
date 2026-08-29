@@ -99,6 +99,9 @@ export interface ITransaction {
   currency?: string;
   /** Quién asume la comisión de intermediación. */
   feePayer?: FeePayer;
+  /** Tip ConfiAnza en centavos; lo paga siempre el creador. */
+  confiAnzaCents?: number;
+  confiAnzaCurrency?: string;
   /** Hash del token de invitación compartible (nunca en claro). */
   inviteTokenHash?: string;
   inviteExpiresAt?: Date;

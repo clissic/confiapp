@@ -52,6 +52,16 @@ export const createTransactionSchema = z.object({
     .max(100_000_000, 'Monto demasiado alto'),
   currency: appCurrencySchema.default('UYU'),
   feePayer: feePayerSchema,
+  /** Tip opcional ConfiAnza; lo paga siempre quien crea la operación. */
+  confiAnzaAmount: z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? undefined : value),
+    z.coerce
+      .number({ invalid_type_error: 'Ingresá un monto válido' })
+      .min(0, 'El monto no puede ser negativo')
+      .max(100_000_000, 'Monto demasiado alto')
+      .optional(),
+  ),
+  confiAnzaCurrency: appCurrencySchema.default('UYU'),
 });
 
 export type CreateTransactionValues = z.infer<typeof createTransactionSchema>;
@@ -107,6 +117,16 @@ export const createSellerTransactionSchema = z.object({
     .trim()
     .min(10, 'Indicá al Agente cómo devolver tu producto si el comprador lo rechaza')
     .max(5000),
+  /** Tip opcional ConfiAnza; lo paga siempre quien crea la operación. */
+  confiAnzaAmount: z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? undefined : value),
+    z.coerce
+      .number({ invalid_type_error: 'Ingresá un monto válido' })
+      .min(0, 'El monto no puede ser negativo')
+      .max(100_000_000, 'Monto demasiado alto')
+      .optional(),
+  ),
+  confiAnzaCurrency: appCurrencySchema.default('UYU'),
 });
 
 export type CreateSellerTransactionValues = z.infer<

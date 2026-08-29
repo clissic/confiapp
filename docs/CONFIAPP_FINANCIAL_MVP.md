@@ -1,9 +1,10 @@
 # ConfiApp — Especificación Financiera MVP
 
-**Versión:** 1.0  
+**Versión:** 1.1  
 **Estado:** Implementación MVP  
 **Moneda operativa:** UYU  
-**Proveedor de pagos:** Mercado Pago  
+**Proveedor de pagos (objetivo):** Mercado Pago  
+**Cobro comprador (transitorio MVP):** transferencia manual a cuenta Prex de la plataforma + comprobante (`PAYMENTS_CHECKOUT_MODE=manual_prex`). El flujo Checkout Pro / webhooks / OAuth permanece en el código y se reactiva con `PAYMENTS_CHECKOUT_MODE=mercadopago`.  
 **Payouts de Agentes:** Manuales  
 **Período de disponibilidad:** 21 días
 

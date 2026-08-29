@@ -83,6 +83,11 @@ export const createTransactionBodySchema = z
     inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
     productTitle: z.string().trim().min(3).max(200),
     productDescription: z.string().trim().min(10).max(10_000),
+    confiAnzaAmount: z.preprocess(
+      (value) => (value === '' || value === null || value === undefined ? undefined : value),
+      z.coerce.number().min(0).max(100_000_000).optional(),
+    ),
+    confiAnzaCurrency: appCurrencySchema.optional(),
   })
   .merge(agentInstructionsFieldsSchema)
   .merge(meetingLocationFieldsSchema)
@@ -100,6 +105,11 @@ export const createSellerTransactionBodySchema = z
       .min(10, 'Indicá al Agente cómo devolver tu producto si el comprador lo rechaza')
       .max(5000),
     product: productPayloadSchema,
+    confiAnzaAmount: z.preprocess(
+      (value) => (value === '' || value === null || value === undefined ? undefined : value),
+      z.coerce.number().min(0).max(100_000_000).optional(),
+    ),
+    confiAnzaCurrency: appCurrencySchema.optional(),
   })
   .merge(agentInstructionsFieldsSchema.omit({ productTitle: true, productDescription: true }))
   .merge(meetingLocationFieldsSchema)

@@ -265,7 +265,8 @@ Autorización al join: el socket debe probar membresía en la operación.
 - **Registro / login** email+password (bcrypt/argon2).
 - **JWT access** corto (5–15 min) + **refresh** rotativo en cookie httpOnly Secure SameSite.
 - Opcional fase 2: OAuth (Google/Apple), WebAuthn.
-- **KYC** asíncrono (provider externo) → estados `UNVERIFIED | PENDING | VERIFIED | REJECTED` en usuario; gates en fondeo/retiro.
+- **KYC** asíncrono (provider externo / review admin) → estados `UNVERIFIED | PENDING | VERIFIED | REJECTED` en usuario; gates en fondeo/retiro.
+- **Step-up Identidad Digital Abitab (previsto, no implementado):** solo **Agentes**, en **cada login**, además de email/password (authorization code). No sustituye KYC de alta. Detalle y decisiones: [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md). Doc proveedor: [primeros pasos](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/first-steps).
 
 ### 7.2 Autorización
 

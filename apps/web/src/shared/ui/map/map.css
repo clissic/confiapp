@@ -1,0 +1,40 @@
+/* Controles / atribuciones de Leaflet alineados al tema de la app */
+
+.leaflet-container {
+  background: var(--surface-base, #f4f6f8);
+}
+
+[data-theme='dark'] .leaflet-container {
+  background: color-mix(in srgb, var(--surface-elevated, #152033) 92%, #0e0e0e);
+}
+
+.leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--surface-elevated, #fff) 92%, transparent);
+  color: var(--text-muted, #5b677a);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  border-radius: 6px 0 0 0;
+  padding: 2px 6px;
+  margin: 0;
+  box-shadow: none;
+  border: 0;
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: var(--brand-secondary, #55c5b5);
+  text-decoration: none;
+}
+
+.leaflet-container .leaflet-control-attribution a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+[data-theme='dark'] .leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--surface-elevated, #152033) 88%, transparent);
+  color: color-mix(in srgb, var(--text-muted, #9aa6b8) 85%, transparent);
+}
+
+[data-theme='dark'] .leaflet-container .leaflet-control-attribution a {
+  color: var(--brand-secondary, #55c5b5);
+}

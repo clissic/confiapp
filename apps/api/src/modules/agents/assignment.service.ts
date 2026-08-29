@@ -14,6 +14,10 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../../shared/err
 import { realtimeServer } from '../../infrastructure/realtime/socket-realtime.server';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
+import {
+  isEscrowVisibleToAgents,
+  loadManualPrexEscrowGate,
+} from '../payments/manual-prex-gate';
 
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { AgentSearchRepository, type AgentSearchHit } from './search.repository';
@@ -91,6 +95,13 @@ export class AgentAssignmentService {
       tx.status === TransactionStatus.COMPLETED
     ) {
       throw new ValidationError('La operación no admite asignación de agente');
+    }
+
+    const escrowGate = await loadManualPrexEscrowGate(String(tx._id));
+    if (!isEscrowVisibleToAgents(escrowGate)) {
+      throw new ValidationError(
+        'No se puede ofrecer agente: el pago Prex está pendiente de confirmación admin',
+      );
     }
 
     const hasIntermediary = tx.participants.some(

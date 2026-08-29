@@ -41,6 +41,9 @@ export interface CreateTransactionDto {
   meetingLocation?: MeetingLocationDto;
   productTitle?: string;
   productDescription?: string;
+  /** Tip ConfiAnza (unidades mayores); lo paga el creador. */
+  confiAnzaAmount?: number;
+  confiAnzaCurrency?: string;
 }
 
 export interface CreateSellerTransactionDto {
@@ -53,6 +56,8 @@ export interface CreateSellerTransactionDto {
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocationDto;
   returnInstructions: string;
+  confiAnzaAmount?: number;
+  confiAnzaCurrency?: string;
   product: {
     title: string;
     description: string;
@@ -144,6 +149,9 @@ export interface TransactionDto {
   currency?: string;
   /** Quién asume la comisión de intermediación. */
   feePayer?: FeePayer;
+  /** Tip ConfiAnza en centavos; lo paga siempre el creador. */
+  confiAnzaCents?: number;
+  confiAnzaCurrency?: string;
   /** @deprecated Usar party.*.meetingLocation */
   meetingLocation?: MeetingLocationDto;
   party?: {

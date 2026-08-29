@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { Search } from 'lucide-react';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -10,6 +10,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
 
 import type { ProfileAddress, UserProfile } from '@/features/profile/model/types';
+import { ThemeAwareTileLayer } from '@/shared/ui/map/ThemeAwareTileLayer';
 
 import type { DeliveryLocationValue, MeetingLocationMode } from '../model/types';
 
@@ -157,6 +158,8 @@ export function DeliveryLocationPicker({
   const markerLat = coords?.[1] ?? MONTEVIDEO[0];
   const markerLng = coords?.[0] ?? MONTEVIDEO[1];
   const mapEnabled = mode === 'MAP' && !disabled;
+  const showMapTools =
+    mode === 'MAP' || mode === 'CHAT' || (mode === 'HOME' && hasHome);
 
   const focusMapOn = (lat: number, lng: number, zoom = 15) => {
     setMapFocus((prev) => ({
@@ -350,7 +353,7 @@ export function DeliveryLocationPicker({
         </p>
       ) : null}
 
-      {mode === 'MAP' ? (
+      {mode === 'MAP' || mode === 'CHAT' ? (
         <Form.Group controlId="delivery-address">
           <Form.Label>Dirección</Form.Label>
           <div className="ca-tx-delivery__search">
@@ -387,14 +390,15 @@ export function DeliveryLocationPicker({
         </Form.Group>
       ) : null}
 
-      {(mode === 'MAP' || (mode === 'HOME' && hasHome)) && (
+      {showMapTools ? (
         <div
           className={[
             'ca-tx-delivery__map',
-            mode !== 'MAP' || disabled ? 'is-disabled' : '',
+            !mapEnabled ? 'is-disabled' : '',
           ]
             .filter(Boolean)
             .join(' ')}
+          aria-disabled={!mapEnabled}
         >
           <MapContainer
             center={MONTEVIDEO}
@@ -407,10 +411,7 @@ export function DeliveryLocationPicker({
             touchZoom={mapEnabled}
             className="ca-tx-delivery__leaflet"
           >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+            <ThemeAwareTileLayer />
             <MapViewController focus={mapFocus} />
             <MapClickHandler
               enabled={mapEnabled}
@@ -435,7 +436,7 @@ export function DeliveryLocationPicker({
             ) : null}
           </MapContainer>
         </div>
-      )}
+      ) : null}
       {geoError ? <Alert variant="danger">{geoError}</Alert> : null}
     </div>
   );

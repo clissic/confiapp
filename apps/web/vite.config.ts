@@ -7,6 +7,9 @@ const apiProxy: ProxyOptions = {
   target: 'http://127.0.0.1:3000',
   changeOrigin: true,
   ws: true,
+  // Register/resend pueden demorar si Mongo/SMTP están fríos; no cortar el proxy antes.
+  timeout: 60_000,
+  proxyTimeout: 60_000,
 };
 
 const API_PROXY_PATHS = [

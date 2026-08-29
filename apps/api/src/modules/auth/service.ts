@@ -150,7 +150,16 @@ export class AuthService {
       emailVerificationExpires: new Date(Date.now() + VERIFY_TTL_MS),
     });
 
-    await this.sendVerificationEmail(user.email, verificationToken);
+    // Diferir el SMTP al próximo tick para no retrasar la respuesta HTTP
+    // (buildBrandedEmail lee disco de forma sync antes del primer await).
+    setImmediate(() => {
+      void this.sendVerificationEmail(user.email, verificationToken).catch((error) => {
+        logger.error('auth.register_email_failed', {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    });
 
     auditService.track({
       actor: String(user._id),
@@ -509,7 +518,14 @@ export class AuthService {
     user.emailVerificationTokenHash = hashToken(token);
     user.emailVerificationExpires = new Date(Date.now() + VERIFY_TTL_MS);
     await this.repository.saveUser(user);
-    await this.sendVerificationEmail(user.email, token);
+    setImmediate(() => {
+      void this.sendVerificationEmail(user.email, token).catch((error) => {
+        logger.error('auth.resend_email_failed', {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    });
 
     return generic;
   }
