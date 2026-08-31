@@ -7,6 +7,7 @@ import type {
   ConfirmSaleBody,
   CreateSellerTransactionBody,
   CreateTransactionBody,
+  FinalizeVerificationBody,
   ToggleChecklistBody,
 } from './validation';
 
@@ -52,6 +53,37 @@ export class TransactionsController {
       body.done,
       body.side,
     );
+    res.status(200).json(data);
+  };
+
+  finalizeVerification = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const body = req.body as FinalizeVerificationBody;
+    const data = await this.service.finalizeVerification(req.user!.id, code, body.note);
+    res.status(200).json(data);
+  };
+
+  buyerAcceptProduct = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.buyerAcceptProduct(req.user!.id, code);
+    res.status(200).json(data);
+  };
+
+  buyerRejectProduct = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.buyerRejectProduct(req.user!.id, code);
+    res.status(200).json(data);
+  };
+
+  buyerConfirmArrival = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.buyerConfirmArrival(req.user!.id, code);
+    res.status(200).json(data);
+  };
+
+  agentConfirmDelivery = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.agentConfirmDelivery(req.user!.id, code);
     res.status(200).json(data);
   };
 
@@ -111,6 +143,22 @@ export class TransactionsController {
       return;
     }
     const data = await this.service.expireOperationalDeadlines();
+    res.status(200).json(data);
+  };
+
+  autoCompleteStaleDeliveries = async (req: Request, res: Response): Promise<void> => {
+    const provided = String(req.headers['x-job-secret'] ?? '');
+    const expected = env.TRANSACTIONS_JOB_SECRET;
+    const allowed =
+      expected.length > 0
+        ? provided === expected
+        : env.NODE_ENV !== 'production';
+    if (!allowed) {
+      res.status(401).json({ message: 'Unauthorized job' });
+      return;
+    }
+    const limit = Number(req.query.limit) > 0 ? Number(req.query.limit) : 50;
+    const data = await this.service.autoCompleteStaleDeliveries(limit);
     res.status(200).json(data);
   };
 }

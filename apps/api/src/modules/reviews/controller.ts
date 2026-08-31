@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
 
+import { PlatformRole } from '@confiapp/database';
+
 import { reputationService } from './service';
 import type { CreateReviewBody, ReviewsListQuery } from './validation';
 
@@ -13,11 +15,17 @@ export class ReviewsController {
   list = async (req: Request, res: Response): Promise<void> => {
     const query = req.query as unknown as ReviewsListQuery;
     const userId = query.mine ? req.user!.id : query.userId;
+    const isAdmin = req.user?.role === PlatformRole.ADMIN;
     const data = await reputationService.listReviews({
       userId,
       as: query.as,
+      role: query.role,
       transactionCode: query.transactionCode,
       limit: query.limit,
+      page: query.page,
+      flaggedOnly: query.flaggedOnly,
+      /** Admin viendo listado global: incluye moderación / no públicas. */
+      includeNonPublic: Boolean(isAdmin && !query.mine && !query.userId),
     });
     res.status(200).json(data);
   };

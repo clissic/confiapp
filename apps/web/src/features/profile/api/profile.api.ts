@@ -48,4 +48,17 @@ export async function updateMyProfile(
   }
 }
 
+export async function requestIdentityChange(
+  message: string,
+  attachmentDataUrl?: string,
+): Promise<void> {
+  if (!hasAccessToken()) {
+    return;
+  }
+  await apiClient.post('/users/me/identity-change-request', {
+    message,
+    ...(attachmentDataUrl ? { attachmentDataUrl } : {}),
+  });
+}
+
 export { formatMoney } from '@/shared/lib/money';

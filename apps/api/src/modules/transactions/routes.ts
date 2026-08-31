@@ -7,6 +7,7 @@ import {
   confirmSaleBodySchema,
   createSellerTransactionBodySchema,
   createTransactionBodySchema,
+  finalizeVerificationBodySchema,
   inviteTokenParamsSchema,
   toggleChecklistBodySchema,
   transactionChecklistParamsSchema,
@@ -50,6 +51,44 @@ transactionsRoutes.patch(
     body: toggleChecklistBodySchema,
   }),
   asyncHandler(controller.toggleChecklistItem),
+);
+
+transactionsRoutes.post(
+  '/by-code/:code/verification/finalize',
+  authenticate,
+  validateRequest({
+    params: transactionCodeParamsSchema,
+    body: finalizeVerificationBodySchema,
+  }),
+  asyncHandler(controller.finalizeVerification),
+);
+
+transactionsRoutes.post(
+  '/by-code/:code/product/accept',
+  authenticate,
+  validateRequest({ params: transactionCodeParamsSchema }),
+  asyncHandler(controller.buyerAcceptProduct),
+);
+
+transactionsRoutes.post(
+  '/by-code/:code/product/reject',
+  authenticate,
+  validateRequest({ params: transactionCodeParamsSchema }),
+  asyncHandler(controller.buyerRejectProduct),
+);
+
+transactionsRoutes.post(
+  '/by-code/:code/delivery/confirm-arrival',
+  authenticate,
+  validateRequest({ params: transactionCodeParamsSchema }),
+  asyncHandler(controller.buyerConfirmArrival),
+);
+
+transactionsRoutes.post(
+  '/by-code/:code/delivery/confirm-delivery',
+  authenticate,
+  validateRequest({ params: transactionCodeParamsSchema }),
+  asyncHandler(controller.agentConfirmDelivery),
 );
 
 transactionsRoutes.post(
@@ -109,4 +148,9 @@ transactionsRoutes.post(
 transactionsRoutes.post(
   '/jobs/expire-deadlines',
   asyncHandler(controller.expireDeadlines),
+);
+
+transactionsRoutes.post(
+  '/jobs/auto-delivery',
+  asyncHandler(controller.autoCompleteStaleDeliveries),
 );

@@ -63,13 +63,28 @@ async function toDto(
   const activeJobsCount = registered ? await countActiveAgentJobs(userId) : 0;
   const activeJobs = registered ? await listActiveAgentJobs(userId, 10) : [];
 
+  const agentRating = user.roleRatings?.agent;
+  const distribution = agentRating?.distribution ?? {
+    one: 0,
+    two: 0,
+    three: 0,
+    four: 0,
+    five: 0,
+  };
+  const completedDeliveries = user.stats?.asAgentCount ?? 0;
+  const successRate =
+    typeof user.stats?.successRate === 'number' ? user.stats.successRate : 0;
+
   return {
     status: agent.status,
     termsVersion: AGENT_TERMS_VERSION,
     termsText: AGENT_TERMS_TEXT,
     termsAccepted: Boolean(agent.termsAccepted),
     termsAcceptedAt: agent.termsAcceptedAt?.toISOString?.(),
-    timezone: user.schedule?.timezone ?? 'America/Montevideo',
+    timezone:
+      registered || (agent.draftStep ?? 1) >= 3
+        ? (user.schedule?.timezone ?? 'America/Montevideo')
+        : 'America/Montevideo',
     weeklySlots: (user.schedule?.weeklySlots ?? []).map((slot) => ({
       dayOfWeek: slot.dayOfWeek,
       startTime: slot.startTime,
@@ -79,6 +94,8 @@ async function toDto(
     workAreaLabel: agent.workAreaLabel ?? user.location?.label,
     workAreaCity: agent.workAreaCity ?? user.location?.address?.city,
     workAreaCountry: agent.workAreaCountry ?? user.location?.address?.country,
+    workAreaLat: user.location?.point?.coordinates?.[1],
+    workAreaLng: user.location?.point?.coordinates?.[0],
     coverageRadiusKm: agent.coverageRadiusKm ?? user.location?.coverageRadiusKm,
     hourlyRateCents: agent.hourlyRateCents,
     currency: agent.currency ?? 'UYU',
@@ -90,6 +107,19 @@ async function toDto(
     activatedAt: agent.activatedAt?.toISOString?.(),
     activeJobsCount,
     activeJobs,
+    stats: {
+      completedDeliveries,
+      successRate,
+      ratingAverage: agentRating?.average ?? 0,
+      ratingCount: agentRating?.count ?? 0,
+      ratingDistribution: {
+        one: distribution.one ?? 0,
+        two: distribution.two ?? 0,
+        three: distribution.three ?? 0,
+        four: distribution.four ?? 0,
+        five: distribution.five ?? 0,
+      },
+    },
     preview: {
       fullName: user.fullName,
       email: user.email,
@@ -175,6 +205,8 @@ export class AgentsService {
       workAreaLabel: input.workAreaLabel,
       workAreaCity: input.workAreaCity,
       workAreaCountry: input.workAreaCountry,
+      workAreaLat: input.workAreaLat,
+      workAreaLng: input.workAreaLng,
       coverageRadiusKm: input.coverageRadiusKm,
       currency: input.currency ?? 'UYU',
     });

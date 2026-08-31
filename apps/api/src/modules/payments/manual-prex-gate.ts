@@ -24,17 +24,12 @@ export function isManualPrexAdminConfirmed(
   return Boolean(metadata?.adminConfirmedAt);
 }
 
-/** Agentes solo ven trabajos con transferencia Prex revisada y confirmada por admin. */
+/** Agentes solo ven trabajos con transferencia Prex ya verificada por admin. */
 export function isEscrowVisibleToAgents(gate: ManualPrexEscrowGate | null | undefined): boolean {
   if (!gate) return true;
   if (gate.provider !== PaymentProvider.MANUAL_PREX) return true;
-  if (gate.status === PaymentStatus.CAPTURED || gate.status === PaymentStatus.RELEASED) {
-    return true;
-  }
-  if (gate.status === PaymentStatus.REQUIRES_ACTION && gate.hasReceipt) {
-    return false;
-  }
-  return true;
+  // Sin confirmación admin el hold queda REQUIRES_ACTION (u otro estado intermedio).
+  return gate.status === PaymentStatus.CAPTURED || gate.status === PaymentStatus.RELEASED;
 }
 
 export async function loadManualPrexEscrowGate(

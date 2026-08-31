@@ -96,6 +96,19 @@ function demoOpenJobs(filters: OpenJobsFilters): OpenJob[] {
       currency: 'UYU',
       distanceKm: 1.8,
       meeting: { lng: -58.4305, lat: -34.5889, label: 'Palermo Soho' },
+      pickup: {
+        lng: -58.4305,
+        lat: -34.5889,
+        label: 'Palermo Soho · retiro vendedor',
+        hasPoint: true,
+      },
+      delivery: {
+        lng: -58.422,
+        lat: -34.595,
+        label: 'Plaza Serrano · entrega comprador',
+        hasPoint: true,
+      },
+      routeKm: 1.1,
       buyer: { id: 'b1', name: 'Martín R.', ratingAverage: 4.7, ratingCount: 18 },
       seller: { id: 's1', name: 'Lucía V.', ratingAverage: 4.9, ratingCount: 32 },
       initiatedBy: 'BUYER',
@@ -110,6 +123,16 @@ function demoOpenJobs(filters: OpenJobsFilters): OpenJob[] {
       currency: 'UYU',
       distanceKm: 3.2,
       meeting: { lng: -58.458, lat: -34.5627, label: 'Belgrano C' },
+      pickup: {
+        lng: -58.458,
+        lat: -34.5627,
+        label: 'Belgrano C',
+        hasPoint: true,
+      },
+      delivery: {
+        label: 'Coordinar entrega por chat',
+        hasPoint: false,
+      },
       buyer: { id: 'b2', name: 'Ana P.', ratingAverage: 4.2, ratingCount: 7 },
       seller: { id: 's2', name: 'Diego M.', ratingAverage: 4.5, ratingCount: 14 },
       initiatedBy: 'SELLER',
@@ -124,6 +147,19 @@ function demoOpenJobs(filters: OpenJobsFilters): OpenJob[] {
       currency: 'UYU',
       distanceKm: 5.1,
       meeting: { lng: -58.445, lat: -34.62, label: 'Caballito' },
+      pickup: {
+        lng: -58.445,
+        lat: -34.62,
+        label: 'Parque Rivadavia',
+        hasPoint: true,
+      },
+      delivery: {
+        lng: -58.451,
+        lat: -34.615,
+        label: 'Av. Rivadavia 5200',
+        hasPoint: true,
+      },
+      routeKm: 0.8,
       buyer: { id: 'b3', name: 'Sofía L.', ratingAverage: 3.9, ratingCount: 4 },
       seller: { id: 's3', name: 'Nico T.', ratingAverage: 4.1, ratingCount: 9 },
       initiatedBy: 'BUYER',
@@ -176,7 +212,14 @@ export async function listOpenJobs(
     const { data } = await apiClient.get<{ items: OpenJob[] }>('/agents/jobs/open', {
       params: filters,
     });
-    return { items: data.items, source: 'api' };
+    return {
+      items: data.items.map((job) => ({
+        ...job,
+        pickup: job.pickup ?? { hasPoint: false },
+        delivery: job.delivery ?? { hasPoint: false },
+      })),
+      source: 'api',
+    };
   } catch {
     return { items: demoOpenJobs(filters), source: 'demo' };
   }

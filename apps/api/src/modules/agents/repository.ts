@@ -40,6 +40,18 @@ function applyScheduleDraftFields(
   return { availabilityPatch };
 }
 
+function applyWorkAreaPoint(
+  $set: Record<string, unknown>,
+  input: { workAreaLat?: number; workAreaLng?: number },
+) {
+  if (input.workAreaLat === undefined || input.workAreaLng === undefined) return;
+  $set['location.point'] = {
+    type: 'Point',
+    coordinates: [input.workAreaLng, input.workAreaLat],
+  };
+  $set['location.updatedAt'] = new Date();
+}
+
 export class AgentsRepository {
   async findUserById(userId: string): Promise<UserDocument | null> {
     return UserModel.findOne({ _id: userId, deletedAt: null }).exec();
@@ -76,6 +88,7 @@ export class AgentsRepository {
         $set['location.coverageRadiusKm'] = input.coverageRadiusKm;
         $set['location.updatedAt'] = new Date();
       }
+      applyWorkAreaPoint($set, input);
 
       if (Object.keys($set).length === 0) {
         return existing;
@@ -84,7 +97,8 @@ export class AgentsRepository {
       if (
         Object.keys(availabilityPatch).length > 0 ||
         input.workAreaLabel !== undefined ||
-        input.coverageRadiusKm !== undefined
+        input.coverageRadiusKm !== undefined ||
+        input.workAreaLat !== undefined
       ) {
         await AgentAvailabilityModel.findOneAndUpdate(
           { user: userId },
@@ -138,6 +152,7 @@ export class AgentsRepository {
       $set['location.coverageRadiusKm'] = input.coverageRadiusKm;
       $set['location.updatedAt'] = new Date();
     }
+    applyWorkAreaPoint($set, input);
     if (input.hourlyRateCents !== undefined) {
       $set['agent.hourlyRateCents'] = input.hourlyRateCents;
     }
@@ -173,6 +188,8 @@ export class AgentsRepository {
         | 'workAreaLabel'
         | 'workAreaCity'
         | 'workAreaCountry'
+        | 'workAreaLat'
+        | 'workAreaLng'
         | 'coverageRadiusKm'
         | 'currency'
       >
@@ -222,6 +239,10 @@ export class AgentsRepository {
       label: input.workAreaLabel,
       coverageRadiusKm: input.coverageRadiusKm,
       updatedAt: now,
+      point: {
+        type: 'Point',
+        coordinates: [input.workAreaLng, input.workAreaLat],
+      },
       address: {
         ...(user.location?.address ?? {}),
         city: input.workAreaCity,

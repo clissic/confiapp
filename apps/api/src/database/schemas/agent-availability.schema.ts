@@ -46,7 +46,7 @@ export const agentAvailabilitySchema = new Schema<IAgentAvailability>(
       required: true,
       trim: true,
       maxlength: 64,
-      default: 'America/Argentina/Buenos_Aires',
+      default: 'America/Montevideo',
     },
     isAcceptingAssignments: { type: Boolean, default: true },
     maxActiveTransactions: {

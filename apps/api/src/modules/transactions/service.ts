@@ -27,9 +27,17 @@ import { NotificationModel, ProductModel, UserModel } from '../../database/model
 import { env } from '../../shared/config/env';
 import { AppError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { generateOpaqueToken, hashToken } from '../../utils/crypto-tokens';
+import type { ActiveDisputeDto } from '../disputes/dto';
+import { DisputesRepository, mapActiveDisputeDto } from '../disputes/repository';
 import { notificationsService } from '../notifications/service';
 
 import { diffBuyerProposalVsSellerConfirm } from './buyer-proposal-diff';
+import {
+  mapDeliveryConfirmationToDto,
+  deliveryAutoReleaseNotice,
+  resolveTransactionPartyIds,
+  stampFirstDeliveryConfirmationDeadline,
+} from './delivery-deadline';
 import type {
   AcceptPurchaseDto,
   ConfirmSaleProductDto,
@@ -49,6 +57,7 @@ import {
   computeOperationDeadline,
 } from './operation-deadline';
 import { TransactionsRepository, type TransactionDocument } from './repository';
+import { assertTransition } from './state-machine';
 import type {
   AcceptPurchaseBody,
   ConfirmSaleBody,
@@ -326,6 +335,7 @@ function toDto(
     shareUrl?: string;
     product?: TransactionProductDto;
     viewerUserId?: string;
+    activeDispute?: ActiveDisputeDto;
   },
 ): TransactionDto {
   const expiresAt = tx.inviteExpiresAt;
@@ -399,6 +409,22 @@ function toDto(
     },
     returnInstructions,
     viewerRole: viewerRole ?? undefined,
+    agentVerification: tx.agentVerification?.completedAt
+      ? {
+          allPassed: Boolean(tx.agentVerification.allPassed),
+          completedAt: tx.agentVerification.completedAt.toISOString(),
+          ...(tx.agentVerification.note?.trim()
+            ? { note: tx.agentVerification.note.trim() }
+            : {}),
+          ...(tx.agentVerification.buyerDecision
+            ? {
+                buyerDecision: tx.agentVerification.buyerDecision,
+                buyerDecidedAt: tx.agentVerification.buyerDecidedAt?.toISOString(),
+              }
+            : {}),
+        }
+      : undefined,
+    deliveryConfirmation: mapDeliveryConfirmationToDto(tx.deliveryConfirmation),
     productId: tx.product ? String(tx.product) : undefined,
     product: options?.product,
     participants: tx.participants.map((p) => ({
@@ -424,6 +450,7 @@ function toDto(
       from: c.from,
       to: c.to,
     })),
+    activeDispute: options?.activeDispute,
     createdAt: tx.createdAt.toISOString(),
     updatedAt: tx.updatedAt.toISOString(),
   };
@@ -703,9 +730,36 @@ export class TransactionsService {
     if (!isParticipant(tx, userId)) {
       throw new ForbiddenError('No tenés acceso a esta operación');
     }
+
+    // Heal: si ya hay Agente aceptado y el status quedó en FUNDED, pasar a en curso.
+    const hasAcceptedAgent = tx.participants.some(
+      (p) =>
+        p.role === ParticipantRole.INTERMEDIARY &&
+        p.status === ParticipantStatus.ACCEPTED,
+    );
+    if (hasAcceptedAgent && tx.status === TransactionStatus.FUNDED) {
+      assertTransition(tx.status, TransactionStatus.IN_PROGRESS);
+      const now = new Date();
+      tx.status = TransactionStatus.IN_PROGRESS;
+      tx.statusHistory.push({
+        status: TransactionStatus.IN_PROGRESS,
+        changedAt: now,
+        changedBy: new Types.ObjectId(userId),
+        note: 'Operación en curso: agente asignado tras el pago protegido',
+      });
+      await tx.save();
+    }
+
+    let activeDispute: ActiveDisputeDto | undefined;
+    if (tx.status === TransactionStatus.DISPUTED) {
+      const dispute = await new DisputesRepository().findActiveByTransaction(String(tx._id));
+      activeDispute = dispute ? mapActiveDisputeDto(dispute) : undefined;
+    }
+
     return toDto(tx, {
       product: await loadProductDto(tx.product),
       viewerUserId: userId,
+      activeDispute,
     });
   }
 
@@ -743,6 +797,10 @@ export class TransactionsService {
           : 'No se puede actualizar el checklist en el estado actual de la operación.',
         { status: tx.status },
       );
+    }
+
+    if (tx.agentVerification?.completedAt) {
+      throw new ValidationError('La verificación ya fue finalizada; el checklist quedó cerrado.');
     }
 
     assertNotPastDeadline(tx);
@@ -860,6 +918,517 @@ export class TransactionsService {
 
     return toDto(tx, {
       product: await loadProductDto(tx.product),
+      viewerUserId: userId,
+    });
+  }
+
+  /**
+   * Cierra la verificación del Agente y notifica al comprador
+   * según si todos los ítems del checklist quedaron marcados.
+   */
+  async finalizeVerification(
+    userId: string,
+    code: string,
+    note?: string,
+  ): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+
+    const isAgent = tx.participants.some(
+      (p) =>
+        String(p.user) === userId &&
+        p.role === ParticipantRole.INTERMEDIARY &&
+        p.status === ParticipantStatus.ACCEPTED,
+    );
+    if (!isAgent) {
+      throw new ForbiddenError('Solo el Agente asignado puede finalizar la verificación');
+    }
+
+    if (
+      tx.status !== TransactionStatus.FUNDED &&
+      tx.status !== TransactionStatus.IN_PROGRESS
+    ) {
+      throw new ValidationError(
+        'Solo se puede finalizar la verificación con la operación en curso o con pago protegido.',
+        { status: tx.status },
+      );
+    }
+
+    if (tx.agentVerification?.completedAt) {
+      throw new ValidationError('La verificación ya fue finalizada.');
+    }
+
+    assertNotPastDeadline(tx);
+
+    // Si el agente ya opera y el status quedó en FUNDED (legacy), avanzar a en curso.
+    if (tx.status === TransactionStatus.FUNDED) {
+      assertTransition(tx.status, TransactionStatus.IN_PROGRESS);
+      tx.status = TransactionStatus.IN_PROGRESS;
+      tx.statusHistory.push({
+        status: TransactionStatus.IN_PROGRESS,
+        changedAt: new Date(),
+        changedBy: new Types.ObjectId(userId),
+        note: 'Operación en curso: agente en verificación del producto',
+      });
+    }
+
+    const sides = resolvePartySides(tx);
+    const items = [
+      ...normalizeChecklist(sides.buyer?.checklist),
+      ...normalizeChecklist(sides.seller?.checklist),
+      ...(sides.buyer || sides.seller
+        ? []
+        : normalizeChecklist(tx.conditions?.checklist)),
+    ];
+    if (!items.length) {
+      throw new ValidationError('No hay checklist para verificar en esta operación.');
+    }
+
+    const allPassed = items.every((item) => item.done);
+    const trimmedNote = note?.trim() ? note.trim().slice(0, 2000) : undefined;
+    const now = new Date();
+    tx.agentVerification = {
+      allPassed,
+      completedAt: now,
+      completedBy: new Types.ObjectId(userId),
+      ...(trimmedNote ? { note: trimmedNote } : {}),
+    };
+    tx.statusHistory.push({
+      status: tx.status,
+      changedAt: now,
+      changedBy: new Types.ObjectId(userId),
+      note: allPassed
+        ? 'Agente finalizó la verificación: todos los pasos correctos'
+        : 'Agente finalizó la verificación: faltan pasos o no todos fueron aprobados',
+    });
+    await tx.save();
+
+    const initiatedBy = getInitiatedBy(tx);
+    const buyerId =
+      initiatedBy === TransactionInitiator.BUYER
+        ? String(tx.createdBy)
+        : String(
+            tx.participants.find((p) => p.role === ParticipantRole.COUNTERPARTY)?.user ?? '',
+          );
+
+    if (buyerId) {
+      await notificationsService.notify({
+        userId: buyerId,
+        type: NotificationType.TRANSACTION_UPDATE,
+        title: allPassed
+          ? 'Verificación completada correctamente'
+          : 'Verificación con observaciones',
+        body: allPassed
+          ? `El Agente confirmó que la verificación de ${tx.code} fue correcta. Revisá la operación para aceptar el producto o rechazarlo y cancelar la compra.`
+          : `El Agente indicó que la verificación de ${tx.code} no completó todos los pasos. Revisá la operación para aceptar el producto o rechazarlo y cancelar la compra.`,
+        data: {
+          href: `/operaciones/${tx.code}`,
+          code: tx.code,
+          status: tx.status,
+          allPassed,
+          step: 'agent_verification_finalized',
+          hasNote: Boolean(trimmedNote),
+        },
+        entityType: 'Transaction',
+        entityId: String(tx._id),
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      });
+    }
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      actorRole: ParticipantRole.INTERMEDIARY,
+      action: AuditAction.UPDATE,
+      entityType: 'Transaction',
+      entityId: String(tx._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        code: tx.code,
+        step: 'agent_finalize_verification',
+        allPassed,
+        checklistCount: items.length,
+        hasNote: Boolean(trimmedNote),
+      },
+    });
+
+    const { realtimeServer } = await import(
+      '../../infrastructure/realtime/socket-realtime.server'
+    );
+    realtimeServer.publish(`transaction:${String(tx._id)}`, 'agent:verification', {
+      agentId: userId,
+      transactionCode: tx.code,
+      allPassed,
+      hasNote: Boolean(trimmedNote),
+    });
+
+    return toDto(tx, {
+      product: await loadProductDto(tx.product),
+      viewerUserId: userId,
+    });
+  }
+
+  /**
+   * Comprador acepta el producto tras la verificación del Agente (retiro).
+   * No libera fondos: el Agente inicia el viaje hacia el comprador.
+   */
+  async buyerAcceptProduct(userId: string, code: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+    if (resolveViewerRole(tx, userId) !== 'BUYER') {
+      throw new ForbiddenError('Solo el comprador puede aceptar el producto');
+    }
+    if (!tx.agentVerification?.completedAt) {
+      throw new ValidationError(
+        'Todavía no hay una verificación del Agente para decidir sobre el producto.',
+      );
+    }
+    if (tx.agentVerification.buyerDecision) {
+      throw new ValidationError('Ya registraste tu decisión sobre este producto.');
+    }
+    if (
+      tx.status !== TransactionStatus.FUNDED &&
+      tx.status !== TransactionStatus.IN_PROGRESS
+    ) {
+      throw new ValidationError(
+        'Solo podés aceptar el producto con la operación en curso o con pago protegido.',
+        { status: tx.status },
+      );
+    }
+    assertNotPastDeadline(tx);
+
+    const now = new Date();
+    if (tx.status === TransactionStatus.FUNDED) {
+      assertTransition(tx.status, TransactionStatus.IN_PROGRESS);
+      tx.status = TransactionStatus.IN_PROGRESS;
+      tx.statusHistory.push({
+        status: TransactionStatus.IN_PROGRESS,
+        changedAt: now,
+        changedBy: new Types.ObjectId(userId),
+        note: 'Operación en curso tras la aceptación del comprador',
+      });
+    }
+
+    tx.agentVerification.buyerDecision = 'ACCEPTED';
+    tx.agentVerification.buyerDecidedAt = now;
+    tx.agentVerification.buyerDecidedBy = new Types.ObjectId(userId);
+    tx.statusHistory.push({
+      status: tx.status,
+      changedAt: now,
+      changedBy: new Types.ObjectId(userId),
+      note: 'Comprador aceptó el producto tras la verificación; el Agente inicia la entrega',
+    });
+    await tx.save();
+
+    const agentId = String(
+      tx.participants.find(
+        (p) =>
+          p.role === ParticipantRole.INTERMEDIARY &&
+          p.status === ParticipantStatus.ACCEPTED,
+      )?.user ?? '',
+    );
+    if (agentId) {
+      await notificationsService.notify({
+        userId: agentId,
+        type: NotificationType.TRANSACTION_UPDATE,
+        title: 'El comprador aceptó el producto',
+        body: `Podés llevar el producto de ${tx.code} al punto de entrega del comprador.`,
+        data: {
+          href: `/operaciones/${tx.code}`,
+          code: tx.code,
+          status: tx.status,
+          step: 'buyer_accepted_product',
+        },
+        entityType: 'Transaction',
+        entityId: String(tx._id),
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      });
+    }
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      actorRole: ParticipantRole.COUNTERPARTY,
+      action: AuditAction.UPDATE,
+      entityType: 'Transaction',
+      entityId: String(tx._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        code: tx.code,
+        step: 'buyer_accept_product',
+        allPassed: tx.agentVerification.allPassed,
+      },
+    });
+
+    return toDto(tx, {
+      product: await loadProductDto(tx.product),
+      viewerUserId: userId,
+    });
+  }
+
+  /**
+   * Comprador confirma que el producto llegó (punto de entrega).
+   * Si el Agente ya confirmó la entrega, se liberan los fondos.
+   */
+  async buyerConfirmArrival(userId: string, code: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+    if (resolveViewerRole(tx, userId) !== 'BUYER') {
+      throw new ForbiddenError('Solo el comprador puede confirmar el arribo');
+    }
+    if (tx.agentVerification?.buyerDecision !== 'ACCEPTED') {
+      throw new ValidationError(
+        'Primero tenés que aceptar el producto tras la verificación del Agente.',
+      );
+    }
+    if (tx.status !== TransactionStatus.IN_PROGRESS && tx.status !== TransactionStatus.FUNDED) {
+      throw new ValidationError('La operación no está en curso para confirmar el arribo.', {
+        status: tx.status,
+      });
+    }
+    if (tx.deliveryConfirmation?.buyerArrivalConfirmedAt) {
+      throw new ValidationError('Ya confirmaste el arribo del producto.');
+    }
+    assertNotPastDeadline(tx);
+
+    const now = new Date();
+    if (tx.status === TransactionStatus.FUNDED) {
+      assertTransition(tx.status, TransactionStatus.IN_PROGRESS);
+      tx.status = TransactionStatus.IN_PROGRESS;
+    }
+    tx.deliveryConfirmation = stampFirstDeliveryConfirmationDeadline(
+      {
+        ...(tx.deliveryConfirmation ?? {}),
+        buyerArrivalConfirmedAt: now,
+        buyerArrivalConfirmedBy: new Types.ObjectId(userId),
+      },
+      now,
+    );
+    tx.statusHistory.push({
+      status: tx.status,
+      changedAt: now,
+      changedBy: new Types.ObjectId(userId),
+      note: 'Comprador confirmó el arribo del producto',
+    });
+    await tx.save();
+
+    const agentAlready = Boolean(tx.deliveryConfirmation.agentDeliveryConfirmedAt);
+    if (agentAlready) {
+      const { PaymentsService } = await import('../payments/service');
+      await new PaymentsService().releaseEscrow(userId, code);
+    } else {
+      const agentId = String(
+        tx.participants.find(
+          (p) =>
+            p.role === ParticipantRole.INTERMEDIARY &&
+            p.status === ParticipantStatus.ACCEPTED,
+        )?.user ?? '',
+      );
+      if (agentId) {
+        await notificationsService.notify({
+          userId: agentId,
+          type: NotificationType.TRANSACTION_UPDATE,
+          title: 'El comprador confirmó el arribo',
+          body: `Confirmá la entrega de ${tx.code} para completar la operación.`,
+          data: {
+            href: `/operaciones/${tx.code}`,
+            code: tx.code,
+            status: tx.status,
+            step: 'buyer_confirmed_arrival',
+          },
+          entityType: 'Transaction',
+          entityId: String(tx._id),
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        });
+      }
+    }
+
+    const refreshed = await this.repository.findByCode(code);
+    if (!refreshed) throw new NotFoundError('Operación no encontrada');
+    return toDto(refreshed, {
+      product: await loadProductDto(refreshed.product),
+      viewerUserId: userId,
+    });
+  }
+
+  /**
+   * Agente confirma la entrega al comprador.
+   * Si el comprador ya confirmó el arribo, se liberan los fondos.
+   */
+  async agentConfirmDelivery(userId: string, code: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+
+    const isAgent = tx.participants.some(
+      (p) =>
+        String(p.user) === userId &&
+        p.role === ParticipantRole.INTERMEDIARY &&
+        p.status === ParticipantStatus.ACCEPTED,
+    );
+    if (!isAgent) {
+      throw new ForbiddenError('Solo el Agente asignado puede confirmar la entrega');
+    }
+    if (tx.agentVerification?.buyerDecision !== 'ACCEPTED') {
+      throw new ValidationError(
+        'El comprador todavía no aceptó el producto tras la verificación.',
+      );
+    }
+    if (tx.status !== TransactionStatus.IN_PROGRESS && tx.status !== TransactionStatus.FUNDED) {
+      throw new ValidationError('La operación no está en curso para confirmar la entrega.', {
+        status: tx.status,
+      });
+    }
+    if (tx.deliveryConfirmation?.agentDeliveryConfirmedAt) {
+      throw new ValidationError('Ya confirmaste la entrega del producto.');
+    }
+    assertNotPastDeadline(tx);
+
+    const now = new Date();
+    if (tx.status === TransactionStatus.FUNDED) {
+      assertTransition(tx.status, TransactionStatus.IN_PROGRESS);
+      tx.status = TransactionStatus.IN_PROGRESS;
+    }
+    tx.deliveryConfirmation = stampFirstDeliveryConfirmationDeadline(
+      {
+        ...(tx.deliveryConfirmation ?? {}),
+        agentDeliveryConfirmedAt: now,
+        agentDeliveryConfirmedBy: new Types.ObjectId(userId),
+      },
+      now,
+    );
+    tx.statusHistory.push({
+      status: tx.status,
+      changedAt: now,
+      changedBy: new Types.ObjectId(userId),
+      note: 'Agente confirmó la entrega del producto al comprador',
+    });
+    await tx.save();
+
+    const buyerAlready = Boolean(tx.deliveryConfirmation.buyerArrivalConfirmedAt);
+    const initiatedBy = getInitiatedBy(tx);
+    const buyerId =
+      initiatedBy === TransactionInitiator.BUYER
+        ? String(tx.createdBy)
+        : String(
+            tx.participants.find((p) => p.role === ParticipantRole.COUNTERPARTY)?.user ?? '',
+          );
+
+    if (buyerAlready) {
+      const { PaymentsService } = await import('../payments/service');
+      await new PaymentsService().releaseEscrow(userId, code);
+    } else if (buyerId) {
+      const autoReleaseAt = tx.deliveryConfirmation?.autoReleaseAt;
+      await notificationsService.notify({
+        userId: buyerId,
+        type: NotificationType.TRANSACTION_UPDATE,
+        title: 'El Agente confirmó la entrega',
+        body: [
+          `Confirmá el arribo del producto en ${tx.code} para completar la operación.`,
+          deliveryAutoReleaseNotice(autoReleaseAt),
+        ].join('\n\n'),
+        data: {
+          href: `/operaciones/${tx.code}`,
+          code: tx.code,
+          status: tx.status,
+          step: 'agent_confirmed_delivery',
+          ...(autoReleaseAt ? { autoReleaseAt: autoReleaseAt.toISOString() } : {}),
+        },
+        entityType: 'Transaction',
+        entityId: String(tx._id),
+        channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+      });
+    }
+
+    const refreshed = await this.repository.findByCode(code);
+    if (!refreshed) throw new NotFoundError('Operación no encontrada');
+    return toDto(refreshed, {
+      product: await loadProductDto(refreshed.product),
+      viewerUserId: userId,
+    });
+  }
+
+  /**
+   * Comprador rechaza el producto tras la verificación → reembolso + cancelación.
+   */
+  async buyerRejectProduct(userId: string, code: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+    if (resolveViewerRole(tx, userId) !== 'BUYER') {
+      throw new ForbiddenError('Solo el comprador puede rechazar el producto');
+    }
+    if (!tx.agentVerification?.completedAt) {
+      throw new ValidationError(
+        'Todavía no hay una verificación del Agente para decidir sobre el producto.',
+      );
+    }
+    if (tx.agentVerification.buyerDecision) {
+      throw new ValidationError('Ya registraste tu decisión sobre este producto.');
+    }
+    if (
+      tx.status !== TransactionStatus.FUNDED &&
+      tx.status !== TransactionStatus.IN_PROGRESS
+    ) {
+      throw new ValidationError(
+        'Solo podés rechazar el producto con la operación en curso o con pago protegido.',
+        { status: tx.status },
+      );
+    }
+    assertNotPastDeadline(tx);
+
+    const { PaymentsService } = await import('../payments/service');
+    await new PaymentsService().refundEscrowAndCancel(
+      userId,
+      code,
+      'Comprador rechazó el producto y canceló la compra',
+    );
+
+    const refreshed = await this.repository.findByCode(code);
+    if (!refreshed) throw new NotFoundError('Operación no encontrada');
+    if (!refreshed.agentVerification) {
+      throw new ValidationError('Estado de verificación inconsistente.');
+    }
+
+    const now = new Date();
+    refreshed.agentVerification.buyerDecision = 'REJECTED';
+    refreshed.agentVerification.buyerDecidedAt = now;
+    refreshed.agentVerification.buyerDecidedBy = new Types.ObjectId(userId);
+    await refreshed.save();
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      actorRole: ParticipantRole.COUNTERPARTY,
+      action: AuditAction.UPDATE,
+      entityType: 'Transaction',
+      entityId: String(refreshed._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: refreshed.code,
+      metadata: {
+        code: refreshed.code,
+        step: 'buyer_reject_product',
+        allPassed: refreshed.agentVerification.allPassed,
+      },
+    });
+
+    return toDto(refreshed, {
+      product: await loadProductDto(refreshed.product),
       viewerUserId: userId,
     });
   }
@@ -1379,6 +1948,119 @@ export class TransactionsService {
       product: await loadProductDto(updated.product),
       viewerUserId: userId,
     });
+  }
+
+  /** Job: recordatorio ~48h y auto-liberación tras 72h con una sola confirmación. */
+  async autoCompleteStaleDeliveries(limit = 50): Promise<{
+    autoReleased: number;
+    reminded: number;
+    codes: string[];
+  }> {
+    const codes: string[] = [];
+    let reminded = 0;
+
+    const reminderCandidates = await this.repository.findDeliveryReminderCandidates(limit);
+    for (const tx of reminderCandidates) {
+      try {
+        const buyerDone = Boolean(tx.deliveryConfirmation?.buyerArrivalConfirmedAt);
+        const agentDone = Boolean(tx.deliveryConfirmation?.agentDeliveryConfirmedAt);
+        const parties = resolveTransactionPartyIds(tx);
+        const pendingUserId = !buyerDone
+          ? parties.buyerId
+          : !agentDone
+            ? parties.agentId
+            : undefined;
+        const autoReleaseAt = tx.deliveryConfirmation?.autoReleaseAt;
+        if (!pendingUserId || !autoReleaseAt) continue;
+
+        tx.deliveryConfirmation = {
+          ...(tx.deliveryConfirmation ?? {}),
+          reminder48hSentAt: new Date(),
+        };
+        await tx.save();
+
+        await notificationsService.notify({
+          userId: pendingUserId,
+          type: NotificationType.TRANSACTION_UPDATE,
+          title: 'Falta tu confirmación de entrega',
+          body: [
+            `Quedan menos de 24 horas para confirmar ${tx.code}.`,
+            deliveryAutoReleaseNotice(autoReleaseAt),
+          ].join('\n\n'),
+          data: {
+            href: `/operaciones/${tx.code}`,
+            code: tx.code,
+            status: tx.status,
+            step: 'delivery_reminder_48h',
+            autoReleaseAt: autoReleaseAt.toISOString(),
+          },
+          entityType: 'Transaction',
+          entityId: String(tx._id),
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        });
+        reminded += 1;
+      } catch {
+        // Continuar con las demás.
+      }
+    }
+
+    const stale = await this.repository.findStaleDeliveryAutoRelease(limit);
+    for (const tx of stale) {
+      try {
+        const buyerDone = Boolean(tx.deliveryConfirmation?.buyerArrivalConfirmedAt);
+        const agentDone = Boolean(tx.deliveryConfirmation?.agentDeliveryConfirmedAt);
+        if (buyerDone === agentDone) continue;
+
+        const now = new Date();
+        const systemActor = new Types.ObjectId(String(tx.createdBy));
+
+        if (!buyerDone && agentDone) {
+          tx.deliveryConfirmation = {
+            ...(tx.deliveryConfirmation ?? {}),
+            buyerArrivalConfirmedAt: now,
+            buyerArrivalAuto: true,
+          };
+          tx.statusHistory.push({
+            status: tx.status,
+            changedAt: now,
+            changedBy: systemActor,
+            note: 'Confirmación automática tras 72h sin respuesta del comprador',
+          });
+        } else {
+          tx.deliveryConfirmation = {
+            ...(tx.deliveryConfirmation ?? {}),
+            agentDeliveryConfirmedAt: now,
+            agentDeliveryAuto: true,
+          };
+          tx.statusHistory.push({
+            status: tx.status,
+            changedAt: now,
+            changedBy: systemActor,
+            note: 'Confirmación automática tras 72h sin respuesta del Agente',
+          });
+        }
+
+        if (tx.status === TransactionStatus.FUNDED) {
+          tx.status = TransactionStatus.IN_PROGRESS;
+        }
+        await tx.save();
+
+        const actorId =
+          buyerDone && tx.deliveryConfirmation?.buyerArrivalConfirmedBy
+            ? String(tx.deliveryConfirmation.buyerArrivalConfirmedBy)
+            : agentDone && tx.deliveryConfirmation?.agentDeliveryConfirmedBy
+              ? String(tx.deliveryConfirmation.agentDeliveryConfirmedBy)
+              : String(tx.createdBy);
+
+        const { PaymentsService } = await import('../payments/service');
+        await new PaymentsService().releaseEscrow(actorId, tx.code);
+        codes.push(tx.code);
+      } catch {
+        // Race o transición inválida; continuar.
+      }
+    }
+
+    return { autoReleased: codes.length, reminded, codes };
   }
 
   /** Job: cancela operaciones cuyo operationDeadlineAt ya venció. */

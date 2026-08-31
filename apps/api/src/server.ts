@@ -50,6 +50,13 @@ async function bootstrap(): Promise<void> {
   }, 60 * 60_000);
   deadlineTimer.unref();
 
+  const autoDeliveryTimer = setInterval(() => {
+    void transactionsService.autoCompleteStaleDeliveries().catch((error) => {
+      logger.error('auto complete stale deliveries failed', error);
+    });
+  }, 15 * 60_000);
+  autoDeliveryTimer.unref();
+
   const { agentCommissionService } = await import('./modules/finance/commission.service');
   const commissionTimer = setInterval(() => {
     void agentCommissionService.releaseDue().catch((error) => {
@@ -62,6 +69,7 @@ async function bootstrap(): Promise<void> {
     logger.info(`${signal} received — graceful shutdown`);
     clearInterval(expireTimer);
     clearInterval(deadlineTimer);
+    clearInterval(autoDeliveryTimer);
     clearInterval(commissionTimer);
 
     void (async () => {

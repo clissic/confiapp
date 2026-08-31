@@ -40,8 +40,23 @@ Mantener estilos consistentes entre pasos y pantallas. No mezclar `ca-btn-primar
 <Button type="submit" className="ca-btn-cta">Continuar</Button>
 ```
 
+## Acordeones de filtros
+
+- **Aplicar** y **Limpiar** deben tener el **mismo tamaño** (alto, padding, tipografía, radio); solo cambia el color/variant.
+- Aplicar: `ca-btn-cta` (o primary según pantalla). Limpiar: `outline-secondary`.
+- No dejar que `ca-btn-cta` (min-height global) agrande solo uno: igualar con CSS del contenedor de acciones (`.ca-*-filters__actions .btn`).
+
+```tsx
+// ✅ GOOD
+<div className="ca-wallet-filters__actions">
+  <Button type="submit" size="sm" className="ca-btn-cta">Aplicar</Button>
+  <Button type="button" size="sm" variant="outline-secondary">Limpiar</Button>
+</div>
+```
+
 ## No hacer
 
 - Cambiar el estilo del botón “Continuar” entre pasos del mismo flujo.
 - Usar `btn-primary` / `btn-success` de Bootstrap crudo cuando existan `ca-btn-primary` / `ca-btn-cta`.
 - Dejar el botón de avance suelto fuera de `.ca-form-actions` si el resto del flujo ya lo usa.
+

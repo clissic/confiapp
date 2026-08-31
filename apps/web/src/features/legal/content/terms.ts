@@ -1,6 +1,6 @@
 /** Contenido legal de Términos y Condiciones de uso de ConfiApp. */
 
-export const TERMS_LAST_UPDATED = '24 de agosto de 2026';
+export const TERMS_LAST_UPDATED = '30 de agosto de 2026';
 
 export type TermsSection = {
   id: string;
@@ -202,6 +202,9 @@ export const TERMS_SECTIONS: TermsSection[] = [
       'La utilización de un medio de pago o mecanismo tecnológico de procesamiento no convierte a ConfiApp en parte de la compraventa subyacente.',
       'Cuando intervengan procesadores de pago, instituciones financieras u otros terceros, éstos podrán encontrarse sujetos a sus propios términos, condiciones y políticas.',
       'ConfiApp no será responsable por demoras, rechazos, bloqueos o fallas atribuibles a dichos terceros, salvo responsabilidad legalmente imputable a ConfiApp.',
+      'En operaciones con confirmación dual de entrega (comprador y agente), la liberación de fondos retenidos se producirá cuando ambas confirmaciones queden registradas o cuando opere la confirmación automática prevista en estos Términos.',
+      'Desde que una de las partes confirma la entrega o el arribo, el comprador dispone de un plazo de setenta y dos (72) horas para confirmar el arribo del producto o reportar a través de la Plataforma que no lo recibió. Vencido dicho plazo sin acción del comprador, ConfiApp podrá registrar automáticamente la recepción y proceder con la liberación de fondos conforme a las reglas de la operación.',
+      'El comprador reconoce que la confirmación automática produce los mismos efectos operativos que una confirmación manual de arribo, sin perjuicio de los reclamos o disputas que pudieran formularse conforme a estos Términos dentro de los plazos aplicables.',
     ],
   },
   {
@@ -291,6 +294,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
     title: 'Reclamos',
     paragraphs: [
       'Los usuarios deberán comunicar cualquier inconveniente relacionado con una operación a través de los canales habilitados por ConfiApp dentro de las veinticuatro (24) horas siguientes a la entrega, recepción, cancelación o finalización de la operación, según corresponda.',
+      'Si el agente declaró la entrega y el comprador no recibió el producto, el comprador deberá reportarlo mediante la función de disputa de la Plataforma antes de que venza el plazo de setenta y dos (72) horas contado desde la primera confirmación de entrega o arribo, conforme a la sección de Pagos y fondos.',
       'La recepción de un reclamo no implica reconocimiento de responsabilidad por parte de ConfiApp.',
       'ConfiApp podrá solicitar documentación, fotografías, comprobantes, conversaciones y cualquier otra evidencia necesaria para analizar el caso.',
     ],

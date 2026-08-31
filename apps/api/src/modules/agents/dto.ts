@@ -17,6 +17,23 @@ export interface AgentActiveJobDto {
   status: TransactionStatus;
 }
 
+export interface AgentRatingDistributionDto {
+  one: number;
+  two: number;
+  three: number;
+  four: number;
+  five: number;
+}
+
+export interface AgentAgencyStatsDto {
+  /** Operaciones completadas como intermediario. */
+  completedDeliveries: number;
+  successRate: number;
+  ratingAverage: number;
+  ratingCount: number;
+  ratingDistribution: AgentRatingDistributionDto;
+}
+
 export interface AgentOnboardingDto {
   status: AgentOnboardingStatus;
   termsVersion: string;
@@ -29,6 +46,8 @@ export interface AgentOnboardingDto {
   workAreaLabel?: string;
   workAreaCity?: string;
   workAreaCountry?: string;
+  workAreaLat?: number;
+  workAreaLng?: number;
   coverageRadiusKm?: number;
   hourlyRateCents?: number;
   currency: string;
@@ -41,6 +60,7 @@ export interface AgentOnboardingDto {
   /** Operaciones donde el agente sigue como intermediario ACCEPTED. */
   activeJobsCount: number;
   activeJobs: AgentActiveJobDto[];
+  stats: AgentAgencyStatsDto;
   preview: {
     fullName: string;
     email: string;
@@ -56,6 +76,8 @@ export interface SaveAgentOnboardingDto {
   workAreaLabel?: string;
   workAreaCity?: string;
   workAreaCountry?: string;
+  workAreaLat?: number;
+  workAreaLng?: number;
   coverageRadiusKm?: number;
   hourlyRateCents?: number;
   currency?: string;

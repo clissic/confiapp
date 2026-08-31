@@ -27,6 +27,8 @@ export const saveAgentOnboardingBodySchema = z
       .toUpperCase()
       .regex(/^[A-Z]{2}$/, 'country must be ISO 3166-1 alpha-2')
       .optional(),
+    workAreaLat: z.number().min(-90).max(90).optional(),
+    workAreaLng: z.number().min(-180).max(180).optional(),
     coverageRadiusKm: z.number().min(1).max(500).optional(),
     hourlyRateCents: z.number().int().min(100).max(10_000_000).optional(),
     ratesAccepted: z.boolean().optional(),
@@ -60,6 +62,8 @@ export const submitAgentOnboardingBodySchema = z
       .trim()
       .toUpperCase()
       .regex(/^[A-Z]{2}$/, 'country must be ISO 3166-1 alpha-2'),
+    workAreaLat: z.number().min(-90).max(90),
+    workAreaLng: z.number().min(-180).max(180),
     coverageRadiusKm: z.number().min(1).max(500),
     currency: z
       .string()

@@ -5,6 +5,8 @@ import type {
   PendingTargets,
   ReputationDto,
   ReviewItem,
+  ReviewsPage,
+  PartyRole,
 } from '../model/types';
 
 function hasToken(): boolean {
@@ -102,12 +104,60 @@ export async function fetchMyReputation(): Promise<ReputationDto> {
   return data;
 }
 
-export async function fetchMyReviews(): Promise<ReviewItem[]> {
-  if (!hasToken()) return DEMO_REVIEWS;
-  const { data } = await apiClient.get<{ items: ReviewItem[] }>('/reviews', {
-    params: { mine: 'true', as: 'received', limit: 40 },
+export async function fetchMyReviews(
+  opts: { role?: PartyRole; page?: number; limit?: number } = {},
+): Promise<ReviewsPage> {
+  if (!hasToken()) {
+    const role = opts.role;
+    const filtered = role
+      ? DEMO_REVIEWS.filter((r) => r.revieweeRole === role)
+      : DEMO_REVIEWS;
+    const limit = opts.limit ?? 5;
+    const page = opts.page ?? 1;
+    const start = (page - 1) * limit;
+    const items = filtered.slice(start, start + limit);
+    return {
+      items,
+      total: filtered.length,
+      page,
+      limit,
+      totalPages: filtered.length === 0 ? 0 : Math.ceil(filtered.length / limit),
+    };
+  }
+  const { data } = await apiClient.get<ReviewsPage>('/reviews', {
+    params: {
+      mine: 'true',
+      as: 'received',
+      role: opts.role,
+      page: opts.page ?? 1,
+      limit: opts.limit ?? 5,
+    },
   });
-  return data.items;
+  return data;
+}
+
+/** Listado de reseñas (panel admin: peso y señales), paginado. */
+export async function fetchAdminReviews(opts: {
+  page?: number;
+  limit?: number;
+  flaggedOnly?: boolean;
+} = {}): Promise<ReviewsPage> {
+  const page = opts.page ?? 1;
+  const limit = opts.limit ?? 10;
+  const { data } = await apiClient.get<ReviewsPage>('/reviews', {
+    params: {
+      page,
+      limit,
+      flaggedOnly: opts.flaggedOnly ? 'true' : undefined,
+    },
+  });
+  return {
+    items: data.items ?? [],
+    total: data.total ?? 0,
+    page: data.page ?? page,
+    limit: data.limit ?? limit,
+    totalPages: data.totalPages ?? 0,
+  };
 }
 
 export async function fetchPendingTargets(code: string): Promise<PendingTargets> {
@@ -115,6 +165,14 @@ export async function fetchPendingTargets(code: string): Promise<PendingTargets>
     params: { code },
   });
   return data;
+}
+
+export async function fetchTransactionReviewsGiven(code: string): Promise<ReviewItem[]> {
+  if (!hasToken()) return [];
+  const { data } = await apiClient.get<{ items: ReviewItem[] }>('/reviews', {
+    params: { mine: 'true', as: 'given', transactionCode: code, limit: 10 },
+  });
+  return data.items;
 }
 
 export async function createReview(payload: CreateReviewPayload): Promise<ReviewItem> {

@@ -8,9 +8,12 @@
 .ca-admin-kyc--loading {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.55rem;
-  min-height: 140px;
+  min-height: min(52vh, 28rem);
+  width: 100%;
   color: var(--text-muted);
+  text-align: center;
 }
 
 .ca-admin-kyc__alert {
@@ -276,6 +279,37 @@
   width: 100%;
   max-height: 420px;
   object-fit: contain;
+}
+
+.ca-admin-kyc__person-line--address {
+  align-items: flex-start;
+}
+
+.ca-admin-kyc__pdf {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ca-admin-kyc__pdf-object {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  height: 360px;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--surface-base, #0b1220);
+}
+
+.ca-admin-kyc__pdf-fallback {
+  padding: 1rem;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.ca-admin-kyc__pdf-link {
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--text-link, var(--brand-secondary, #55c5b5));
 }
 
 .ca-admin-kyc__reason {

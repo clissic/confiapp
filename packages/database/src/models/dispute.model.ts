@@ -1,7 +1,7 @@
 import { Schema, model, type HydratedDocument, type Model } from 'mongoose';
 
 import type { IDispute } from '../interfaces/dispute.interface';
-import { DisputeStatus } from '../types/enums';
+import { DisputeCategory, DisputeStatus } from '../types/enums';
 
 export type DisputeDocument = HydratedDocument<IDispute>;
 
@@ -33,6 +33,11 @@ const disputeSchema = new Schema<IDispute>(
       enum: Object.values(DisputeStatus),
       default: DisputeStatus.OPEN,
       index: true,
+    },
+    category: {
+      type: String,
+      enum: Object.values(DisputeCategory),
+      required: false,
     },
     reason: { type: String, required: true, trim: true, maxlength: 5000 },
     resolutionNote: { type: String, trim: true, maxlength: 5000 },

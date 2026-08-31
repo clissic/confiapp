@@ -82,8 +82,8 @@ export function AdminPaymentsPage() {
         onSuccess: () => {
           toast.success(
             confirmed
-              ? 'Transferencia confirmada. Los agentes ya pueden ver el trabajo.'
-              : 'Transferencia marcada como no confirmada.',
+              ? 'Transferencia confirmada. La operación quedó en pago protegido y ya está visible para agentes.'
+              : 'Transferencia marcada como no confirmada. Los agentes no la verán hasta que la vuelvas a confirmar.',
           );
         },
         onError: (error) => {

@@ -1,8 +1,10 @@
 import { Form } from 'react-bootstrap';
 import { useEffect, useId, useState, type ChangeEvent } from 'react';
-import { ImagePlus, Link2, Upload } from 'lucide-react';
+import { FileText, ImagePlus, Link2, Upload } from 'lucide-react';
 
 import {
+  ADDRESS_PROOF_ACCEPTED_TYPES,
+  fileToAddressProofDataUrl,
   fileToImageDataUrl,
   IMAGE_ACCEPTED_TYPES,
   type ImageProcessOptions,
@@ -19,6 +21,8 @@ type Props = {
   disabled?: boolean;
   processOptions?: ImageProcessOptions;
   maxHintLabel?: string;
+  /** Permite PDF además de imagen (comprobante de domicilio). */
+  allowPdf?: boolean;
 };
 
 export function ImageSourceField({
@@ -30,28 +34,36 @@ export function ImageSourceField({
   disabled = false,
   processOptions,
   maxHintLabel = 'máx. 1 MB',
+  allowPdf = false,
 }: Props) {
   const fileInputId = useId();
+  const isPdfValue = value.startsWith('data:application/pdf');
   const [source, setSource] = useState<SourceMode>(
-    value.startsWith('data:image/') ? 'file' : 'url',
+    value.startsWith('data:') ? 'file' : 'url',
   );
   const [fileName, setFileName] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(value || null);
+  const [preview, setPreview] = useState<string | null>(
+    value && !isPdfValue ? value : null,
+  );
   const [urlDraft, setUrlDraft] = useState(value.startsWith('http') ? value : '');
   const [readingFile, setReadingFile] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isPdf, setIsPdf] = useState(isPdfValue);
 
   useEffect(() => {
-    setPreview(value || null);
+    const pdf = value.startsWith('data:application/pdf');
+    setIsPdf(pdf);
+    setPreview(value && !pdf ? value : null);
     if (value.startsWith('http')) {
       setUrlDraft(value);
       setSource('url');
       setFileName(null);
-    } else if (value.startsWith('data:image/')) {
+    } else if (value.startsWith('data:image/') || pdf) {
       setSource('file');
     } else if (!value) {
       setUrlDraft('');
       setFileName(null);
+      setIsPdf(false);
     }
   }, [value]);
 
@@ -63,9 +75,15 @@ export function ImageSourceField({
     setLocalError(null);
     setReadingFile(true);
     try {
-      const dataUrl = await fileToImageDataUrl(file, processOptions);
+      const dataUrl = allowPdf
+        ? await fileToAddressProofDataUrl(file)
+        : await fileToImageDataUrl(file, processOptions);
       onChange(dataUrl);
-      setPreview(dataUrl);
+      const pdf =
+        file.type === 'application/pdf' ||
+        dataUrl.startsWith('data:application/pdf');
+      setIsPdf(pdf);
+      setPreview(pdf ? null : dataUrl);
       setFileName(file.name);
       setSource('file');
     } catch (error) {
@@ -77,6 +95,10 @@ export function ImageSourceField({
     }
   };
 
+  const acceptTypes = allowPdf
+    ? ADDRESS_PROOF_ACCEPTED_TYPES.join(',')
+    : IMAGE_ACCEPTED_TYPES.join(',');
+
   return (
     <div className="ca-kyc-slot">
       <h4 className="ca-kyc-slot__title">{title}</h4>
@@ -86,10 +108,15 @@ export function ImageSourceField({
         <div className="ca-photo-preview ca-kyc-slot__preview">
           {preview ? (
             <img src={preview} alt={`Vista previa: ${title}`} />
+          ) : isPdf && value ? (
+            <div className="ca-photo-preview__empty">
+              <FileText size={28} />
+              <span>{fileName ?? 'PDF cargado'}</span>
+            </div>
           ) : (
             <div className="ca-photo-preview__empty">
               <ImagePlus size={28} />
-              <span>Sin imagen</span>
+              <span>{allowPdf ? 'Sin archivo' : 'Sin imagen'}</span>
             </div>
           )}
         </div>
@@ -109,6 +136,7 @@ export function ImageSourceField({
                 if (urlDraft.startsWith('http')) {
                   onChange(urlDraft);
                   setPreview(urlDraft);
+                  setIsPdf(false);
                 }
               }}
             >
@@ -145,10 +173,12 @@ export function ImageSourceField({
                   if (/^https?:\/\//i.test(next)) {
                     onChange(next);
                     setPreview(next);
+                    setIsPdf(false);
                     setLocalError(null);
                   } else if (!next) {
                     onChange('');
                     setPreview(null);
+                    setIsPdf(false);
                   }
                 }}
               />
@@ -161,7 +191,7 @@ export function ImageSourceField({
                   id={fileInputId}
                   className="ca-photo-file__input"
                   type="file"
-                  accept={IMAGE_ACCEPTED_TYPES.join(',')}
+                  accept={acceptTypes}
                   onChange={(event) => void onPickFile(event)}
                   disabled={disabled || readingFile}
                 />
@@ -171,11 +201,19 @@ export function ImageSourceField({
                 >
                   <Upload size={16} aria-hidden />
                   <span className="ca-photo-file__label">
-                    {readingFile ? 'Procesando…' : fileName ? fileName : 'Elegir imagen'}
+                    {readingFile
+                      ? 'Procesando…'
+                      : fileName
+                        ? fileName
+                        : allowPdf
+                          ? 'Elegir imagen o PDF'
+                          : 'Elegir imagen'}
                   </span>
                 </label>
                 <p className="ca-photo-file__hint mb-0">
-                  JPG, PNG, WEBP o GIF · {maxHintLabel}
+                  {allowPdf
+                    ? `JPG, PNG, WEBP, GIF o PDF · ${maxHintLabel}`
+                    : `JPG, PNG, WEBP o GIF · ${maxHintLabel}`}
                 </p>
               </div>
             </Form.Group>

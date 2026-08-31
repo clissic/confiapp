@@ -155,6 +155,11 @@ export const toggleChecklistBodySchema = z.object({
   side: z.enum(['buyer', 'seller']).optional(),
 });
 
+export const finalizeVerificationBodySchema = z.object({
+  /** Nota opcional del Agente para el comprador. */
+  note: z.string().trim().max(2000).optional(),
+});
+
 export const inviteTokenParamsSchema = z.object({
   token: z.string().trim().min(20).max(200),
 });
@@ -170,3 +175,4 @@ export type AcceptPurchaseBody = z.infer<typeof acceptPurchaseBodySchema>;
 export type TransactionCodeParams = z.infer<typeof transactionCodeParamsSchema>;
 export type InviteTokenParams = z.infer<typeof inviteTokenParamsSchema>;
 export type ToggleChecklistBody = z.infer<typeof toggleChecklistBodySchema>;
+export type FinalizeVerificationBody = z.infer<typeof finalizeVerificationBodySchema>;

@@ -94,13 +94,21 @@ export function useSetManualPrexAdminConfirmation() {
       paymentId: string;
       confirmed: boolean;
     }) => setManualPrexAdminConfirmation(paymentId, confirmed),
-    onSuccess: (_data, variables) => {
+    onSuccess: (data) => {
       void queryClient.invalidateQueries({
         queryKey: ['payments', 'admin', 'manual-transfers'],
       });
-      void queryClient.invalidateQueries({
-        queryKey: manualPrexTransferQueryKey(variables.paymentId),
-      });
+      void queryClient.invalidateQueries({ queryKey: paymentsQueryKey });
+      void queryClient.invalidateQueries({ queryKey: paymentLogsQueryKey });
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      void queryClient.invalidateQueries({ queryKey: ['agents', 'jobs', 'open'] });
+      if (data.transactionCode) {
+        void queryClient.invalidateQueries({
+          queryKey: escrowQueryKey(data.transactionCode),
+        });
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ['payments', 'escrow'] });
+      }
     },
   });
 }

@@ -50,7 +50,7 @@ const agentAvailabilitySchema = new Schema<IAgentAvailability>(
       required: true,
       trim: true,
       maxlength: 64,
-      default: 'America/Argentina/Buenos_Aires',
+      default: 'America/Montevideo',
     },
     isAcceptingAssignments: { type: Boolean, default: true, index: true },
     maxActiveTransactions: { type: Number, default: 5, min: 1, max: 100 },

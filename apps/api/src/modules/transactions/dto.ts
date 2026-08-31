@@ -9,6 +9,8 @@ import type {
   TransactionStatus,
 } from '@confiapp/database';
 
+import type { ActiveDisputeDto } from '../disputes/dto';
+
 export type MeetingLocationMode = 'MAP' | 'CHAT' | 'HOME';
 
 export type ViewerPartyRole = 'BUYER' | 'SELLER' | 'AGENT' | null;
@@ -161,6 +163,23 @@ export interface TransactionDto {
   /** Directivas del vendedor al Agente (solo visibles para Agente). */
   returnInstructions?: string;
   viewerRole?: ViewerPartyRole;
+  /** Resultado de la verificación del Agente (si ya finalizó). */
+  agentVerification?: {
+    allPassed: boolean;
+    completedAt: string;
+    note?: string;
+    buyerDecision?: 'ACCEPTED' | 'REJECTED';
+    buyerDecidedAt?: string;
+  };
+  /** Confirmaciones de entrega al comprador (después de aceptar la verificación). */
+  deliveryConfirmation?: {
+    buyerArrivalConfirmedAt?: string;
+    agentDeliveryConfirmedAt?: string;
+    firstConfirmedAt?: string;
+    autoReleaseAt?: string;
+    buyerArrivalAuto?: boolean;
+    agentDeliveryAuto?: boolean;
+  };
   productId?: string;
   product?: TransactionProductDto;
   participants: TransactionParticipantDto[];
@@ -178,6 +197,8 @@ export interface TransactionDto {
   operationDeadlineAt?: string;
   /** Cambios pendientes de reconfirmación del comprador. */
   pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;
+  /** Disputa activa cuando la operación está en DISPUTED. */
+  activeDispute?: ActiveDisputeDto;
   createdAt: string;
   updatedAt: string;
 }

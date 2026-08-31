@@ -14,8 +14,13 @@ import {
 } from '@confiapp/database';
 
 import { AuthService } from '../auth/service';
-import { ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from '../../shared/errors/app-error';
 import { generateOpaqueToken, hashToken } from '../../utils/crypto-tokens';
+import { logger } from '../../utils/logger';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
 import {
   buildAuditUpdatePayload,
@@ -27,10 +32,50 @@ import { notificationsService } from '../notifications/service';
 import { computeReputationScore } from '../reviews/scoring';
 
 import type { RegisterUserDto, UpdateUserDto, UserPublicDto } from './dto';
-import { sendKycReviewEmail } from './kyc-email';
+import { sendIdentityChangeRequestEmail, sendKycReviewEmail } from './kyc-email';
 import { UsersRepository, type UserDocument } from './repository';
 
 const KYC_REVIEW_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+const KYC_REQUIRED_PHOTO_KINDS = [
+  UserPhotoKind.ID_FRONT,
+  UserPhotoKind.SELFIE,
+  UserPhotoKind.ADDRESS_PROOF,
+] as const;
+
+const KYC_REVIEW_PHOTO_KINDS = [
+  UserPhotoKind.ID_FRONT,
+  UserPhotoKind.ID_BACK,
+  UserPhotoKind.SELFIE,
+  UserPhotoKind.ADDRESS_PROOF,
+] as const;
+
+function hasCompleteKycProfile(user: {
+  fullName?: string | null;
+  documentNumber?: string | null;
+  location?: { address?: { line1?: string; city?: string; state?: string; country?: string } };
+}): boolean {
+  const address = user.location?.address;
+  return Boolean(
+    user.fullName?.trim() &&
+      user.documentNumber?.trim() &&
+      address?.line1?.trim() &&
+      address?.city?.trim() &&
+      address?.state?.trim() &&
+      address?.country?.trim(),
+  );
+}
+
+function normStr(value: string | null | undefined): string {
+  return (value ?? '').trim();
+}
+
+function addressFieldChanged(
+  before: string | null | undefined,
+  next: string | null | undefined,
+): boolean {
+  return normStr(before) !== normStr(next);
+}
 
 function collectUserUpdateChanges(
   before: HydratedDocument<IUser> | UserDocument,
@@ -201,7 +246,7 @@ function toPublicDto(
   const preferences = user.preferences ?? {
     language: 'es',
     locale: 'es-AR',
-    timezone: 'America/Argentina/Buenos_Aires',
+    timezone: 'America/Montevideo',
     currency: 'UYU',
     theme: ThemePreference.SYSTEM,
     distanceUnit: DistanceUnit.KM,
@@ -447,10 +492,87 @@ export class UsersService {
       throw new NotFoundError('User not found');
     }
 
+    const beforeKycStatus =
+      before.kyc?.status ?? before.verification?.identity?.status;
+    const isVerified = beforeKycStatus === IdentityVerificationStatus.VERIFIED;
+
+    if (isVerified && !isAdmin) {
+      if (
+        input.fullName !== undefined &&
+        addressFieldChanged(before.fullName, input.fullName)
+      ) {
+        throw new ValidationError(
+          'Con identidad verificada no podés modificar el nombre. Contactá a la administración de ConfiApp.',
+        );
+      }
+      if (
+        input.documentNumber !== undefined &&
+        addressFieldChanged(before.documentNumber, input.documentNumber)
+      ) {
+        throw new ValidationError(
+          'Con identidad verificada no podés modificar el documento. Contactá a la administración de ConfiApp.',
+        );
+      }
+      if (
+        input.locationLabel !== undefined &&
+        addressFieldChanged(before.location?.label, input.locationLabel)
+      ) {
+        throw new ValidationError(
+          'Con identidad verificada no podés modificar la dirección. Contactá a la administración de ConfiApp.',
+        );
+      }
+      if (input.address !== undefined) {
+        const prev = before.location?.address;
+        const next = input.address;
+        const changed =
+          addressFieldChanged(prev?.line1, next?.line1) ||
+          addressFieldChanged(prev?.line2, next?.line2) ||
+          addressFieldChanged(prev?.city, next?.city) ||
+          addressFieldChanged(prev?.state, next?.state) ||
+          addressFieldChanged(prev?.country, next?.country) ||
+          addressFieldChanged(prev?.postalCode, next?.postalCode);
+        if (changed) {
+          throw new ValidationError(
+            'Con identidad verificada no podés modificar la dirección. Contactá a la administración de ConfiApp.',
+          );
+        }
+      }
+    }
+
     let reviewToken: string | undefined;
     let reviewTokenHash: string | undefined;
     let reviewTokenExpiresAt: Date | undefined;
     if (input.submitKyc) {
+      const profileForKyc = {
+        fullName: input.fullName ?? before.fullName,
+        documentNumber:
+          input.documentNumber !== undefined
+            ? input.documentNumber
+            : before.documentNumber,
+        location: {
+          address: {
+            line1: input.address?.line1 ?? before.location?.address?.line1,
+            city: input.address?.city ?? before.location?.address?.city,
+            state: input.address?.state ?? before.location?.address?.state,
+            country: input.address?.country ?? before.location?.address?.country,
+          },
+        },
+      };
+      if (!hasCompleteKycProfile(profileForKyc)) {
+        throw new ValidationError(
+          'Antes de verificar, completá y guardá tu nombre, DNI/pasaporte y la dirección completa en tu perfil.',
+        );
+      }
+
+      const photoSource = input.photos ?? before.photos ?? [];
+      const kinds = new Set(photoSource.map((photo) => photo.kind));
+      const missing = KYC_REQUIRED_PHOTO_KINDS.filter((kind) => !kinds.has(kind));
+      if (missing.length > 0) {
+        throw new ValidationError(
+          'Para verificar la identidad necesitás documento, selfie y comprobante de domicilio.',
+        );
+      }
+
       reviewToken = generateOpaqueToken();
       reviewTokenHash = hashToken(reviewToken);
       reviewTokenExpiresAt = new Date(Date.now() + KYC_REVIEW_TTL_MS);
@@ -479,21 +601,28 @@ export class UsersService {
     }
 
     if (input.submitKyc && reviewToken) {
-      const requiredKinds = [UserPhotoKind.ID_FRONT, UserPhotoKind.SELFIE];
       const fromPayload = (input.photos ?? []).filter((photo) =>
-        requiredKinds.includes(photo.kind as UserPhotoKind),
+        KYC_REQUIRED_PHOTO_KINDS.includes(photo.kind as (typeof KYC_REQUIRED_PHOTO_KINDS)[number]),
       );
       const fromUser = (user.photos ?? []).filter((photo) =>
-        [UserPhotoKind.ID_FRONT, UserPhotoKind.ID_BACK, UserPhotoKind.SELFIE].includes(
-          photo.kind as UserPhotoKind,
-        ),
+        KYC_REVIEW_PHOTO_KINDS.includes(photo.kind as (typeof KYC_REVIEW_PHOTO_KINDS)[number]),
       );
       // Preferir el payload del request (data URLs intactas) para adjuntar al mail.
-      const kycPhotos = fromPayload.length >= 2 ? fromPayload : fromUser;
+      const kycPhotos = fromPayload.length >= 3 ? fromPayload : fromUser;
       await sendKycReviewEmail({
         userId: String(user._id),
         fullName: user.fullName,
         email: user.email,
+        documentNumber: user.documentNumber,
+        address: {
+          line1: user.location?.address?.line1,
+          line2: user.location?.address?.line2,
+          city: user.location?.address?.city,
+          state: user.location?.address?.state,
+          country: user.location?.address?.country,
+          postalCode: user.location?.address?.postalCode,
+        },
+        locationLabel: user.location?.label,
         reviewToken,
         photos: kycPhotos.map((photo) => ({ kind: photo.kind, url: photo.url })),
       });
@@ -528,9 +657,7 @@ export class UsersService {
     const status = user.kyc?.status ?? user.verification?.identity?.status;
     const photos = (user.photos ?? [])
       .filter((photo) =>
-        [UserPhotoKind.ID_FRONT, UserPhotoKind.ID_BACK, UserPhotoKind.SELFIE].includes(
-          photo.kind as UserPhotoKind,
-        ),
+        KYC_REVIEW_PHOTO_KINDS.includes(photo.kind as (typeof KYC_REVIEW_PHOTO_KINDS)[number]),
       )
       .map((photo) => ({
         kind: photo.kind,
@@ -543,6 +670,16 @@ export class UsersService {
       fullName: user.fullName,
       email: user.email,
       documentNumber: user.documentNumber,
+      address: {
+        line1: user.location?.address?.line1,
+        line2: user.location?.address?.line2,
+        city: user.location?.address?.city,
+        state: user.location?.address?.state,
+        country: user.location?.address?.country,
+        postalCode: user.location?.address?.postalCode,
+        formatted: user.location?.address?.formatted,
+      },
+      locationLabel: user.location?.label,
       status,
       photos,
       submittedAt: user.updatedAt?.toISOString?.(),
@@ -672,5 +809,47 @@ export class UsersService {
     }
 
     return toPublicDto(user);
+  }
+
+  async requestIdentityChange(
+    userId: string,
+    message: string,
+    attachmentDataUrl?: string,
+  ): Promise<{ ok: true }> {
+    const user = await this.repository.findById(userId);
+    if (!user) throw new NotFoundError('User not found');
+
+    const status = user.kyc?.status ?? user.verification?.identity?.status;
+    if (status !== IdentityVerificationStatus.VERIFIED) {
+      throw new ValidationError(
+        'Solo podés solicitar esta modificación si tu identidad ya está verificada.',
+      );
+    }
+
+    const trimmed = message.trim();
+    if (trimmed.length < 10) {
+      throw new ValidationError('Contanos qué datos querés modificar (mínimo 10 caracteres).');
+    }
+
+    try {
+      await sendIdentityChangeRequestEmail({
+        userId: String(user._id),
+        fullName: user.fullName,
+        email: user.email,
+        documentNumber: user.documentNumber,
+        message: trimmed,
+        attachmentDataUrl,
+      });
+    } catch (error) {
+      logger.error('kyc.identity_change_request_failed', {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new ValidationError(
+        'No se pudo enviar la solicitud. Probá de nuevo en unos minutos.',
+      );
+    }
+
+    return { ok: true };
   }
 }

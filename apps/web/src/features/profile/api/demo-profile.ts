@@ -93,7 +93,7 @@ export function createDemoProfile(): UserProfile {
     preferences: {
       language: 'es',
       locale: 'es-UY',
-      timezone: 'America/Argentina/Buenos_Aires',
+      timezone: 'America/Montevideo',
       currency: 'UYU',
       theme: 'SYSTEM',
       distanceUnit: 'KM',
@@ -218,7 +218,7 @@ export function applyDemoUpdate(
     kyc:
       payload.submitKyc &&
       payload.photos &&
-      ['ID_FRONT', 'SELFIE'].every((kind) =>
+      ['ID_FRONT', 'SELFIE', 'ADDRESS_PROOF'].every((kind) =>
         payload.photos!.some((photo) => photo.kind === kind),
       ) &&
       current.kyc.status !== 'VERIFIED'
@@ -227,7 +227,7 @@ export function applyDemoUpdate(
     verification:
       payload.submitKyc &&
       payload.photos &&
-      ['ID_FRONT', 'SELFIE'].every((kind) =>
+      ['ID_FRONT', 'SELFIE', 'ADDRESS_PROOF'].every((kind) =>
         payload.photos!.some((photo) => photo.kind === kind),
       ) &&
       current.kyc.status !== 'VERIFIED'

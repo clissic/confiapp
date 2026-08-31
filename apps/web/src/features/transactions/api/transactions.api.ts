@@ -360,6 +360,249 @@ export async function toggleChecklistItem(
   return { data, source: 'api' };
 }
 
+export async function finalizeAgentVerification(
+  code: string,
+  note?: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const tx = list[index]!;
+    const buyerItems = tx.party?.buyer?.checklist ?? [];
+    const sellerItems = tx.party?.seller?.checklist ?? [];
+    const items =
+      buyerItems.length || sellerItems.length
+        ? [...buyerItems, ...sellerItems]
+        : (tx.conditions.checklist ?? []);
+    if (!items.length) throw new Error('No hay checklist para verificar');
+    const allPassed = items.every((item) => item.done);
+    const trimmedNote = note?.trim() || undefined;
+    const updated: Transaction = {
+      ...tx,
+      agentVerification: {
+        allPassed,
+        completedAt: new Date().toISOString(),
+        ...(trimmedNote ? { note: trimmedNote } : {}),
+      },
+      statusHistory: [
+        ...tx.statusHistory,
+        {
+          status: tx.status,
+          changedAt: new Date().toISOString(),
+          note: allPassed
+            ? 'Agente finalizó la verificación: todos los pasos correctos'
+            : 'Agente finalizó la verificación: faltan pasos o no todos fueron aprobados',
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/verification/finalize`,
+    { ...(note?.trim() ? { note: note.trim() } : {}) },
+  );
+  return { data, source: 'api' };
+}
+
+export async function buyerAcceptProduct(
+  code: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const tx = list[index]!;
+    if (!tx.agentVerification) throw new Error('Todavía no hay verificación del Agente');
+    if (tx.agentVerification.buyerDecision) throw new Error('Ya registraste tu decisión');
+    const now = new Date().toISOString();
+    const updated: Transaction = {
+      ...tx,
+      status: 'IN_PROGRESS',
+      agentVerification: {
+        ...tx.agentVerification,
+        buyerDecision: 'ACCEPTED',
+        buyerDecidedAt: now,
+      },
+      statusHistory: [
+        ...tx.statusHistory,
+        {
+          status: 'IN_PROGRESS',
+          changedAt: now,
+          note: 'Comprador aceptó el producto tras la verificación; el Agente inicia la entrega',
+        },
+      ],
+      updatedAt: now,
+    };
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/product/accept`,
+  );
+  return { data, source: 'api' };
+}
+
+export async function buyerRejectProduct(
+  code: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const tx = list[index]!;
+    if (!tx.agentVerification) throw new Error('Todavía no hay verificación del Agente');
+    if (tx.agentVerification.buyerDecision) throw new Error('Ya registraste tu decisión');
+    const now = new Date().toISOString();
+    const updated: Transaction = {
+      ...tx,
+      status: 'CANCELLED',
+      agentVerification: {
+        ...tx.agentVerification,
+        buyerDecision: 'REJECTED',
+        buyerDecidedAt: now,
+      },
+      statusHistory: [
+        ...tx.statusHistory,
+        {
+          status: 'CANCELLED',
+          changedAt: now,
+          note: 'Comprador rechazó el producto y canceló la compra',
+        },
+      ],
+      updatedAt: now,
+    };
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/product/reject`,
+  );
+  return { data, source: 'api' };
+}
+
+function demoCompleteIfBoth(
+  tx: Transaction,
+  now: string,
+): Transaction {
+  const buyerOk = Boolean(tx.deliveryConfirmation?.buyerArrivalConfirmedAt);
+  const agentOk = Boolean(tx.deliveryConfirmation?.agentDeliveryConfirmedAt);
+  if (!buyerOk || !agentOk) return tx;
+  return {
+    ...tx,
+    status: 'COMPLETED',
+    statusHistory: [
+      ...tx.statusHistory,
+      {
+        status: 'COMPLETED',
+        changedAt: now,
+        note: 'Fondos liberados tras confirmación de arribo y entrega',
+      },
+    ],
+    updatedAt: now,
+  };
+}
+
+export async function buyerConfirmArrival(
+  code: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const tx = list[index]!;
+    if (tx.agentVerification?.buyerDecision !== 'ACCEPTED') {
+      throw new Error('Primero tenés que aceptar el producto');
+    }
+    if (tx.deliveryConfirmation?.buyerArrivalConfirmedAt) {
+      throw new Error('Ya confirmaste el arribo');
+    }
+    const now = new Date().toISOString();
+    let updated: Transaction = {
+      ...tx,
+      status: 'IN_PROGRESS',
+      deliveryConfirmation: {
+        ...tx.deliveryConfirmation,
+        buyerArrivalConfirmedAt: now,
+      },
+      statusHistory: [
+        ...tx.statusHistory,
+        {
+          status: 'IN_PROGRESS',
+          changedAt: now,
+          note: 'Comprador confirmó el arribo del producto',
+        },
+      ],
+      updatedAt: now,
+    };
+    updated = demoCompleteIfBoth(updated, now);
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/delivery/confirm-arrival`,
+    undefined,
+    { timeout: 60_000 },
+  );
+  return { data, source: 'api' };
+}
+
+export async function agentConfirmDelivery(
+  code: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const tx = list[index]!;
+    if (tx.agentVerification?.buyerDecision !== 'ACCEPTED') {
+      throw new Error('El comprador todavía no aceptó el producto');
+    }
+    if (tx.deliveryConfirmation?.agentDeliveryConfirmedAt) {
+      throw new Error('Ya confirmaste la entrega');
+    }
+    const now = new Date().toISOString();
+    let updated: Transaction = {
+      ...tx,
+      status: 'IN_PROGRESS',
+      deliveryConfirmation: {
+        ...tx.deliveryConfirmation,
+        agentDeliveryConfirmedAt: now,
+      },
+      statusHistory: [
+        ...tx.statusHistory,
+        {
+          status: 'IN_PROGRESS',
+          changedAt: now,
+          note: 'Agente confirmó la entrega del producto al comprador',
+        },
+      ],
+      updatedAt: now,
+    };
+    updated = demoCompleteIfBoth(updated, now);
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/delivery/confirm-delivery`,
+    undefined,
+    { timeout: 60_000 },
+  );
+  return { data, source: 'api' };
+}
+
 export async function refreshInviteLink(
   code: string,
 ): Promise<{ data: Transaction; source: 'api' | 'demo' }> {

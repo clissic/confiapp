@@ -57,10 +57,15 @@ export class FinanceController {
 
   listBatches = async (req: Request, res: Response): Promise<void> => {
     requireAdmin(req);
-    const data = await payoutService.listBatches(
-      req.query.limit ? Number(req.query.limit) : 40,
-    );
-    res.status(200).json({ items: data });
+    const data = await payoutService.listBatches({
+      limit: req.query.limit ? Number(req.query.limit) : 10,
+      page: req.query.page ? Number(req.query.page) : 1,
+      status: typeof req.query.status === 'string' ? req.query.status : undefined,
+      from: typeof req.query.from === 'string' ? req.query.from : undefined,
+      to: typeof req.query.to === 'string' ? req.query.to : undefined,
+      q: typeof req.query.q === 'string' ? req.query.q : undefined,
+    });
+    res.status(200).json(data);
   };
 
   getBatch = async (req: Request, res: Response): Promise<void> => {

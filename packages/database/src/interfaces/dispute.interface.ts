@@ -1,6 +1,6 @@
 import type { Types } from 'mongoose';
 
-import type { DisputeStatus } from '../types/enums';
+import type { DisputeCategory, DisputeStatus } from '../types/enums';
 
 export interface IDispute {
   transaction: Types.ObjectId;
@@ -9,6 +9,7 @@ export interface IDispute {
   assignedTo?: Types.ObjectId;
   resolvedBy?: Types.ObjectId;
   status: DisputeStatus;
+  category?: DisputeCategory;
   reason: string;
   resolutionNote?: string;
   openedAt: Date;

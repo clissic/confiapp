@@ -11,6 +11,7 @@ import { Types } from 'mongoose';
 
 import {
   PaymentModel,
+  TransactionModel,
   UserModel,
   WalletMovementModel,
   WithdrawalModel,
@@ -121,11 +122,18 @@ export class WalletService {
       ? await agentCommissionService.getAgentBalances(userId)
       : null;
 
+    const availableCents = wallet.availableCents ?? 0;
+    /** Comisiones de agente maduras viven en availableCents; no son retirábles self-service. */
+    const agentLockedInAvailableCents = agentCommissions
+      ? (agentCommissions.availableCents ?? 0) + (agentCommissions.reservedCents ?? 0)
+      : 0;
+    const salesWithdrawableCents = Math.max(0, availableCents - agentLockedInAvailableCents);
+
     return {
       status: wallet.status,
       /** Ledger retenido siempre en UYU (Mercado Pago). La UI convierte con preferencia. */
       currency: 'UYU',
-      saldoCents: wallet.availableCents ?? 0,
+      saldoCents: availableCents,
       pendienteCents: wallet.pendingCents ?? 0,
       retenidoCents: wallet.heldCents ?? 0,
       lifetimeEarnedCents: wallet.lifetimeEarnedCents ?? 0,
@@ -138,103 +146,296 @@ export class WalletService {
       pendingWithdrawalsCount: pendingWithdrawals,
       commissionsTotalCents: commissionsAgg[0]?.total ?? 0,
       agentCommissions,
-      agentSelfServiceWithdrawalsEnabled: !isAgent,
+      /** Fondos de ventas (vendedor) retirábles self-service; excluye comisiones de agente. */
+      salesWithdrawableCents,
+      /** Self-service habilitado para todos: agentes solo sobre ventas. */
+      agentSelfServiceWithdrawalsEnabled: true,
     };
   }
 
-  async listMovements(userId: string, opts: { limit?: number; type?: string } = {}) {
-    const limit = Math.min(opts.limit ?? 50, 200);
-    const filter: Record<string, unknown> = { user: userId, deletedAt: null };
-    if (opts.type) filter.type = opts.type;
+  async listMovements(
+    userId: string,
+    opts: {
+      limit?: number;
+      page?: number;
+      type?: string;
+      direction?: string;
+      transactionCode?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) {
+    const limit = Math.min(opts.limit ?? 10, 200);
+    const page = Math.max(1, opts.page ?? 1);
+    const skip = (page - 1) * limit;
 
-    const rows = await WalletMovementModel.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean()
-      .exec();
-
-    if (rows.length === 0) {
-      const payments = await PaymentModel.find({
+    let transactionId: Types.ObjectId | undefined;
+    if (opts.transactionCode?.trim()) {
+      const tx = await TransactionModel.findOne({
+        code: opts.transactionCode.trim().toUpperCase(),
         deletedAt: null,
-        $or: [{ payer: userId }, { payee: userId }],
       })
-        .sort({ createdAt: -1 })
-        .limit(limit)
+        .select('_id')
         .lean()
         .exec();
+      if (!tx) {
+        return {
+          items: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+          source: 'ledger' as const,
+        };
+      }
+      transactionId = tx._id as Types.ObjectId;
+    }
 
+    const dateFilter: Record<string, Date> = {};
+    if (opts.from) {
+      const from = new Date(opts.from);
+      if (!Number.isNaN(from.getTime())) dateFilter.$gte = from;
+    }
+    if (opts.to) {
+      const to = new Date(opts.to);
+      if (!Number.isNaN(to.getTime())) dateFilter.$lte = to;
+    }
+
+    const ledgerFilter: Record<string, unknown> = { user: userId, deletedAt: null };
+    if (opts.type) ledgerFilter.type = opts.type;
+    if (opts.direction) ledgerFilter.direction = opts.direction;
+    if (transactionId) ledgerFilter.transaction = transactionId;
+    if (Object.keys(dateFilter).length) ledgerFilter.createdAt = dateFilter;
+
+    const hasAnyLedger = await WalletMovementModel.exists({
+      user: userId,
+      deletedAt: null,
+    });
+
+    if (hasAnyLedger) {
+      const [total, rows] = await Promise.all([
+        WalletMovementModel.countDocuments(ledgerFilter).exec(),
+        WalletMovementModel.find(ledgerFilter)
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean()
+          .exec(),
+      ]);
+
+      const codeByTxId = await this.loadTransactionCodes(
+        rows.map((m) => (m.transaction ? String(m.transaction) : null)),
+      );
+
+      const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
       return {
-        items: payments.map((p) => ({
-          id: String(p._id),
-          type: p.type,
-          direction:
-            p.type === PaymentType.PLATFORM_FEE || String(p.payer) === userId
-              ? WalletMovementDirection.DEBIT
-              : WalletMovementDirection.CREDIT,
-          amountCents: p.amountCents,
-          currency: p.currency,
-          description: `Pago ${p.type} · ${p.status}`,
-          paymentId: String(p._id),
-          transactionId: String(p.transaction),
-          createdAt: p.createdAt.toISOString(),
-          source: 'payment' as const,
-        })),
-        source: 'payments' as const,
+        items: rows.map((m) => {
+          const txId = m.transaction ? String(m.transaction) : undefined;
+          return {
+            id: String(m._id),
+            type: m.type,
+            direction: m.direction,
+            amountCents: m.amountCents,
+            currency: m.currency,
+            description: m.description,
+            balanceAfter: m.balanceAfter,
+            paymentId: m.payment ? String(m.payment) : undefined,
+            transactionId: txId,
+            transactionCode: txId ? codeByTxId.get(txId) : undefined,
+            withdrawalId: m.withdrawal ? String(m.withdrawal) : undefined,
+            createdAt: m.createdAt.toISOString(),
+            source: 'ledger' as const,
+          };
+        }),
+        total,
+        page,
+        limit,
+        totalPages,
+        source: 'ledger' as const,
       };
     }
 
-    return {
-      items: rows.map((m) => ({
-        id: String(m._id),
-        type: m.type,
-        direction: m.direction,
-        amountCents: m.amountCents,
-        currency: m.currency,
-        description: m.description,
-        balanceAfter: m.balanceAfter,
-        paymentId: m.payment ? String(m.payment) : undefined,
-        transactionId: m.transaction ? String(m.transaction) : undefined,
-        withdrawalId: m.withdrawal ? String(m.withdrawal) : undefined,
-        createdAt: m.createdAt.toISOString(),
-        source: 'ledger' as const,
-      })),
-      source: 'ledger' as const,
-    };
-  }
-
-  async listCommissions(userId: string, limit = 50) {
-    const fees = await PaymentModel.find({
+    // Fallback legado: pagos sin ledger.
+    const paymentFilter: Record<string, unknown> = {
       deletedAt: null,
-      type: { $in: [PaymentType.PLATFORM_FEE, PaymentType.AGENT_PAYOUT] },
       $or: [{ payer: userId }, { payee: userId }],
-    })
+    };
+    if (opts.type) paymentFilter.type = opts.type;
+    if (transactionId) paymentFilter.transaction = transactionId;
+    if (Object.keys(dateFilter).length) paymentFilter.createdAt = dateFilter;
+
+    const payments = await PaymentModel.find(paymentFilter)
       .sort({ createdAt: -1 })
-      .limit(Math.min(limit, 100))
       .lean()
       .exec();
 
-    return {
-      items: fees.map((p) => ({
+    let mapped = payments.map((p) => {
+      const direction =
+        p.type === PaymentType.PLATFORM_FEE || String(p.payer) === userId
+          ? WalletMovementDirection.DEBIT
+          : WalletMovementDirection.CREDIT;
+      return {
         id: String(p._id),
-        type: p.type,
-        role:
-          p.type === PaymentType.AGENT_PAYOUT && String(p.payee) === userId
-            ? ('earned' as const)
-            : p.type === PaymentType.PLATFORM_FEE
-              ? ('platform_fee' as const)
-              : ('other' as const),
+        type: String(p.type),
+        direction,
         amountCents: p.amountCents,
         currency: p.currency,
-        status: p.status,
+        description: `Pago ${p.type} · ${p.status}`,
+        paymentId: String(p._id),
         transactionId: String(p.transaction),
         createdAt: p.createdAt.toISOString(),
-        label:
-          p.type === PaymentType.AGENT_PAYOUT && String(p.payee) === userId
-            ? 'Comisión de agente recibida'
-            : p.type === PaymentType.PLATFORM_FEE
-              ? 'Comisión de plataforma (20%)'
-              : p.type,
+        source: 'payment' as const,
+      };
+    });
+
+    if (opts.direction) {
+      mapped = mapped.filter((m) => m.direction === opts.direction);
+    }
+
+    const total = mapped.length;
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    const pageItems = mapped.slice(skip, skip + limit);
+    const codeByTxId = await this.loadTransactionCodes(
+      pageItems.map((m) => m.transactionId ?? null),
+    );
+
+    return {
+      items: pageItems.map((m) => ({
+        ...m,
+        transactionCode: m.transactionId
+          ? codeByTxId.get(m.transactionId)
+          : undefined,
       })),
+      total,
+      page,
+      limit,
+      totalPages,
+      source: 'payments' as const,
+    };
+  }
+
+  private async loadTransactionCodes(
+    ids: Array<string | null | undefined>,
+  ): Promise<Map<string, string>> {
+    const unique = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+    const map = new Map<string, string>();
+    if (!unique.length) return map;
+
+    const txs = await TransactionModel.find({
+      _id: { $in: unique.map((id) => new Types.ObjectId(id)) },
+      deletedAt: null,
+    })
+      .select('_id code')
+      .lean()
+      .exec();
+
+    for (const tx of txs) {
+      map.set(String(tx._id), tx.code);
+    }
+    return map;
+  }
+
+  async listCommissions(
+    userId: string,
+    opts: {
+      limit?: number;
+      page?: number;
+      type?: string;
+      transactionCode?: string;
+      from?: string;
+      to?: string;
+    } = {},
+  ) {
+    const limit = Math.min(opts.limit ?? 10, 100);
+    const page = Math.max(1, opts.page ?? 1);
+    const skip = (page - 1) * limit;
+
+    let transactionId: Types.ObjectId | undefined;
+    if (opts.transactionCode?.trim()) {
+      const tx = await TransactionModel.findOne({
+        code: opts.transactionCode.trim().toUpperCase(),
+        deletedAt: null,
+      })
+        .select('_id')
+        .lean()
+        .exec();
+      if (!tx) {
+        return {
+          items: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        };
+      }
+      transactionId = tx._id as Types.ObjectId;
+    }
+
+    const dateFilter: Record<string, Date> = {};
+    if (opts.from) {
+      const from = new Date(opts.from);
+      if (!Number.isNaN(from.getTime())) dateFilter.$gte = from;
+    }
+    if (opts.to) {
+      const to = new Date(opts.to);
+      if (!Number.isNaN(to.getTime())) dateFilter.$lte = to;
+    }
+
+    const filter: Record<string, unknown> = {
+      deletedAt: null,
+      type: opts.type
+        ? opts.type
+        : { $in: [PaymentType.PLATFORM_FEE, PaymentType.AGENT_PAYOUT] },
+      $or: [{ payer: userId }, { payee: userId }],
+    };
+    if (transactionId) filter.transaction = transactionId;
+    if (Object.keys(dateFilter).length) filter.createdAt = dateFilter;
+
+    const [total, fees] = await Promise.all([
+      PaymentModel.countDocuments(filter).exec(),
+      PaymentModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+    ]);
+
+    const codeByTxId = await this.loadTransactionCodes(
+      fees.map((p) => (p.transaction ? String(p.transaction) : null)),
+    );
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+    return {
+      items: fees.map((p) => {
+        const txId = String(p.transaction);
+        return {
+          id: String(p._id),
+          type: p.type,
+          role:
+            p.type === PaymentType.AGENT_PAYOUT && String(p.payee) === userId
+              ? ('earned' as const)
+              : p.type === PaymentType.PLATFORM_FEE
+                ? ('platform_fee' as const)
+                : ('other' as const),
+          amountCents: p.amountCents,
+          currency: p.currency,
+          status: p.status,
+          transactionId: txId,
+          transactionCode: codeByTxId.get(txId),
+          createdAt: p.createdAt.toISOString(),
+          label:
+            p.type === PaymentType.AGENT_PAYOUT && String(p.payee) === userId
+              ? 'Comisión de agente recibida'
+              : p.type === PaymentType.PLATFORM_FEE
+                ? 'Comisión de plataforma'
+                : String(p.type),
+        };
+      }),
+      total,
+      page,
+      limit,
+      totalPages,
     };
   }
 
@@ -269,22 +470,33 @@ export class WalletService {
       throw new ForbiddenError(`Wallet ${user.wallet.status}: no admite retiros`);
     }
 
-    const isAgent =
-      user.role === PlatformRole.AGENT ||
-      (user.roles ?? []).includes(PlatformRole.AGENT);
-    if (isAgent) {
-      throw new ValidationError(
-        'Las comisiones de agente se liquidan por transferencia manual del 1 al 10 de cada mes. No hay retiro self-service.',
-      );
-    }
-
     const amount = Math.trunc(input.amountCents);
     if (!Number.isFinite(amount) || amount < MIN_WITHDRAWAL_CENTS) {
       throw new ValidationError(
         `El retiro mínimo es ${MIN_WITHDRAWAL_CENTS / 100} UYU`,
       );
     }
-    if (amount > (user.wallet.availableCents ?? 0)) {
+
+    const isAgent =
+      user.role === PlatformRole.AGENT ||
+      (user.roles ?? []).includes(PlatformRole.AGENT);
+
+    const availableCents = user.wallet.availableCents ?? 0;
+    let maxWithdrawable = availableCents;
+
+    if (isAgent) {
+      const agentBalances = await agentCommissionService.getAgentBalances(userId);
+      const agentLocked =
+        (agentBalances.availableCents ?? 0) + (agentBalances.reservedCents ?? 0);
+      maxWithdrawable = Math.max(0, availableCents - agentLocked);
+    }
+
+    if (amount > maxWithdrawable) {
+      if (isAgent && maxWithdrawable < availableCents) {
+        throw new ValidationError(
+          `Solo podés retirar fondos de ventas (disponible: ${(maxWithdrawable / 100).toFixed(2)} UYU). Las comisiones de agente se liquidan por transferencia del 1 al 10 de cada mes.`,
+        );
+      }
       throw new ValidationError('Saldo disponible insuficiente');
     }
 
@@ -312,15 +524,18 @@ export class WalletService {
       direction: WalletMovementDirection.DEBIT,
       amountCents: amount,
       currency,
-      description: `Solicitud de retiro${input.destinationHint ? ` → ${input.destinationHint}` : ''}`,
+      description: `Solicitud de retiro${input.destinationHint ? ` → ${input.destinationHint}` : ''}${isAgent ? ' (ventas)' : ''}`,
       withdrawalId: String(withdrawal._id),
       balanceAfter: snapshotFromUser(user),
+      metadata: isAgent ? { source: 'sales_withdrawable' } : undefined,
     });
 
     logger.info('wallet withdrawal requested', {
       userId,
       amountCents: amount,
       withdrawalId: String(withdrawal._id),
+      isAgent,
+      maxWithdrawable,
     });
 
     auditService.track({
@@ -334,6 +549,8 @@ export class WalletService {
         currency,
         status: WithdrawalStatus.PENDING,
         destinationHint: withdrawal.destinationHint,
+        isAgent,
+        source: isAgent ? 'sales_withdrawable' : 'available',
       },
     });
 
@@ -413,7 +630,7 @@ export class WalletService {
   }
 
   async exportHistoryCsv(userId: string): Promise<string> {
-    const { items } = await this.listMovements(userId, { limit: 500 });
+    const { items } = await this.listMovements(userId, { limit: 500, page: 1 });
     const header = [
       'fecha',
       'tipo',
@@ -423,6 +640,7 @@ export class WalletService {
       'descripcion',
       'payment_id',
       'transaction_id',
+      'transaction_code',
       'withdrawal_id',
     ].join(',');
 
@@ -436,6 +654,7 @@ export class WalletService {
         `"${(m.description ?? '').replace(/"/g, '""')}"`,
         m.paymentId ?? '',
         m.transactionId ?? '',
+        'transactionCode' in m && m.transactionCode ? m.transactionCode : '',
         'withdrawalId' in m && m.withdrawalId ? m.withdrawalId : '',
       ].join(','),
     );

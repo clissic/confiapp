@@ -63,4 +63,14 @@ export class UsersController {
     );
     res.status(200).json(data);
   };
+
+  requestIdentityChange = async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as { message: string; attachmentDataUrl?: string };
+    const data = await this.service.requestIdentityChange(
+      req.user!.id,
+      body.message,
+      body.attachmentDataUrl,
+    );
+    res.status(200).json(data);
+  };
 }

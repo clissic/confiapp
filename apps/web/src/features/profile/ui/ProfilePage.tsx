@@ -100,6 +100,19 @@ export function ProfilePage() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (section !== 'settings') return;
+    const hash = window.location.hash.replace(/^#/, '');
+    if (hash !== 'metodo-cobro') return;
+    const timer = window.setTimeout(() => {
+      document.getElementById('metodo-cobro')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [section, searchParams]);
+
+  useEffect(() => {
     if (section !== 'settings' || !scrollToEdit) return;
     const timer = window.setTimeout(() => {
       document.getElementById('editar-perfil')?.scrollIntoView({

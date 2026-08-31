@@ -1,0 +1,208 @@
+.ca-admin-reviews {
+  display: grid;
+  gap: 1rem;
+}
+
+.ca-admin-reviews__header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.ca-admin-reviews__kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand-secondary, #55c5b5);
+}
+
+.ca-admin-reviews__title {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-admin-reviews__lead {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.ca-admin-reviews__meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  width: 100%;
+}
+
+.ca-admin-reviews-filters {
+  --bs-accordion-bg: transparent;
+  --bs-accordion-border-color: var(--border-default);
+  --bs-accordion-btn-bg: transparent;
+  --bs-accordion-active-bg: transparent;
+  --bs-accordion-btn-color: var(--text-primary);
+  --bs-accordion-active-color: var(--text-primary);
+  --bs-accordion-btn-focus-box-shadow: none;
+}
+
+.ca-admin-reviews-filters .accordion-item {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
+}
+
+.ca-admin-reviews-filters .accordion-button {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.7rem 1rem;
+  box-shadow: none;
+}
+
+.ca-admin-reviews-filters .accordion-button:not(.collapsed) {
+  box-shadow: none;
+}
+
+.ca-admin-reviews-filters .accordion-body {
+  padding: 0.25rem 1rem 1rem;
+}
+
+.ca-admin-reviews-filters__header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ca-admin-reviews-filters__count {
+  font-size: 0.7rem;
+}
+
+.ca-admin-reviews-filters__body {
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.ca-admin-reviews-filters__hint {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ca-admin-reviews__quiet,
+.ca-admin-reviews__empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 1rem 0;
+  color: var(--text-muted);
+  width: 100%;
+}
+
+.ca-admin-reviews__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ca-admin-reviews__row {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-default);
+  border-radius: 0.75rem;
+  background: var(--surface-raised);
+}
+
+.ca-admin-reviews__row-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+}
+
+.ca-admin-reviews__stars {
+  color: var(--warning-solid, #f5a623);
+  letter-spacing: 0.04em;
+}
+
+.ca-admin-reviews__pair {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ca-admin-reviews__code {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--brand-secondary, #55c5b5);
+  text-decoration: none;
+}
+
+.ca-admin-reviews__code:hover {
+  text-decoration: underline;
+}
+
+.ca-admin-reviews__date {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ca-admin-reviews__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.ca-admin-reviews__tip-badge {
+  cursor: help;
+}
+
+.ca-admin-reviews__comment {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  width: 100%;
+  max-width: none;
+}
+
+.ca-admin-reviews__comment--muted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ca-admin-reviews__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 45%, transparent);
+}
+
+.ca-admin-reviews__pager .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ca-admin-reviews__pager-status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .ca-admin-reviews__row {
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+}

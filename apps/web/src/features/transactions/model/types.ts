@@ -111,6 +111,22 @@ export interface Transaction {
   /** Directivas del vendedor al Agente (solo visibles para Agente). */
   returnInstructions?: string;
   viewerRole?: ViewerPartyRole | null;
+  /** Resultado de la verificación del Agente (si ya finalizó). */
+  agentVerification?: {
+    allPassed: boolean;
+    completedAt: string;
+    note?: string;
+    buyerDecision?: 'ACCEPTED' | 'REJECTED';
+    buyerDecidedAt?: string;
+  };
+  deliveryConfirmation?: {
+    buyerArrivalConfirmedAt?: string;
+    agentDeliveryConfirmedAt?: string;
+    firstConfirmedAt?: string;
+    autoReleaseAt?: string;
+    buyerArrivalAuto?: boolean;
+    agentDeliveryAuto?: boolean;
+  };
   productId?: string;
   product?: TransactionProduct;
   participants: TransactionParticipant[];
@@ -126,6 +142,13 @@ export interface Transaction {
   };
   operationDeadlineAt?: string;
   pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;
+  activeDispute?: {
+    id: string;
+    status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED' | 'CLOSED';
+    reason: string;
+    category?: 'NON_DELIVERY' | 'OTHER';
+    openedAt: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

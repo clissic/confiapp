@@ -46,6 +46,28 @@ usersRoutes.patch(
   asyncHandler(controller.updateMe),
 );
 
+usersRoutes.post(
+  '/me/identity-change-request',
+  authenticate,
+  authRateLimiter,
+  validateRequest({
+    body: z.object({
+      message: z.string().trim().min(10).max(2000),
+      attachmentDataUrl: z
+        .string()
+        .trim()
+        .max(5_500_000)
+        .refine(
+          (value) =>
+            value.startsWith('data:image/') || value.startsWith('data:application/pdf'),
+          'Se espera data:image o data:application/pdf',
+        )
+        .optional(),
+    }),
+  }),
+  asyncHandler(controller.requestIdentityChange),
+);
+
 usersRoutes.get(
   '/kyc-reviews/:token',
   authenticate,

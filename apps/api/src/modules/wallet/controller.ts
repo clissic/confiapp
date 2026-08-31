@@ -1,7 +1,11 @@
 import type { Request, Response } from 'express';
 
 import { WalletService } from './service';
-import type { WalletMovementsQuery, WalletWithdrawBody } from './validation';
+import type {
+  WalletCommissionsQuery,
+  WalletMovementsQuery,
+  WalletWithdrawBody,
+} from './validation';
 
 export class WalletController {
   constructor(private readonly service = new WalletService()) {}
@@ -15,13 +19,26 @@ export class WalletController {
     const query = req.query as unknown as WalletMovementsQuery;
     const data = await this.service.listMovements(req.user!.id, {
       limit: query.limit,
+      page: query.page,
       type: query.type,
+      direction: query.direction,
+      transactionCode: query.transactionCode,
+      from: query.from,
+      to: query.to,
     });
     res.status(200).json(data);
   };
 
   commissions = async (req: Request, res: Response): Promise<void> => {
-    const data = await this.service.listCommissions(req.user!.id);
+    const query = req.query as unknown as WalletCommissionsQuery;
+    const data = await this.service.listCommissions(req.user!.id, {
+      limit: query.limit,
+      page: query.page,
+      type: query.type,
+      transactionCode: query.transactionCode,
+      from: query.from,
+      to: query.to,
+    });
     res.status(200).json(data);
   };
 

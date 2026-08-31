@@ -30,8 +30,10 @@ function batchDto(doc: {
   createdAt: Date;
   updatedAt: Date;
 }) {
+  const id = String(doc._id);
   return {
-    id: String(doc._id),
+    id,
+    code: `LQ-${id.slice(-8).toUpperCase()}`,
     createdBy: String(doc.createdBy),
     totalAmountCents: doc.totalAmountCents,
     currency: doc.currency,
@@ -322,13 +324,66 @@ export class PayoutService {
     ).exec();
   }
 
-  async listBatches(limit = 40) {
-    const items = await PayoutBatchModel.find({ deletedAt: null })
-      .sort({ createdAt: -1 })
-      .limit(Math.min(100, Math.max(1, limit)))
-      .lean()
-      .exec();
-    return items.map(batchDto);
+  async listBatches(
+    opts: {
+      limit?: number;
+      page?: number;
+      status?: string;
+      from?: string;
+      to?: string;
+      q?: string;
+    } = {},
+  ) {
+    const limit = Math.min(100, Math.max(1, opts.limit ?? 10));
+    const page = Math.max(1, opts.page ?? 1);
+    const skip = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = { deletedAt: null };
+
+    if (opts.status) {
+      filter.status = opts.status;
+    }
+
+    const dateFilter: Record<string, Date> = {};
+    if (opts.from) {
+      const from = new Date(opts.from);
+      if (!Number.isNaN(from.getTime())) dateFilter.$gte = from;
+    }
+    if (opts.to) {
+      const to = new Date(opts.to);
+      if (!Number.isNaN(to.getTime())) dateFilter.$lte = to;
+    }
+    if (Object.keys(dateFilter).length) filter.createdAt = dateFilter;
+
+    const q = opts.q?.trim();
+    if (q) {
+      const or: Record<string, unknown>[] = [
+        { notes: { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } },
+      ];
+      if (Types.ObjectId.isValid(q) && String(new Types.ObjectId(q)) === q) {
+        or.push({ _id: new Types.ObjectId(q) });
+      }
+      filter.$or = or;
+    }
+
+    const [total, items] = await Promise.all([
+      PayoutBatchModel.countDocuments(filter).exec(),
+      PayoutBatchModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+    ]);
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    return {
+      items: items.map(batchDto),
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 
   async getBatch(batchId: string) {
@@ -343,7 +398,61 @@ export class PayoutService {
     })
       .lean()
       .exec();
-    return { batch: batchDto(batch), payouts: payouts.map(payoutDto) };
+
+    const agentIds = [...new Set(payouts.map((p) => String(p.agent)))];
+    const agents = agentIds.length
+      ? await UserModel.find({ _id: { $in: agentIds } })
+          .select('fullName displayName email documentNumber payoutMethods')
+          .lean()
+          .exec()
+      : [];
+    const agentById = new Map(agents.map((u) => [String(u._id), u]));
+
+    return {
+      batch: batchDto(batch),
+      payouts: payouts.map((p) => {
+        const agent = agentById.get(String(p.agent));
+        const methods = Array.isArray(agent?.payoutMethods) ? agent.payoutMethods : [];
+        return {
+          ...payoutDto(p),
+          agent: agent
+            ? {
+                id: String(agent._id),
+                fullName: agent.fullName ?? undefined,
+                displayName: agent.displayName ?? undefined,
+                email: agent.email ?? undefined,
+                documentNumber: agent.documentNumber ?? undefined,
+                payoutMethods: methods.map(
+                  (
+                    m: {
+                      bank?: string;
+                      type?: string;
+                      currency?: string;
+                      number?: string;
+                    },
+                    index: number,
+                  ) => ({
+                    id: `${String(agent._id)}-${index}`,
+                    bank: m.bank ?? '',
+                    type: m.type ?? '',
+                    currency: m.currency ?? '',
+                    number: m.number ?? '',
+                  }),
+                ),
+              }
+            : {
+                id: String(p.agent),
+                payoutMethods: [] as Array<{
+                  id: string;
+                  bank: string;
+                  type: string;
+                  currency: string;
+                  number: string;
+                }>,
+              },
+        };
+      }),
+    };
   }
 
   async listPayoutsForAgent(agentId: string, requesterId: string, isAdmin: boolean) {

@@ -8,6 +8,8 @@ import {
   Plus,
   ScrollText,
   Settings,
+  ShieldAlert,
+  Star,
   UserRound,
 } from 'lucide-react';
 
@@ -128,6 +130,20 @@ export const USER_MENU_LINKS: UserMenuLink[] = [
     label: 'Pagos a agentes',
     to: '/admin/finanzas',
     icon: CircleDollarSign,
+    adminOnly: true,
+  },
+  {
+    id: 'disputas',
+    label: 'Disputas',
+    to: '/admin/disputas',
+    icon: ShieldAlert,
+    adminOnly: true,
+  },
+  {
+    id: 'resenas-admin',
+    label: 'Reseñas',
+    to: '/admin/resenas',
+    icon: Star,
     adminOnly: true,
   },
 ];

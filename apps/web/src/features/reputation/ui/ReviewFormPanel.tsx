@@ -1,15 +1,24 @@
 import { useState } from 'react';
-import { Alert, Button, Form, Spinner } from 'react-bootstrap';
+import { Button, Spinner } from 'react-bootstrap';
+import { ShieldCheck, ShoppingBag, Store } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 import { useAppToast } from '@/shared/ui';
 
-import { useCreateReview, usePendingTargets } from '../hooks/useReputation';
+import {
+  useCreateReview,
+  usePendingTargets,
+  useTransactionReviewsGiven,
+} from '../hooks/useReputation';
 import type { PartyRole } from '../model/types';
+import { ReviewGivenSummary } from './ReviewGivenSummary';
+import { StarRatingInput } from './StarRatingInput';
+import '../styles/reputation.css';
 
-const ROLE_LABEL: Record<PartyRole, string> = {
-  BUYER: 'Comprador',
-  SELLER: 'Vendedor',
-  AGENT: 'Agente',
+const ROLE_META: Record<PartyRole, { label: string; Icon: LucideIcon }> = {
+  BUYER: { label: 'Comprador', Icon: ShoppingBag },
+  SELLER: { label: 'Vendedor', Icon: Store },
+  AGENT: { label: 'Agente', Icon: ShieldCheck },
 };
 
 interface ReviewFormPanelProps {
@@ -20,17 +29,19 @@ interface ReviewFormPanelProps {
 export function ReviewFormPanel({ transactionCode }: ReviewFormPanelProps) {
   const toast = useAppToast();
   const pending = usePendingTargets(transactionCode);
+  const given = useTransactionReviewsGiven(transactionCode);
   const create = useCreateReview();
   const [revieweeId, setRevieweeId] = useState('');
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  if (pending.isLoading) {
+  const loading = pending.isLoading || given.isLoading;
+
+  if (loading) {
     return (
-      <div className="d-flex align-items-center gap-2">
+      <div className="ca-review-form ca-review-form--loading">
         <Spinner animation="border" size="sm" />
-        <span>Cargando destinos de calificación…</span>
       </div>
     );
   }
@@ -40,15 +51,25 @@ export function ReviewFormPanel({ transactionCode }: ReviewFormPanelProps) {
   }
 
   const openTargets = pending.data.targets.filter((t) => !t.alreadyReviewed);
-  if (!openTargets.length) {
+  const givenReviews = given.data ?? [];
+  const hasOpen = openTargets.length > 0;
+  const allReviewed = !hasOpen && givenReviews.length > 0;
+
+  if (!hasOpen && !givenReviews.length) {
+    return null;
+  }
+
+  if (allReviewed) {
     return (
-      <Alert variant="secondary" className="mb-0">
-        Ya calificaste a todos los participantes disponibles de esta operación.
-      </Alert>
+      <section className="ca-review-form ca-review-form--summary">
+        <ReviewGivenSummary reviews={givenReviews} />
+      </section>
     );
   }
 
   const selected = revieweeId || openTargets[0]!.userId;
+  const showTargetPicker = openTargets.length > 1;
+  const soloTarget = openTargets[0]!;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,64 +81,92 @@ export function ReviewFormPanel({ transactionCode }: ReviewFormPanelProps) {
         rating,
         comment: comment.trim() || undefined,
       });
-      toast.success('Calificación enviada. La reputación se actualizó con ponderación anti-fraude.');
+      toast.success('Calificación enviada.');
       setComment('');
       setRating(5);
+      setRevieweeId('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo enviar la reseña');
     }
   };
 
   return (
-    <section className="ca-tx-panel">
-      <h3 className="ca-section-title">Calificar participantes</h3>
-      <p className="ca-section-lead">
-        Tu rol: <strong>{ROLE_LABEL[pending.data.myRole]}</strong>. Plazo:{' '}
-        {pending.data.windowDays} días desde el cierre.
-      </p>
-      {error ? <Alert variant="danger">{error}</Alert> : null}
-      <Form onSubmit={(e) => void onSubmit(e)} className="d-grid gap-3">
-        <Form.Group>
-          <Form.Label>A quién</Form.Label>
-          <Form.Select
-            value={selected}
-            onChange={(e) => setRevieweeId(e.target.value)}
-            required
+    <section className="ca-review-form" aria-labelledby={`review-form-${transactionCode}`}>
+      {givenReviews.length > 0 ? (
+        <ReviewGivenSummary reviews={givenReviews} compact />
+      ) : null}
+
+      <div className="ca-review-form__head">
+        <h3 className="ca-review-form__title" id={`review-form-${transactionCode}`}>
+          Calificar
+        </h3>
+
+        {showTargetPicker ? (
+          <div className="ca-review-form__segments" role="radiogroup" aria-label="A quién calificás">
+            {openTargets.map((target) => {
+              const meta = ROLE_META[target.role];
+              const active = selected === target.userId;
+              return (
+                <button
+                  key={target.userId}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={`ca-review-form__segment${active ? ' is-active' : ''}`}
+                  onClick={() => setRevieweeId(target.userId)}
+                >
+                  <meta.Icon size={15} strokeWidth={1.75} aria-hidden />
+                  <span>{meta.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <span className="ca-review-form__badge">
+            {(() => {
+              const Icon = ROLE_META[soloTarget.role].Icon;
+              return <Icon size={14} strokeWidth={1.75} aria-hidden />;
+            })()}
+            {ROLE_META[soloTarget.role].label}
+          </span>
+        )}
+      </div>
+
+      <form onSubmit={(e) => void onSubmit(e)} className="ca-review-form__body">
+        <StarRatingInput
+          value={rating}
+          onChange={setRating}
+          disabled={create.isPending}
+          size={36}
+        />
+
+        <textarea
+          rows={2}
+          maxLength={2000}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Comentario opcional…"
+          className="ca-review-form__comment"
+          disabled={create.isPending}
+        />
+
+        {error ? (
+          <p className="ca-review-form__error" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="ca-review-form__actions">
+          <Button
+            type="submit"
+            size="sm"
+            className="ca-btn-cta ca-review-form__submit"
+            disabled={create.isPending}
           >
-            {openTargets.map((t) => (
-              <option key={t.userId} value={t.userId}>
-                {ROLE_LABEL[t.role]} · {t.userId.slice(-6)}
-              </option>
-            ))}
-          </Form.Select>
-        </Form.Group>
-        <Form.Group>
-          <Form.Label>Puntaje ({rating}/5)</Form.Label>
-          <Form.Range
-            min={1}
-            max={5}
-            step={1}
-            value={rating}
-            onChange={(e) => setRating(Number(e.target.value))}
-          />
-        </Form.Group>
-        <Form.Group>
-          <Form.Label>Comentario (opcional)</Form.Label>
-          <Form.Control
-            as="textarea"
-            rows={3}
-            maxLength={2000}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Contá cómo fue la operación…"
-          />
-        </Form.Group>
-        <div>
-          <Button type="submit" disabled={create.isPending}>
             {create.isPending ? 'Enviando…' : 'Enviar calificación'}
           </Button>
         </div>
-      </Form>
+      </form>
     </section>
   );
 }

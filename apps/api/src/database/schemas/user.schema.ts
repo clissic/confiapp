@@ -252,7 +252,7 @@ const scheduleSchema = new Schema(
       type: String,
       trim: true,
       maxlength: 64,
-      default: 'America/Argentina/Buenos_Aires',
+      default: 'America/Montevideo',
     },
     isAcceptingAssignments: { type: Boolean, default: false },
     maxActiveTransactions: { type: Number, default: 5, min: 1, max: 100 },
@@ -401,7 +401,7 @@ const preferencesSchema = new Schema(
       type: String,
       trim: true,
       maxlength: 64,
-      default: 'America/Argentina/Buenos_Aires',
+      default: 'America/Montevideo',
     },
     currency: {
       type: String,
@@ -590,7 +590,7 @@ export const userSchema = new Schema<IUser>(
     schedule: {
       type: scheduleSchema,
       default: () => ({
-        timezone: 'America/Argentina/Buenos_Aires',
+        timezone: 'America/Montevideo',
         isAcceptingAssignments: false,
         maxActiveTransactions: 5,
         weeklySlots: [],

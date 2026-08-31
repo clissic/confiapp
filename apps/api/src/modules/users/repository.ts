@@ -49,7 +49,7 @@ export interface UpdateUserData {
     height?: number;
     isPrimary?: boolean;
   }>;
-  /** Si true y hay ID_FRONT + SELFIE, pasa KYC a PENDING. */
+  /** Si true y hay ID_FRONT + SELFIE + ADDRESS_PROOF, pasa KYC a PENDING. */
   submitKyc?: boolean;
   kycReviewTokenHash?: string;
   kycReviewTokenExpiresAt?: Date;
@@ -203,7 +203,10 @@ export class UsersRepository {
       if (primary?.url) $set.avatar = primary.url;
 
       const kinds = new Set(data.photos.map((p) => p.kind));
-      const hasKycDocs = kinds.has(PhotoKind.ID_FRONT) && kinds.has(PhotoKind.SELFIE);
+      const hasKycDocs =
+        kinds.has(PhotoKind.ID_FRONT) &&
+        kinds.has(PhotoKind.SELFIE) &&
+        kinds.has(PhotoKind.ADDRESS_PROOF);
       if (data.submitKyc && hasKycDocs) {
         const existing = await UserModel.findById(id)
           .select('kyc.status verification.identity.status')

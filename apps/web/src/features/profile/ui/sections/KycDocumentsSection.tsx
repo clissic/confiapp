@@ -1,4 +1,5 @@
-import { Alert, Badge, Button } from 'react-bootstrap';
+import { Alert, Badge, Button, Form, Modal } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 
@@ -9,11 +10,17 @@ import { KYC_IMAGE_OPTIONS } from '../../model/image-source';
 import type { ProfilePhoto, UserPhotoKind, UserProfile } from '../../model/types';
 import { ImageSourceField } from '../ImageSourceField';
 
-const KYC_KINDS = ['ID_FRONT', 'SELFIE'] as const satisfies readonly UserPhotoKind[];
+const KYC_KINDS = ['ID_FRONT', 'SELFIE', 'ADDRESS_PROOF'] as const satisfies readonly UserPhotoKind[];
 
 type KycKind = (typeof KYC_KINDS)[number];
 
-const SLOTS: Array<{ kind: KycKind; title: string; hint: string }> = [
+const SLOTS: Array<{
+  kind: KycKind;
+  title: string;
+  hint: string;
+  allowPdf?: boolean;
+  maxHintLabel?: string;
+}> = [
   {
     kind: 'ID_FRONT',
     title: 'DNI (frente) / Pasaporte (datos personales)',
@@ -23,6 +30,13 @@ const SLOTS: Array<{ kind: KycKind; title: string; hint: string }> = [
     kind: 'SELFIE',
     title: 'Selfie',
     hint: 'Selfie sosteniendo el DNI de frente o el pasaporte en la página de datos personales.',
+  },
+  {
+    kind: 'ADDRESS_PROOF',
+    title: 'Comprobante de domicilio',
+    hint: 'Constancia del Ministerio del Interior o un recibo a tu nombre con la dirección.',
+    allowPdf: true,
+    maxHintLabel: 'máx. 4 MB (PDF) / 2 MB (imagen)',
   },
 ];
 
@@ -43,6 +57,18 @@ function photoByKind(photos: ProfilePhoto[], kind: KycKind): string {
   return photos.find((photo) => photo.kind === kind)?.url ?? '';
 }
 
+function hasCompleteAddress(profile: UserProfile): boolean {
+  const address = profile.address;
+  return Boolean(
+    profile.fullName?.trim() &&
+      profile.documentNumber?.trim() &&
+      address?.line1?.trim() &&
+      address?.city?.trim() &&
+      address?.state?.trim() &&
+      address?.country?.trim(),
+  );
+}
+
 function mergePhotos(
   profile: UserProfile,
   kyc: Record<KycKind, string>,
@@ -52,7 +78,8 @@ function mergePhotos(
       (photo) =>
         photo.kind !== 'ID_FRONT' &&
         photo.kind !== 'ID_BACK' &&
-        photo.kind !== 'SELFIE',
+        photo.kind !== 'SELFIE' &&
+        photo.kind !== 'ADDRESS_PROOF',
     )
     .map((photo) => ({
       url: photo.url,
@@ -71,6 +98,7 @@ function mergePhotos(
     ...kept,
     { url: kyc.ID_FRONT, kind: 'ID_FRONT', isPrimary: false },
     { url: kyc.SELFIE, kind: 'SELFIE', isPrimary: false },
+    { url: kyc.ADDRESS_PROOF, kind: 'ADDRESS_PROOF', isPrimary: false },
   ];
 }
 
@@ -78,40 +106,64 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
   const update = useUpdateProfile();
   const toast = useAppToast();
   const [formError, setFormError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [ackImmutable, setAckImmutable] = useState(false);
   const [images, setImages] = useState<Record<KycKind, string>>({
     ID_FRONT: photoByKind(profile.photos, 'ID_FRONT'),
     SELFIE: photoByKind(profile.photos, 'SELFIE'),
+    ADDRESS_PROOF: photoByKind(profile.photos, 'ADDRESS_PROOF'),
   });
 
   const status = profile.kyc?.status ?? profile.verification?.identityStatus ?? 'UNVERIFIED';
   const locked = status === 'VERIFIED';
   const meta = statusMeta(status);
+  const addressReady = hasCompleteAddress(profile);
 
   useEffect(() => {
     setImages({
       ID_FRONT: photoByKind(profile.photos, 'ID_FRONT'),
       SELFIE: photoByKind(profile.photos, 'SELFIE'),
+      ADDRESS_PROOF: photoByKind(profile.photos, 'ADDRESS_PROOF'),
     });
   }, [profile]);
 
   const complete = useMemo(
-    () => Boolean(images.ID_FRONT && images.SELFIE),
+    () => Boolean(images.ID_FRONT && images.SELFIE && images.ADDRESS_PROOF),
     [images],
   );
 
-  const onSubmit = async () => {
+  const openConfirmModal = () => {
     setFormError(null);
+    if (!addressReady) {
+      setFormError(
+        'Antes de verificar, guardá tu nombre, DNI/pasaporte y todos los datos de dirección en Editar perfil.',
+      );
+      return;
+    }
     if (!complete) {
-      setFormError('Subí el documento (frente/pasaporte) y la selfie para enviar la verificación.');
+      setFormError(
+        'Subí el documento, la selfie y el comprobante de domicilio para enviar la verificación.',
+      );
       return;
     }
     if (locked) return;
+    setAckImmutable(false);
+    setShowConfirmModal(true);
+  };
 
-    await update.mutateAsync({
-      photos: mergePhotos(profile, images),
-      submitKyc: true,
-    });
-    toast.success('Documentos enviados. Un administrador revisará tu identidad.');
+  const onConfirmSubmit = async () => {
+    if (!ackImmutable || locked) return;
+    setFormError(null);
+    try {
+      await update.mutateAsync({
+        photos: mergePhotos(profile, images),
+        submitKyc: true,
+      });
+      setShowConfirmModal(false);
+      toast.success('Documentos enviados. Un administrador revisará tu identidad.');
+    } catch {
+      setFormError('No se pudieron guardar los documentos.');
+    }
   };
 
   return (
@@ -124,9 +176,18 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
         </Badge>
       </h3>
       <p className="ca-section-lead">
-        Subí el frente de tu DNI (o la página de datos del pasaporte) y una selfie sosteniendo el
-        documento. Con la verificación aprobada sumás puntos de KYC en tu reputación.
+        Subí el frente de tu DNI (o la página de datos del pasaporte), una selfie sosteniendo el
+        documento y un comprobante de domicilio. Con la verificación aprobada sumás puntos de KYC
+        en tu reputación.
       </p>
+
+      {!addressReady && !locked ? (
+        <Alert variant="warning">
+          Para enviar la verificación necesitás tener guardados tu nombre, DNI/pasaporte y la
+          dirección completa.{' '}
+          <Link to="/perfil?tab=settings#editar-perfil">Completar en Editar perfil</Link>
+        </Alert>
+      ) : null}
 
       {status === 'REJECTED' && profile.kyc?.rejectionReason ? (
         <Alert variant="danger">Motivo del rechazo: {profile.kyc.rejectionReason}</Alert>
@@ -144,7 +205,8 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
             value={images[slot.kind]}
             disabled={locked || update.isPending}
             processOptions={KYC_IMAGE_OPTIONS}
-            maxHintLabel="máx. 2 MB"
+            maxHintLabel={slot.maxHintLabel ?? 'máx. 2 MB'}
+            allowPdf={slot.allowPdf}
             onChange={(url) => {
               setImages((prev) => ({ ...prev, [slot.kind]: url }));
               setFormError(null);
@@ -157,8 +219,8 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
         <Button
           type="button"
           className="ca-btn-cta"
-          disabled={locked || update.isPending || !complete}
-          onClick={() => void onSubmit()}
+          disabled={locked || update.isPending || !complete || !addressReady}
+          onClick={openConfirmModal}
         >
           {update.isPending
             ? 'Enviando…'
@@ -166,9 +228,58 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
               ? 'Identidad verificada'
               : status === 'PENDING'
                 ? 'Reenviar documentos'
-                : 'Enviar para verificación'}
+                : 'Verificar mi identidad'}
         </Button>
       </div>
+
+      <Modal
+        show={showConfirmModal}
+        onHide={() => {
+          if (update.isPending) return;
+          setShowConfirmModal(false);
+        }}
+        centered
+        aria-labelledby="kyc-confirm-title"
+      >
+        <Modal.Header closeButton={!update.isPending}>
+          <Modal.Title id="kyc-confirm-title">Verificación de identidad</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-3">
+            ConfiApp agradece que hayas optado por la verificación de usuario para dar más
+            confianza a la plataforma.
+          </p>
+          <p className="mb-3 text-muted">
+            Tené en cuenta que, una vez verificado, no podrás modificar tus datos personales
+            (nombre, documento y dirección). Para cambiarlos deberás realizar una solicitud
+            especial a la administración de ConfiApp.
+          </p>
+          <Form.Check
+            type="checkbox"
+            id="kyc-ack-immutable"
+            checked={ackImmutable}
+            disabled={update.isPending}
+            onChange={(event) => setAckImmutable(event.target.checked)}
+            label="Entiendo que, al verificar mi identidad, no podré modificar esos datos sin una solicitud a la administración."
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="outline-secondary"
+            disabled={update.isPending}
+            onClick={() => setShowConfirmModal(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            className="ca-btn-cta"
+            disabled={!ackImmutable || update.isPending}
+            onClick={() => void onConfirmSubmit()}
+          >
+            {update.isPending ? 'Enviando…' : 'Verificar mi identidad'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </section>
   );
 }

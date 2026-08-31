@@ -205,8 +205,11 @@
 .ca-profile--loading {
   display: flex;
   align-items: center;
-  min-height: 200px;
+  justify-content: center;
+  min-height: min(52vh, 28rem);
+  width: 100%;
   color: var(--text-muted);
+  text-align: center;
 }
 
 .ca-profile__header {
@@ -575,6 +578,37 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ca-profile-edit__locked-label {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.ca-profile-edit__locked-label > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-profile-edit__lock {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: var(--brand-secondary, #55c5b5);
+  cursor: help;
+  line-height: 1;
+  outline: none;
+}
+
+.ca-profile-edit__lock:focus-visible {
+  outline: 2px solid var(--brand-secondary, #55c5b5);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .ca-profile-edit .row > [class*='col'] {

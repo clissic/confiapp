@@ -87,6 +87,42 @@ export interface ITransaction {
    * Solo visible para el Agente.
    */
   returnInstructions?: string;
+  /**
+   * Resultado de la verificación del Agente en la entrega.
+   * Cuando está definido, el checklist queda cerrado.
+   * El comprador luego acepta el producto o rechaza y cancela.
+   */
+  agentVerification?: {
+    allPassed: boolean;
+    completedAt: Date;
+    completedBy: Types.ObjectId;
+    /** Nota opcional del Agente para el comprador. */
+    note?: string;
+    /** Decisión del comprador tras la verificación en el retiro. */
+    buyerDecision?: 'ACCEPTED' | 'REJECTED';
+    buyerDecidedAt?: Date;
+    buyerDecidedBy?: Types.ObjectId;
+  };
+  /**
+   * Confirmaciones de la entrega al comprador (después de que aceptó la verificación).
+   * Cuando ambas están hechas, se liberan los fondos.
+   */
+  deliveryConfirmation?: {
+    buyerArrivalConfirmedAt?: Date;
+    buyerArrivalConfirmedBy?: Types.ObjectId;
+    agentDeliveryConfirmedAt?: Date;
+    agentDeliveryConfirmedBy?: Types.ObjectId;
+    /** Timestamp de la primera confirmación (comprador o agente). */
+    firstConfirmedAt?: Date;
+    /** Plazo de liberación automática (firstConfirmedAt + 72h). */
+    autoReleaseAt?: Date;
+    /** El sistema completó la confirmación de arribo del comprador. */
+    buyerArrivalAuto?: boolean;
+    /** El sistema completó la confirmación de entrega del agente. */
+    agentDeliveryAuto?: boolean;
+    /** Recordatorio ~48h enviado a la parte pendiente. */
+    reminder48hSentAt?: Date;
+  };
   participants: TransactionParticipant[];
   /** @deprecated Preferir party.*.conditionsSummary / checklist */
   conditions: TransactionConditions;

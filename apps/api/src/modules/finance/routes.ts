@@ -44,6 +44,18 @@ financeRoutes.post('/jobs/release-commissions', asyncHandler(async (req, res) =>
 financeRoutes.get(
   '/payout-batches',
   authenticate,
+  validateRequest({
+    query: z.object({
+      limit: z.coerce.number().int().min(1).max(100).optional(),
+      page: z.coerce.number().int().min(1).max(500).optional(),
+      status: z
+        .enum(['DRAFT', 'PENDING_TRANSFER', 'PARTIALLY_PAID', 'PAID', 'CANCELLED'])
+        .optional(),
+      from: z.string().trim().optional(),
+      to: z.string().trim().optional(),
+      q: z.string().trim().max(120).optional(),
+    }),
+  }),
   asyncHandler(controller.listBatches),
 );
 

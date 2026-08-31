@@ -78,10 +78,14 @@ function roleOfUser(
   return null;
 }
 
-function toReviewDto(row: IReview & { _id: Types.ObjectId }) {
+function toReviewDto(
+  row: IReview & { _id: Types.ObjectId },
+  extras?: { transactionCode?: string },
+) {
   return {
     id: String(row._id),
     transactionId: String(row.transaction),
+    transactionCode: extras?.transactionCode,
     reviewerId: String(row.reviewer),
     revieweeId: String(row.reviewee),
     reviewerRole: row.reviewerRole,
@@ -529,14 +533,24 @@ export class ReputationService {
   async listReviews(opts: {
     userId?: string;
     as?: 'received' | 'given';
+    role?: 'BUYER' | 'SELLER' | 'AGENT';
     transactionCode?: string;
     limit?: number;
+    page?: number;
+    flaggedOnly?: boolean;
+    includeNonPublic?: boolean;
   }) {
     const limit = Math.min(opts.limit ?? 40, 100);
+    const page = Math.max(1, opts.page ?? 1);
+    const skip = (page - 1) * limit;
     const filter: Record<string, unknown> = {
       deletedAt: null,
       visibility: ReviewVisibility.PUBLIC,
     };
+
+    if (opts.includeNonPublic || opts.transactionCode) {
+      delete filter.visibility;
+    }
 
     if (opts.transactionCode) {
       const tx = await TransactionModel.findOne({
@@ -548,7 +562,6 @@ export class ReputationService {
         .exec();
       if (!tx) throw new NotFoundError('Operación no encontrada');
       filter.transaction = tx._id;
-      delete filter.visibility;
     }
 
     if (opts.userId) {
@@ -556,14 +569,60 @@ export class ReputationService {
       else filter.reviewee = opts.userId;
     }
 
-    const rows = await ReviewModel.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean()
-      .exec();
+    if (opts.role) {
+      if (opts.as === 'given') filter.reviewerRole = opts.role;
+      else filter.revieweeRole = opts.role;
+    }
+
+    if (opts.flaggedOnly) {
+      const activeFlags = Object.values(ReviewFraudFlag).filter(
+        (f) => f !== ReviewFraudFlag.NONE,
+      );
+      filter.$or = [
+        { weight: { $lt: 1 } },
+        { fraudFlags: { $in: activeFlags } },
+      ];
+    }
+
+    const [total, rows] = await Promise.all([
+      ReviewModel.countDocuments(filter).exec(),
+      ReviewModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+    ]);
+
+    const txIds = [
+      ...new Set(rows.map((row) => String(row.transaction)).filter(Boolean)),
+    ];
+    const txCodeById = new Map<string, string>();
+    if (txIds.length) {
+      const txs = await TransactionModel.find({
+        _id: { $in: txIds.map((id) => new Types.ObjectId(id)) },
+        deletedAt: null,
+      })
+        .select('_id code')
+        .lean()
+        .exec();
+      for (const tx of txs) {
+        txCodeById.set(String(tx._id), tx.code);
+      }
+    }
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
     return {
-      items: rows.map((row) => toReviewDto(row as IReview & { _id: Types.ObjectId })),
+      items: rows.map((row) =>
+        toReviewDto(row as IReview & { _id: Types.ObjectId }, {
+          transactionCode: txCodeById.get(String(row.transaction)),
+        }),
+      ),
+      total,
+      page,
+      limit,
+      totalPages,
     };
   }
 }

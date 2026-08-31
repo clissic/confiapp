@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { asyncHandler, authenticate, validateRequest } from '../../middleware';
 import { WalletController } from './controller';
 import {
+  walletCommissionsQuerySchema,
   walletMovementsQuerySchema,
   walletWithdrawBodySchema,
   walletWithdrawalIdParamsSchema,
@@ -19,7 +20,12 @@ walletRoutes.get(
   validateRequest({ query: walletMovementsQuerySchema }),
   asyncHandler(controller.movements),
 );
-walletRoutes.get('/commissions', authenticate, asyncHandler(controller.commissions));
+walletRoutes.get(
+  '/commissions',
+  authenticate,
+  validateRequest({ query: walletCommissionsQuerySchema }),
+  asyncHandler(controller.commissions),
+);
 walletRoutes.get('/withdrawals', authenticate, asyncHandler(controller.withdrawals));
 walletRoutes.post(
   '/withdrawals',

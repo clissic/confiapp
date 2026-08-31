@@ -25,6 +25,34 @@ export const KYC_IMAGE_OPTIONS: Required<ImageProcessOptions> = {
   jpegQuality: 0.82,
 };
 
+/** Comprobante de domicilio: imagen (mismas reglas KYC) o PDF hasta 4 MB. */
+export const KYC_ADDRESS_PROOF_MAX_BYTES = 4 * 1024 * 1024;
+
+export const ADDRESS_PROOF_ACCEPTED_TYPES = [
+  ...IMAGE_ACCEPTED_TYPES,
+  'application/pdf',
+] as const;
+
+export async function fileToAddressProofDataUrl(file: File): Promise<string> {
+  const isPdf =
+    file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (isPdf) {
+    if (file.size > KYC_ADDRESS_PROOF_MAX_BYTES) {
+      throw new Error('El PDF supera 4 MB. Elegí un archivo más liviano.');
+    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') resolve(reader.result);
+        else reject(new Error('No se pudo leer el PDF.'));
+      };
+      reader.onerror = () => reject(new Error('No se pudo leer el PDF.'));
+      reader.readAsDataURL(file);
+    });
+  }
+  return fileToImageDataUrl(file, KYC_IMAGE_OPTIONS);
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();

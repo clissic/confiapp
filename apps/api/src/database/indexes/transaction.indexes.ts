@@ -14,4 +14,5 @@ export function applyTransactionIndexes(schema: Schema<ITransaction>): void {
   schema.index({ inviteExpiresAt: 1 });
   schema.index({ status: 1, deletedAt: 1, createdAt: -1 });
   schema.index({ meetingLocation: '2dsphere' });
+  schema.index({ 'deliveryConfirmation.autoReleaseAt': 1, status: 1 });
 }

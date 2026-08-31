@@ -25,6 +25,7 @@ import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
 
 import { ACTIVE_AGENT_JOB_STATUSES } from './agent-jobs';
+import { advanceToInProgressOnAgentAccept } from './advance-on-accept';
 import { AgentAssignmentService } from './assignment.service';
 import {
   isEscrowVisibleToAgents,
@@ -44,6 +45,14 @@ export interface OpenJobsQuery {
   limit?: number;
 }
 
+export interface OpenJobPlaceDto {
+  /** Presente solo si hay coordenadas (mapa / domicilio). */
+  lng?: number;
+  lat?: number;
+  label?: string;
+  hasPoint: boolean;
+}
+
 export interface OpenJobDto {
   id: string;
   code: string;
@@ -53,11 +62,18 @@ export interface OpenJobDto {
   amountCents: number;
   currency: string;
   distanceKm: number;
+  /** @deprecated Preferir pickup / delivery; se mantiene para el mapa (punto de referencia). */
   meeting: {
     lng: number;
     lat: number;
     label?: string;
   };
+  /** Retiro del producto (punto elegido por el vendedor). */
+  pickup: OpenJobPlaceDto;
+  /** Entrega al comprador (punto elegido por el comprador). */
+  delivery: OpenJobPlaceDto;
+  /** Distancia aproximada entre retiro y entrega, si ambos tienen coordenadas. */
+  routeKm?: number;
   buyer: {
     id: string;
     name: string;
@@ -121,6 +137,114 @@ function hasAcceptedIntermediary(tx: ITransaction): boolean {
   );
 }
 
+type MeetingLike = {
+  coordinates?: number[] | [number, number];
+  label?: string;
+} | null | undefined;
+
+function toPlace(loc: MeetingLike): OpenJobPlaceDto {
+  const lng = loc?.coordinates?.[0];
+  const lat = loc?.coordinates?.[1];
+  const hasPoint =
+    typeof lng === 'number' &&
+    typeof lat === 'number' &&
+    Number.isFinite(lng) &&
+    Number.isFinite(lat);
+  return {
+    ...(hasPoint ? { lng, lat } : {}),
+    label: loc?.label?.trim() || undefined,
+    hasPoint,
+  };
+}
+
+function placeLabel(place: OpenJobPlaceDto, fallback: string): string {
+  if (place.label) return place.label;
+  if (place.hasPoint) return fallback;
+  return 'A coordinar';
+}
+
+function resolveJobPlaces(
+  tx: ITransaction,
+  creatorFallback?: MeetingLike,
+): {
+  pickup: OpenJobPlaceDto;
+  delivery: OpenJobPlaceDto;
+  meeting: { lng: number; lat: number; label?: string } | null;
+  routeKm?: number;
+} {
+  const pickup = toPlace(tx.party?.seller?.meetingLocation);
+  const delivery = toPlace(tx.party?.buyer?.meetingLocation);
+  const legacy = toPlace(tx.meetingLocation);
+  const creator = toPlace(creatorFallback);
+
+  // Punto de referencia para mapa/distancia: retiro → entrega → legacy → creador.
+  const ref =
+    pickup.hasPoint && pickup.lng != null && pickup.lat != null
+      ? pickup
+      : delivery.hasPoint && delivery.lng != null && delivery.lat != null
+        ? delivery
+        : legacy.hasPoint && legacy.lng != null && legacy.lat != null
+          ? legacy
+          : creator.hasPoint && creator.lng != null && creator.lat != null
+            ? creator
+            : null;
+
+  const meeting = ref
+    ? {
+        lng: ref.lng!,
+        lat: ref.lat!,
+        label:
+          pickup.hasPoint || pickup.label
+            ? placeLabel(pickup, 'Retiro')
+            : delivery.hasPoint || delivery.label
+              ? placeLabel(delivery, 'Entrega')
+              : legacy.label ?? creator.label,
+      }
+    : null;
+
+  let routeKm: number | undefined;
+  if (
+    pickup.hasPoint &&
+    delivery.hasPoint &&
+    pickup.lat != null &&
+    pickup.lng != null &&
+    delivery.lat != null &&
+    delivery.lng != null
+  ) {
+    routeKm = Number(
+      haversineKm(pickup.lat, pickup.lng, delivery.lat, delivery.lng).toFixed(2),
+    );
+  }
+
+  return {
+    pickup,
+    delivery,
+    meeting,
+    routeKm,
+  };
+}
+
+function nearestDistanceKm(
+  agentLat: number,
+  agentLng: number,
+  places: OpenJobPlaceDto[],
+  fallbackMeeting: { lat: number; lng: number },
+): number {
+  const points = places.filter(
+    (p): p is OpenJobPlaceDto & { lat: number; lng: number } =>
+      p.hasPoint && p.lat != null && p.lng != null,
+  );
+  if (points.length === 0) {
+    return haversineKm(agentLat, agentLng, fallbackMeeting.lat, fallbackMeeting.lng);
+  }
+  return Math.min(
+    ...points.map((p) => haversineKm(agentLat, agentLng, p.lat, p.lng)),
+  );
+}
+
+const OPEN_JOB_SELECT =
+  'code title description status amountCents currency initiatedBy createdBy participants meetingLocation party createdAt';
+
 export class OpenJobsService {
   constructor(private readonly assignments = new AgentAssignmentService()) {}
 
@@ -145,9 +269,7 @@ export class OpenJobsService {
         },
       },
     })
-      .select(
-        'code title description status amountCents currency initiatedBy createdBy participants meetingLocation createdAt',
-      )
+      .select(OPEN_JOB_SELECT)
       .limit(limit * 2)
       .lean()
       .exec()) as Array<ITransaction & { _id: unknown }>;
@@ -158,9 +280,7 @@ export class OpenJobsService {
       status: { $in: OPEN_JOB_STATUSES },
       $or: [{ meetingLocation: { $exists: false } }, { meetingLocation: null }],
     })
-      .select(
-        'code title description status amountCents currency initiatedBy createdBy participants meetingLocation createdAt',
-      )
+      .select(OPEN_JOB_SELECT)
       .sort({ createdAt: -1 })
       .limit(40)
       .lean()
@@ -237,20 +357,20 @@ export class OpenJobsService {
       );
       const counterpartyId = counterparty?.user ? String(counterparty.user) : undefined;
 
-      let lng = tx.meetingLocation?.coordinates?.[0];
-      let lat = tx.meetingLocation?.coordinates?.[1];
-      let label = tx.meetingLocation?.label;
+      const creator = userMap.get(creatorId);
+      const places = resolveJobPlaces(tx, {
+        coordinates: creator?.location?.point?.coordinates,
+        label: creator?.location?.label,
+      });
 
-      if (lng == null || lat == null) {
-        const creator = userMap.get(creatorId);
-        lng = creator?.location?.point?.coordinates?.[0];
-        lat = creator?.location?.point?.coordinates?.[1];
-        label = label ?? creator?.location?.label;
-      }
+      if (!places.meeting) continue;
 
-      if (lng == null || lat == null) continue;
-
-      const distanceKm = haversineKm(query.lat, query.lng, lat, lng);
+      const distanceKm = nearestDistanceKm(
+        query.lat,
+        query.lng,
+        [places.pickup, places.delivery],
+        places.meeting,
+      );
       if (distanceKm > query.radiusKm) continue;
 
       const amountCents = tx.amountCents ?? 0;
@@ -293,7 +413,10 @@ export class OpenJobsService {
         amountCents,
         currency,
         distanceKm: Number(distanceKm.toFixed(3)),
-        meeting: { lng, lat, label },
+        meeting: places.meeting,
+        pickup: places.pickup,
+        delivery: places.delivery,
+        routeKm: places.routeKm,
         buyer: {
           id: String(buyerUser._id),
           name: buyerUser.displayName || buyerUser.fullName,
@@ -381,12 +504,20 @@ export class OpenJobsService {
       });
     }
 
-    tx.statusHistory.push({
-      status: tx.status,
-      changedAt: now,
-      changedBy: new Types.ObjectId(agentId),
-      note: 'Agente aceptó el trabajo desde el tablero de trabajos abiertos',
-    });
+    const advanced = advanceToInProgressOnAgentAccept(
+      tx,
+      agentId,
+      now,
+      'Operación en curso: agente tomó el trabajo tras el pago protegido',
+    );
+    if (!advanced) {
+      tx.statusHistory.push({
+        status: tx.status,
+        changedAt: now,
+        changedBy: new Types.ObjectId(agentId),
+        note: 'Agente aceptó el trabajo desde el tablero de trabajos abiertos',
+      });
+    }
     await tx.save();
 
     try {
@@ -400,6 +531,7 @@ export class OpenJobsService {
       agentId,
       transactionCode: tx.code,
       source: 'open_jobs',
+      status: tx.status,
     });
 
     const partyUserIds = [
@@ -482,14 +614,14 @@ export class OpenJobsService {
     const roles = partyRoles(tx.initiatedBy ?? TransactionInitiator.BUYER);
     const buyer = roles.buyerRole === 'creator' ? creator : counter;
     const seller = roles.sellerRole === 'creator' ? creator : counter;
-    const lng =
-      tx.meetingLocation?.coordinates?.[0] ??
-      creator?.location?.point?.coordinates?.[0] ??
-      -58.3816;
-    const lat =
-      tx.meetingLocation?.coordinates?.[1] ??
-      creator?.location?.point?.coordinates?.[1] ??
-      -34.6037;
+    const places = resolveJobPlaces(tx, {
+      coordinates: creator?.location?.point?.coordinates,
+      label: creator?.location?.label,
+    });
+    const meeting = places.meeting ?? {
+      lng: -58.3816,
+      lat: -34.6037,
+    };
 
     return {
       id: String(tx._id),
@@ -500,11 +632,10 @@ export class OpenJobsService {
       amountCents: tx.amountCents ?? 0,
       currency: tx.currency ?? 'UYU',
       distanceKm: 0,
-      meeting: {
-        lng,
-        lat,
-        label: tx.meetingLocation?.label ?? creator?.location?.label,
-      },
+      meeting,
+      pickup: places.pickup,
+      delivery: places.delivery,
+      routeKm: places.routeKm,
       buyer: {
         id: buyer ? String(buyer._id) : '',
         name: buyer?.displayName || buyer?.fullName || 'Comprador',

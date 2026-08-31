@@ -19,6 +19,16 @@ const TERMS_TEXT = `Términos y condiciones del Agente Intermediario — ConfiAp
 5. ConfiApp puede suspender el rol ante incumplimiento o disputas graves.
 6. Aceptás que los fondos de escrow no son de tu propiedad.`;
 
+function emptyStats(): AgentOnboarding['stats'] {
+  return {
+    completedDeliveries: 0,
+    successRate: 0,
+    ratingAverage: 0,
+    ratingCount: 0,
+    ratingDistribution: { one: 0, two: 0, three: 0, four: 0, five: 0 },
+  };
+}
+
 function createDemoOnboarding(): AgentOnboarding {
   return {
     status: 'NONE',
@@ -35,6 +45,7 @@ function createDemoOnboarding(): AgentOnboarding {
     isAgent: false,
     activeJobsCount: 0,
     activeJobs: [],
+    stats: emptyStats(),
     preview: {
       fullName: 'Joaquín Creator',
       email: 'joaquin@confiapp.demo',
@@ -59,6 +70,14 @@ function loadDemo(): AgentOnboarding {
       termsAccepted: Boolean(parsed.termsAccepted),
       unspecifiedSchedule: Boolean(parsed.unspecifiedSchedule),
       isAgent: parsed.status === 'ACTIVE' || parsed.status === 'INACTIVE',
+      stats: {
+        ...emptyStats()!,
+        ...parsed.stats,
+        ratingDistribution: {
+          ...emptyStats()!.ratingDistribution,
+          ...parsed.stats?.ratingDistribution,
+        },
+      },
     };
   } catch {
     return createDemoOnboarding();

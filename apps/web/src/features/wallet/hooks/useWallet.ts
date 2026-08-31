@@ -9,10 +9,13 @@ import {
   fetchWalletWithdrawals,
   requestWithdrawal,
 } from '../api/wallet.api';
+import type { WalletCommissionsQuery, WalletMovementsQuery } from '../model/types';
 
 export const walletSummaryKey = ['wallet', 'summary'] as const;
-export const walletMovementsKey = ['wallet', 'movements'] as const;
-export const walletCommissionsKey = ['wallet', 'commissions'] as const;
+export const walletMovementsKey = (query: WalletMovementsQuery) =>
+  ['wallet', 'movements', query] as const;
+export const walletCommissionsKey = (query: WalletCommissionsQuery) =>
+  ['wallet', 'commissions', query] as const;
 export const walletWithdrawalsKey = ['wallet', 'withdrawals'] as const;
 
 function invalidateAll(queryClient: ReturnType<typeof useQueryClient>) {
@@ -23,12 +26,18 @@ export function useWalletSummary() {
   return useQuery({ queryKey: walletSummaryKey, queryFn: fetchWalletSummary });
 }
 
-export function useWalletMovements() {
-  return useQuery({ queryKey: walletMovementsKey, queryFn: fetchWalletMovements });
+export function useWalletMovements(query: WalletMovementsQuery) {
+  return useQuery({
+    queryKey: walletMovementsKey(query),
+    queryFn: () => fetchWalletMovements(query),
+  });
 }
 
-export function useWalletCommissions() {
-  return useQuery({ queryKey: walletCommissionsKey, queryFn: fetchWalletCommissions });
+export function useWalletCommissions(query: WalletCommissionsQuery) {
+  return useQuery({
+    queryKey: walletCommissionsKey(query),
+    queryFn: () => fetchWalletCommissions(query),
+  });
 }
 
 export function useWalletWithdrawals() {

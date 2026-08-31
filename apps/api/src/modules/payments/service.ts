@@ -6,6 +6,7 @@ import {
   PaymentProvider,
   PaymentStatus,
   PaymentType,
+  PlatformRole,
   TransactionInitiator,
   TransactionStatus,
   WalletMovementDirection,
@@ -601,6 +602,15 @@ export class PaymentsService {
       },
     });
 
+    const now = new Date();
+    tx.statusHistory.push({
+      status: TransactionStatus.ACCEPTED,
+      changedAt: now,
+      changedBy: new Types.ObjectId(userId),
+      note: 'Comprador envió el comprobante de transferencia — pendiente de verificación',
+    });
+    await tx.save();
+
     const buyer = await UserModel.findById(parties.buyerId).select('email fullName').lean();
     setImmediate(() => {
       void sendManualPrexReceiptEmail({
@@ -789,7 +799,7 @@ export class PaymentsService {
         status: TransactionStatus.ACCEPTED,
         changedAt: now,
         changedBy: new Types.ObjectId(adminUserId),
-        note: 'Admin marcó la transferencia Prex como no confirmada',
+        note: 'ConfiApp pidió revisar de nuevo el comprobante de la transferencia',
       });
       await tx.save();
     }
@@ -1130,6 +1140,22 @@ export class PaymentsService {
     }
     assertNotPastDeadline(tx);
 
+    // Flujo con verificación del Agente: hace falta la doble confirmación de entrega.
+    if (tx.agentVerification?.buyerDecision === 'ACCEPTED') {
+      const buyerOk = Boolean(tx.deliveryConfirmation?.buyerArrivalConfirmedAt);
+      const agentOk = Boolean(tx.deliveryConfirmation?.agentDeliveryConfirmedAt);
+      if (!buyerOk || !agentOk) {
+        throw new ValidationError(
+          'Para liberar los fondos, el comprador debe confirmar el arribo y el Agente la entrega.',
+          { buyerArrivalConfirmed: buyerOk, agentDeliveryConfirmed: agentOk },
+        );
+      }
+    } else if (tx.agentVerification?.completedAt && !tx.agentVerification.buyerDecision) {
+      throw new ValidationError(
+        'El comprador todavía no decidió si acepta el producto tras la verificación.',
+      );
+    }
+
     const parties = resolveParties(tx);
     const hold = await PaymentModel.findOne({
       transaction: tx._id,
@@ -1290,11 +1316,16 @@ export class PaymentsService {
     assertTransition(tx.status, TransactionStatus.COMPLETED);
     tx.status = TransactionStatus.COMPLETED;
     tx.completedAt = now;
+    const autoReleased = Boolean(
+      tx.deliveryConfirmation?.buyerArrivalAuto || tx.deliveryConfirmation?.agentDeliveryAuto,
+    );
     tx.statusHistory.push({
       status: TransactionStatus.COMPLETED,
       changedAt: now,
       changedBy: new Types.ObjectId(userId),
-      note: 'Fondos liberados al vendedor',
+      note: autoReleased
+        ? 'Fondos liberados al vendedor (confirmación automática tras 72h)'
+        : 'Fondos liberados al vendedor',
     });
     await tx.save();
 
@@ -1343,6 +1374,25 @@ export class PaymentsService {
       },
     });
 
+    void this.dispatchReleaseSideEffects(tx, parties, autoReleased).catch((error) => {
+      logger.error('releaseEscrow side effects failed', { error, code: tx.code });
+    });
+
+    return {
+      transactionStatus: tx.status,
+      split,
+      release: toPaymentDto(release.toObject()),
+      platformFee: toPaymentDto(fee.toObject()),
+      agentPayout: agentPayment ? toPaymentDto(agentPayment.toObject()) : null,
+    };
+  }
+
+  /** Reputación y notificaciones post-liberación (no bloquean la respuesta HTTP). */
+  private async dispatchReleaseSideEffects(
+    tx: TransactionDocument,
+    parties: ReturnType<typeof resolveParties>,
+    autoReleased: boolean,
+  ): Promise<void> {
     try {
       const { reputationService } = await import('../reviews/service');
       await reputationService.onTransactionCompleted(tx);
@@ -1357,19 +1407,245 @@ export class PaymentsService {
       parties.agentId,
     ].filter((id, idx, arr): id is string => Boolean(id) && arr.indexOf(id) === idx);
 
+    const partyBody = (uid: string): string => {
+      if (uid === parties.sellerId) {
+        return autoReleased
+          ? `Se liberaron los fondos de ${tx.code} automáticamente tras 72h. El neto ya está en tu wallet disponible.`
+          : `Se liberaron los fondos de ${tx.code}. El neto ya está en tu wallet disponible.`;
+      }
+      if (uid === parties.agentId) {
+        return autoReleased
+          ? `Se acreditó tu comisión de intermediación en ${tx.code} (liberación automática). Estará disponible para retiro en 21 días.`
+          : `Se acreditó tu comisión de intermediación en ${tx.code}. Estará disponible para retiro en 21 días.`;
+      }
+      return autoReleased
+        ? `La operación ${tx.code} se completó con liberación automática de fondos al vendedor.`
+        : `La operación ${tx.code} se completó y los fondos fueron liberados al vendedor.`;
+    };
+
     await Promise.all(
       releaseNotifyIds.map((uid) =>
         notificationsService.notify({
           userId: uid,
           type: NotificationType.PAYMENT,
-          title: 'Operación completada',
+          title: autoReleased ? 'Operación completada automáticamente' : 'Operación completada',
+          body: partyBody(uid),
+          data: {
+            href,
+            code: tx.code,
+            status: TransactionStatus.COMPLETED,
+            step: 'escrow_released',
+            autoRelease: autoReleased,
+          },
+          entityType: 'Transaction',
+          entityId: String(tx._id),
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        }),
+      ),
+    );
+
+    const admins = await UserModel.find({
+      deletedAt: null,
+      $or: [{ role: PlatformRole.ADMIN }, { roles: PlatformRole.ADMIN }],
+    })
+      .select('_id')
+      .lean()
+      .exec();
+
+    await Promise.all(
+      admins.map((admin) =>
+        notificationsService.notify({
+          userId: String(admin._id),
+          type: NotificationType.PAYMENT,
+          title: `Fondos liberados · ${tx.code}`,
+          body: autoReleased
+            ? `Liberación automática tras 72h: neto del vendedor en wallet; comisión del agente pendiente 21 días.`
+            : `Neto del vendedor acreditado en wallet; comisión del agente pendiente 21 días.`,
+          data: {
+            href: '/admin/finanzas',
+            code: tx.code,
+            status: TransactionStatus.COMPLETED,
+            step: 'escrow_released',
+            autoRelease: autoReleased,
+          },
+          entityType: 'Transaction',
+          entityId: String(tx._id),
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        }),
+      ),
+    );
+  }
+
+  /**
+   * Reembolso total del hold + cancelación de la operación
+   * (p. ej. comprador rechaza el producto tras la verificación del Agente).
+   */
+  async refundEscrowAndCancel(userId: string, code: string, note?: string) {
+    const tx = await this.loadTxForParticipant(userId, code);
+    if (
+      tx.status !== TransactionStatus.FUNDED &&
+      tx.status !== TransactionStatus.IN_PROGRESS
+    ) {
+      throw new ValidationError(
+        `Solo se puede reembolsar con pago protegido o en curso (actual: ${tx.status})`,
+      );
+    }
+    assertNotPastDeadline(tx);
+    assertTransition(tx.status, TransactionStatus.CANCELLED);
+
+    const parties = resolveParties(tx);
+    const hold = await PaymentModel.findOne({
+      transaction: tx._id,
+      type: PaymentType.ESCROW_HOLD,
+      status: PaymentStatus.CAPTURED,
+      deletedAt: null,
+    }).exec();
+    if (!hold) throw new ValidationError('No hay fondos retenidos para reembolsar');
+
+    const alreadyReleased = await PaymentModel.findOne({
+      transaction: tx._id,
+      type: PaymentType.ESCROW_RELEASE,
+      status: { $in: [PaymentStatus.RELEASED, PaymentStatus.CAPTURED] },
+      deletedAt: null,
+    }).lean();
+    if (alreadyReleased) {
+      throw new ValidationError('El pago protegido ya fue liberado; no se puede reembolsar así');
+    }
+
+    const now = new Date();
+
+    if (hold.externalId && hold.provider !== PaymentProvider.MANUAL_PREX) {
+      try {
+        await paymentProvider.refundPayment(hold.externalId);
+      } catch (error) {
+        logger.error('refundPayment failed', { error, code: tx.code, externalId: hold.externalId });
+        throw new ValidationError(
+          'No se pudo procesar el reembolso con el proveedor de pagos. Intentá de nuevo o contactá soporte.',
+        );
+      }
+    }
+
+    await UserModel.updateOne(
+      { _id: parties.sellerId, 'wallet.status': { $ne: WalletStatus.CLOSED } },
+      {
+        $inc: { 'wallet.heldCents': -hold.amountCents },
+        $set: { 'wallet.lastMovementAt': now },
+      },
+    ).exec();
+
+    const sellerAfter = await UserModel.findById(parties.sellerId).select('wallet').lean();
+    await walletLedger.record({
+      userId: parties.sellerId,
+      type: WalletMovementType.REFUND,
+      direction: WalletMovementDirection.DEBIT,
+      amountCents: hold.amountCents,
+      currency: hold.currency,
+      description: `Reembolso escrow · ${tx.code}`,
+      paymentId: String(hold._id),
+      transactionId: String(tx._id),
+      balanceAfter: sellerAfter
+        ? {
+            availableCents: sellerAfter.wallet?.availableCents ?? 0,
+            pendingCents: sellerAfter.wallet?.pendingCents ?? 0,
+            heldCents: sellerAfter.wallet?.heldCents ?? 0,
+          }
+        : undefined,
+    });
+
+    hold.status = PaymentStatus.REFUNDED;
+    hold.refundedAt = now;
+    hold.metadata = {
+      ...(hold.metadata ?? {}),
+      phase: 'refunded',
+      refundReason: 'buyer_rejected_product',
+      refundedBy: userId,
+      manualPrex:
+        hold.provider === PaymentProvider.MANUAL_PREX
+          ? 'Reembolso manual pendiente (Prex)'
+          : undefined,
+    };
+    await hold.save();
+
+    try {
+      await agentCommissionService.reverseForTransaction(String(tx._id), 'REFUND_TOTAL');
+    } catch (error) {
+      logger.error('reverseForTransaction on buyer reject failed', { error, code: tx.code });
+    }
+
+    tx.status = TransactionStatus.CANCELLED;
+    tx.statusHistory.push({
+      status: TransactionStatus.CANCELLED,
+      changedAt: now,
+      changedBy: new Types.ObjectId(userId),
+      note: note ?? 'Comprador rechazó el producto y canceló la compra',
+    });
+    await tx.save();
+
+    await persistLog({
+      source: 'system',
+      event: 'escrow.refunded',
+      message: 'Pago protegido reembolsado tras rechazo del comprador',
+      transactionId: String(tx._id),
+      paymentId: String(hold._id),
+      payload: {
+        code: tx.code,
+        refundedBy: userId,
+        provider: hold.provider,
+        amountCents: hold.amountCents,
+      },
+    });
+
+    auditService.track({
+      actor: userId,
+      action: AuditAction.PAYMENT_UPDATED,
+      entityType: 'Payment',
+      entityId: String(hold._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        phase: 'escrow_refunded',
+        code: tx.code,
+        step: 'buyer_rejected_product',
+        amountCents: hold.amountCents,
+      },
+    });
+    auditService.track({
+      actor: userId,
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Transaction',
+      entityId: String(tx._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        code: tx.code,
+        step: 'buyer_rejected_product',
+        to: TransactionStatus.CANCELLED,
+      },
+    });
+
+    const href = `/operaciones/${tx.code}`;
+    const notifyIds = [parties.buyerId, parties.sellerId, parties.agentId].filter(
+      (id, idx, arr): id is string => Boolean(id) && arr.indexOf(id) === idx,
+    );
+
+    await Promise.all(
+      notifyIds.map((uid) =>
+        notificationsService.notify({
+          userId: uid,
+          type: NotificationType.PAYMENT,
+          title: 'Compra cancelada',
           body:
-            uid === parties.sellerId
-              ? `Se liberaron los fondos de ${tx.code}. Ya podés verlos en tu wallet.`
-              : uid === parties.agentId
-                ? `Se acreditó tu pago de intermediación en ${tx.code}.`
-                : `La operación ${tx.code} se completó y los fondos fueron liberados al vendedor.`,
-          data: { href, code: tx.code, status: TransactionStatus.COMPLETED },
+            uid === parties.buyerId
+              ? `Rechazaste el producto de ${tx.code}. Se inició el reembolso del pago protegido.`
+              : uid === parties.sellerId
+                ? `El comprador rechazó el producto en ${tx.code}. La operación se canceló.`
+                : `El comprador rechazó el producto en ${tx.code}. Coordiná la devolución si corresponde.`,
+          data: {
+            href,
+            code: tx.code,
+            status: TransactionStatus.CANCELLED,
+            step: 'buyer_rejected_product',
+          },
           entityType: 'Transaction',
           entityId: String(tx._id),
           channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
@@ -1379,10 +1655,7 @@ export class PaymentsService {
 
     return {
       transactionStatus: tx.status,
-      split,
-      release: toPaymentDto(release.toObject()),
-      platformFee: toPaymentDto(fee.toObject()),
-      agentPayout: agentPayment ? toPaymentDto(agentPayment.toObject()) : null,
+      payment: toPaymentDto(hold.toObject()),
     };
   }
 

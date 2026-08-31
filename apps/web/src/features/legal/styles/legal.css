@@ -311,6 +311,24 @@
   text-wrap: pretty;
 }
 
+.ca-legal__p--lead {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.ca-legal__subsection {
+  margin: 1rem 0 0;
+  padding: 0.85rem 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 55%, transparent);
+}
+
+.ca-legal__subsection-title {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 .ca-legal__p:last-child {
   margin-bottom: 0;
 }

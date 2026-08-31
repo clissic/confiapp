@@ -112,6 +112,62 @@
   align-items: center;
 }
 
+.ca-open-jobs__route {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle, rgba(1, 40, 93, 0.12));
+  background: color-mix(in srgb, var(--surface-base) 70%, transparent);
+}
+
+.ca-open-jobs__route-stop {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.ca-open-jobs__route-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  color: var(--brand-primary, #01285d);
+  background: color-mix(in srgb, var(--brand-secondary, #55c5b5) 18%, transparent);
+  flex-shrink: 0;
+}
+
+.ca-open-jobs__route-icon--delivery {
+  color: #0f5132;
+  background: color-mix(in srgb, #55c5b5 28%, transparent);
+}
+
+.ca-open-jobs__route-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ca-open-jobs__route-value {
+  display: block;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+[data-theme='dark'] .ca-open-jobs__route {
+  background: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
 [data-theme='dark'] .ca-open-jobs__help-btn {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--color-secondary-400, #55c5b5) 22%, transparent);

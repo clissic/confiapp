@@ -29,6 +29,20 @@ export interface AgentActiveJob {
   status: AgentActiveJobStatus;
 }
 
+export interface AgentAgencyStats {
+  completedDeliveries: number;
+  successRate: number;
+  ratingAverage: number;
+  ratingCount: number;
+  ratingDistribution: {
+    one: number;
+    two: number;
+    three: number;
+    four: number;
+    five: number;
+  };
+}
+
 export interface AgentOnboarding {
   status: AgentOnboardingStatus;
   termsVersion: string;
@@ -42,6 +56,8 @@ export interface AgentOnboarding {
   workAreaLabel?: string;
   workAreaCity?: string;
   workAreaCountry?: string;
+  workAreaLat?: number;
+  workAreaLng?: number;
   coverageRadiusKm?: number;
   /** @deprecated La tarifa la define la app; se conserva por compatibilidad. */
   hourlyRateCents?: number;
@@ -54,6 +70,7 @@ export interface AgentOnboarding {
   activatedAt?: string;
   activeJobsCount?: number;
   activeJobs?: AgentActiveJob[];
+  stats?: AgentAgencyStats;
   preview: {
     fullName: string;
     email: string;
@@ -69,6 +86,8 @@ export interface AgentOnboardingDraftPayload {
   workAreaLabel?: string;
   workAreaCity?: string;
   workAreaCountry?: string;
+  workAreaLat?: number;
+  workAreaLng?: number;
   coverageRadiusKm?: number;
   hourlyRateCents?: number;
   currency?: string;
@@ -85,6 +104,8 @@ export interface AgentOnboardingSubmitPayload {
   workAreaLabel: string;
   workAreaCity: string;
   workAreaCountry: string;
+  workAreaLat: number;
+  workAreaLng: number;
   coverageRadiusKm: number;
   currency?: string;
 }

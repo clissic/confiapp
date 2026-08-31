@@ -122,6 +122,54 @@ const transactionSchema = new Schema<ITransaction>(
       },
     },
     returnInstructions: { type: String, trim: true, maxlength: 5000 },
+    agentVerification: {
+      type: new Schema(
+        {
+          allPassed: { type: Boolean, required: true },
+          completedAt: { type: Date, required: true },
+          completedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+          note: { type: String, trim: true, maxlength: 2000, required: false },
+          buyerDecision: {
+            type: String,
+            enum: ['ACCEPTED', 'REJECTED'],
+            required: false,
+          },
+          buyerDecidedAt: { type: Date, required: false },
+          buyerDecidedBy: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            required: false,
+          },
+        },
+        { _id: false },
+      ),
+      required: false,
+    },
+    deliveryConfirmation: {
+      type: new Schema(
+        {
+          buyerArrivalConfirmedAt: { type: Date, required: false },
+          buyerArrivalConfirmedBy: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            required: false,
+          },
+          agentDeliveryConfirmedAt: { type: Date, required: false },
+          agentDeliveryConfirmedBy: {
+            type: Schema.Types.ObjectId,
+            ref: 'User',
+            required: false,
+          },
+          firstConfirmedAt: { type: Date, required: false },
+          autoReleaseAt: { type: Date, required: false },
+          buyerArrivalAuto: { type: Boolean, required: false },
+          agentDeliveryAuto: { type: Boolean, required: false },
+          reminder48hSentAt: { type: Date, required: false },
+        },
+        { _id: false },
+      ),
+      required: false,
+    },
     chat: {
       type: Schema.Types.ObjectId,
       ref: 'Chat',

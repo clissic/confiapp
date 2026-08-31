@@ -89,6 +89,16 @@ export function AppBreadcrumbs() {
                       { label: 'Inicio', to: '/inicio' },
                       { label: 'Pagos a agentes', current: true as const },
                     ]
+                  : pathname.startsWith('/admin/disputas')
+                    ? [
+                        { label: 'Inicio', to: '/inicio' },
+                        { label: 'Disputas', current: true as const },
+                      ]
+                  : pathname.startsWith('/admin/resenas')
+                    ? [
+                        { label: 'Inicio', to: '/inicio' },
+                        { label: 'Reseñas', current: true as const },
+                      ]
                   : pathname.startsWith('/reputacion')
                   ? [
                       { label: 'Inicio', to: '/inicio' },

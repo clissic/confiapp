@@ -10,7 +10,7 @@ import {
   Spinner,
 } from 'react-bootstrap';
 import { motion } from 'framer-motion';
-import { BriefcaseBusiness, CircleHelp, MapPin, Star } from 'lucide-react';
+import { BriefcaseBusiness, CircleHelp, MapPin, Package, PackageCheck, Star } from 'lucide-react';
 import {
   MapContainer,
   Marker,
@@ -33,16 +33,19 @@ import {
 } from '@confiapp/shared';
 
 import { ThemeAwareTileLayer } from '@/shared/ui/map/ThemeAwareTileLayer';
-
-import { useAcceptOpenJob, useOpenJobs } from '../hooks/useAgentOps';
-import type { OpenJob, OpenJobsFilters } from '../model/open-jobs.types';
-import '../styles/agent-ops.css';
-import '../styles/open-jobs.css';
-
 import { formatOperationMoney } from '@/shared/lib/money';
 import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
 import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
 import { useAppToast } from '@/shared/ui';
+
+import { useAcceptOpenJob, useOpenJobs } from '../hooks/useAgentOps';
+import {
+  openJobPlaceLabel,
+  type OpenJob,
+  type OpenJobsFilters,
+} from '../model/open-jobs.types';
+import '../styles/agent-ops.css';
+import '../styles/open-jobs.css';
 
 // Fix default marker icons with Vite bundling.
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: unknown })._getIconUrl;
@@ -398,22 +401,66 @@ export function OpenJobsPage() {
             >
               <Popup>Punto de búsqueda — arrastrá o tocá el mapa</Popup>
             </Marker>
-            {items.map((job) => (
-              <Marker
-                key={job.id}
-                position={[job.meeting.lat, job.meeting.lng]}
-                eventHandlers={{
-                  click: () => setSelectedId(job.id),
-                }}
-              >
-                <Popup>
-                  <strong>{job.title}</strong>
-                  <br />
-                  {formatOperationMoney(job.amountCents, job.currency)} ·{' '}
-                  {formatDistance(job.distanceKm, distanceUnit, 1)}
-                </Popup>
-              </Marker>
-            ))}
+            {items.flatMap((job) => {
+              const markers = [];
+              if (job.pickup?.hasPoint && job.pickup.lat != null && job.pickup.lng != null) {
+                markers.push(
+                  <Marker
+                    key={`${job.id}-pickup`}
+                    position={[job.pickup.lat, job.pickup.lng]}
+                    eventHandlers={{
+                      click: () => setSelectedId(job.id),
+                    }}
+                  >
+                    <Popup>
+                      <strong>Retiro · {job.title}</strong>
+                      <br />
+                      {openJobPlaceLabel(job.pickup)}
+                    </Popup>
+                  </Marker>,
+                );
+              }
+              if (
+                job.delivery?.hasPoint &&
+                job.delivery.lat != null &&
+                job.delivery.lng != null
+              ) {
+                markers.push(
+                  <Marker
+                    key={`${job.id}-delivery`}
+                    position={[job.delivery.lat, job.delivery.lng]}
+                    eventHandlers={{
+                      click: () => setSelectedId(job.id),
+                    }}
+                  >
+                    <Popup>
+                      <strong>Entrega · {job.title}</strong>
+                      <br />
+                      {openJobPlaceLabel(job.delivery)}
+                    </Popup>
+                  </Marker>,
+                );
+              }
+              if (markers.length === 0) {
+                markers.push(
+                  <Marker
+                    key={job.id}
+                    position={[job.meeting.lat, job.meeting.lng]}
+                    eventHandlers={{
+                      click: () => setSelectedId(job.id),
+                    }}
+                  >
+                    <Popup>
+                      <strong>{job.title}</strong>
+                      <br />
+                      {formatOperationMoney(job.amountCents, job.currency)} ·{' '}
+                      {formatDistance(job.distanceKm, distanceUnit, 1)}
+                    </Popup>
+                  </Marker>,
+                );
+              }
+              return markers;
+            })}
           </MapContainer>
         </section>
 
@@ -454,8 +501,34 @@ export function OpenJobsPage() {
                     </div>
                     <div className="ca-agent-ops-list__meta">
                       <MapPin size={14} className="me-1" />
-                      {formatDistance(job.distanceKm, distanceUnit, 2)} ·{' '}
-                      {job.meeting.label || job.code}
+                      A {formatDistance(job.distanceKm, distanceUnit, 2)} de tu punto
+                      {job.routeKm != null
+                        ? ` · Recorrido ${formatDistance(job.routeKm, distanceUnit, 1)}`
+                        : ''}
+                    </div>
+                    <div className="ca-open-jobs__route" aria-label="Ruta de la entrega">
+                      <div className="ca-open-jobs__route-stop">
+                        <span className="ca-open-jobs__route-icon" aria-hidden>
+                          <Package size={15} strokeWidth={1.75} />
+                        </span>
+                        <div>
+                          <span className="ca-open-jobs__route-label">Retiro · vendedor</span>
+                          <span className="ca-open-jobs__route-value">
+                            {openJobPlaceLabel(job.pickup)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="ca-open-jobs__route-stop">
+                        <span className="ca-open-jobs__route-icon ca-open-jobs__route-icon--delivery" aria-hidden>
+                          <PackageCheck size={15} strokeWidth={1.75} />
+                        </span>
+                        <div>
+                          <span className="ca-open-jobs__route-label">Entrega · comprador</span>
+                          <span className="ca-open-jobs__route-value">
+                            {openJobPlaceLabel(job.delivery)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                     <div className="ca-open-jobs__commission-hint">
                       {estimatedCommissionLabel(job)}

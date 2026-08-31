@@ -10,9 +10,17 @@ export const createReviewBodySchema = z.object({
 export const reviewsListQuerySchema = z.object({
   userId: z.string().optional(),
   as: z.enum(['received', 'given']).optional(),
+  /** Rol del calificado (received) o del calificador (given). */
+  role: z.enum(['BUYER', 'SELLER', 'AGENT']).optional(),
   transactionCode: z.string().trim().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  page: z.coerce.number().int().min(1).max(500).optional(),
   mine: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  /** Solo reseñas con peso < 1 o señales activas (panel admin). */
+  flaggedOnly: z
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),

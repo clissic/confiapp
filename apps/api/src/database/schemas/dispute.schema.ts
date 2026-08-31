@@ -1,5 +1,5 @@
 import { Schema } from 'mongoose';
-import { DisputeStatus, type IDispute } from '@confiapp/database';
+import { DisputeCategory, DisputeStatus, type IDispute } from '@confiapp/database';
 
 export const disputeSchema = new Schema<IDispute>(
   {
@@ -25,6 +25,11 @@ export const disputeSchema = new Schema<IDispute>(
       type: String,
       enum: Object.values(DisputeStatus),
       default: DisputeStatus.OPEN,
+    },
+    category: {
+      type: String,
+      enum: Object.values(DisputeCategory),
+      required: false,
     },
     reason: { type: String, required: true, trim: true, maxlength: 5000 },
     resolutionNote: { type: String, trim: true, maxlength: 5000 },

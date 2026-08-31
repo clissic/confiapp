@@ -20,6 +20,7 @@ import {
 } from '../payments/manual-prex-gate';
 
 import { NotificationDeliveryService } from './notification-delivery.service';
+import { advanceToInProgressOnAgentAccept } from './advance-on-accept';
 import { AgentSearchRepository, type AgentSearchHit } from './search.repository';
 
 export interface OfferAssignmentInput {
@@ -263,12 +264,20 @@ export class AgentAssignmentService {
       invitedAt: now,
       respondedAt: now,
     });
-    tx.statusHistory.push({
-      status: tx.status,
-      changedAt: now,
-      changedBy: new Types.ObjectId(userId),
-      note: 'Agente intermediario aceptó la asignación',
-    });
+    const advanced = advanceToInProgressOnAgentAccept(
+      tx,
+      userId,
+      now,
+      'Operación en curso: agente aceptó la oferta tras el pago protegido',
+    );
+    if (!advanced) {
+      tx.statusHistory.push({
+        status: tx.status,
+        changedAt: now,
+        changedBy: new Types.ObjectId(userId),
+        note: 'Agente intermediario aceptó la asignación',
+      });
+    }
     await tx.save();
 
     notification.actionStatus = NotificationActionStatus.ACCEPTED;
@@ -288,6 +297,7 @@ export class AgentAssignmentService {
       agentId: userId,
       notificationId: String(notification._id),
       transactionCode: tx.code,
+      status: tx.status,
     });
 
     const partyUserIds = [

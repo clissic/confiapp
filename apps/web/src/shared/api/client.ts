@@ -159,7 +159,7 @@ export function getApiErrorMessage(error: unknown, fallback = 'Unexpected API er
   if (fromDetails) return fromDetails;
 
   if (!error.response && (error.code === 'ECONNABORTED' || /timeout/i.test(error.message))) {
-    return 'La solicitud tardó demasiado. Si acabás de registrarte, revisá tu email o pedí reenviar la confirmación.';
+    return 'La solicitud tardó demasiado. Intentá de nuevo en unos segundos.';
   }
 
   return data?.message ?? error.message ?? fallback;

@@ -8,6 +8,7 @@ import {
   FileText,
   IdCard,
   Mail,
+  MapPin,
   ShieldAlert,
   ShieldCheck,
   XCircle,
@@ -20,11 +21,23 @@ import { PhotoLightbox } from '@/features/transactions/ui/PhotoLightbox';
 
 import './admin-kyc.css';
 
+type KycAddress = {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  formatted?: string;
+};
+
 type KycReviewDto = {
   userId: string;
   fullName: string;
   email: string;
   documentNumber?: string;
+  address?: KycAddress;
+  locationLabel?: string;
   status?: string;
   photos: Array<{ kind: string; url: string; uploadedAt: string }>;
   submittedAt?: string;
@@ -34,6 +47,7 @@ const KIND_LABEL: Record<string, string> = {
   ID_FRONT: 'Documento (frente / pasaporte)',
   ID_BACK: 'Documento (dorso)',
   SELFIE: 'Selfie con documento',
+  ADDRESS_PROOF: 'Comprobante de domicilio',
 };
 
 type StatusTone = 'pending' | 'ok' | 'danger' | 'muted';
@@ -66,6 +80,26 @@ function formatSubmittedAt(value?: string): string | null {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
+}
+
+function isPdfUrl(url: string): boolean {
+  return (
+    url.startsWith('data:application/pdf') ||
+    /\.pdf(\?|$)/i.test(url) ||
+    url.includes('application/pdf')
+  );
+}
+
+function formatAddressLines(address?: KycAddress, locationLabel?: string): string[] {
+  if (!address && !locationLabel) return [];
+  const lines = [
+    address?.line1,
+    address?.line2,
+    [address?.city, address?.state].filter(Boolean).join(', ') || undefined,
+    [address?.postalCode, address?.country].filter(Boolean).join(' ') || undefined,
+    locationLabel ? `Barrio: ${locationLabel}` : undefined,
+  ].filter((line): line is string => Boolean(line?.trim()));
+  return lines;
 }
 
 async function fetchKycReview(token: string): Promise<KycReviewDto> {
@@ -121,6 +155,11 @@ export function AdminKycReviewPage() {
     [review.data?.submittedAt],
   );
 
+  const addressLines = useMemo(
+    () => formatAddressLines(review.data?.address, review.data?.locationLabel),
+    [review.data?.address, review.data?.locationLabel],
+  );
+
   if (user?.role !== 'ADMIN') {
     return (
       <div className="ca-admin-kyc">
@@ -157,7 +196,8 @@ export function AdminKycReviewPage() {
   const rejected = data.status === 'REJECTED';
   const status = statusMeta(data.status);
   const initials = initialsFromName(data.fullName);
-  const galleryImages = data.photos.map((photo) => ({
+  const imagePhotos = data.photos.filter((photo) => !isPdfUrl(photo.url));
+  const galleryImages = imagePhotos.map((photo) => ({
     url: photo.url,
     alt: KIND_LABEL[photo.kind] ?? photo.kind,
   }));
@@ -172,7 +212,8 @@ export function AdminKycReviewPage() {
           </p>
           <h1 className="ca-admin-kyc__title">Verificar identidad</h1>
           <p className="ca-admin-kyc__lead">
-            Revisá el documento y la selfie. Si coinciden y se leen bien, aprobá la identidad.
+            Revisá el documento, la selfie y el comprobante de domicilio. Si coinciden y se leen
+            bien, aprobá la identidad.
           </p>
         </div>
         <span className={`ca-admin-kyc__chip ca-admin-kyc__chip--${status.tone}`}>
@@ -222,6 +263,23 @@ export function AdminKycReviewPage() {
               <IdCard size={14} strokeWidth={1.75} aria-hidden />
               {data.documentNumber?.trim() || 'Sin documento cargado'}
             </p>
+            {addressLines.length > 0 ? (
+              <div className="ca-admin-kyc__person-line ca-admin-kyc__person-line--address">
+                <MapPin size={14} strokeWidth={1.75} aria-hidden />
+                <div>
+                  {addressLines.map((line) => (
+                    <span key={line} className="d-block">
+                      {line}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="ca-admin-kyc__person-line">
+                <MapPin size={14} strokeWidth={1.75} aria-hidden />
+                Sin domicilio cargado
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -233,27 +291,61 @@ export function AdminKycReviewPage() {
             Documentos enviados
           </h2>
           <p className="ca-admin-kyc__panel-meta">
-            {data.photos.length === 1 ? '1 imagen' : `${data.photos.length} imágenes`}
+            {data.photos.length === 1 ? '1 archivo' : `${data.photos.length} archivos`}
           </p>
         </div>
 
         {data.photos.length === 0 ? (
-          <p className="ca-admin-kyc__empty">No hay fotos adjuntas en esta solicitud.</p>
+          <p className="ca-admin-kyc__empty">No hay archivos adjuntos en esta solicitud.</p>
         ) : (
           <div className="ca-admin-kyc__docs row g-3">
-            {data.photos.map((photo, index) => {
+            {data.photos.map((photo) => {
               const title = KIND_LABEL[photo.kind] ?? photo.kind;
+              const pdf = isPdfUrl(photo.url);
+              const galleryIdx = pdf
+                ? -1
+                : imagePhotos.findIndex(
+                    (item) => item.kind === photo.kind && item.url === photo.url,
+                  );
               return (
                 <figure key={`${photo.kind}-${photo.uploadedAt}`} className="ca-admin-kyc__doc col-12 col-md-6">
                   <figcaption className="ca-admin-kyc__doc-title">{title}</figcaption>
-                  <button
-                    type="button"
-                    className="ca-admin-kyc__doc-btn"
-                    onClick={() => setGalleryIndex(index)}
-                    aria-label={`Ver ${title} en grande`}
-                  >
-                    <img src={photo.url} alt={title} />
-                  </button>
+                  {pdf ? (
+                    <div className="ca-admin-kyc__pdf">
+                      <object
+                        data={photo.url}
+                        type="application/pdf"
+                        className="ca-admin-kyc__pdf-object"
+                        aria-label={title}
+                      >
+                        <p className="ca-admin-kyc__pdf-fallback mb-0">
+                          No se pudo previsualizar el PDF.{' '}
+                          <a href={photo.url} target="_blank" rel="noreferrer">
+                            Abrir archivo
+                          </a>
+                        </p>
+                      </object>
+                      <a
+                        className="ca-admin-kyc__pdf-link"
+                        href={photo.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Abrir PDF
+                      </a>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ca-admin-kyc__doc-btn"
+                      onClick={() => {
+                        if (galleryIdx >= 0) setGalleryIndex(galleryIdx);
+                      }}
+                      aria-label={`Ver ${title} en grande`}
+                    >
+                      <img src={photo.url} alt={title} />
+                    </button>
+                  )}
                 </figure>
               );
             })}

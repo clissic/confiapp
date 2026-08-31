@@ -109,6 +109,11 @@ export enum DisputeStatus {
   CLOSED = 'CLOSED',
 }
 
+export enum DisputeCategory {
+  NON_DELIVERY = 'NON_DELIVERY',
+  OTHER = 'OTHER',
+}
+
 export enum ProductStatus {
   DRAFT = 'DRAFT',
   LISTED = 'LISTED',
@@ -306,6 +311,7 @@ export enum UserPhotoKind {
   ID_FRONT = 'ID_FRONT',
   ID_BACK = 'ID_BACK',
   SELFIE = 'SELFIE',
+  ADDRESS_PROOF = 'ADDRESS_PROOF',
   OTHER = 'OTHER',
 }
 

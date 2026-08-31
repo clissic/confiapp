@@ -94,6 +94,12 @@ const AdminFinancePage = lazy(() =>
 const AdminPaymentsPage = lazy(() =>
   import('@/pages/AdminPaymentsPage').then((m) => ({ default: m.AdminPaymentsPage })),
 );
+const AdminDisputesPage = lazy(() =>
+  import('@/pages/AdminDisputesPage').then((m) => ({ default: m.AdminDisputesPage })),
+);
+const AdminReviewsPage = lazy(() =>
+  import('@/pages/AdminReviewsPage').then((m) => ({ default: m.AdminReviewsPage })),
+);
 const NotificationsPage = lazy(() =>
   import('@/pages/NotificationsPage').then((m) => ({ default: m.NotificationsInboxPage })),
 );
@@ -170,6 +176,8 @@ export function AppRouter() {
                 </Route>
                 <Route path="admin/finanzas" element={<AdminFinancePage />} />
                 <Route path="admin/pagos" element={<AdminPaymentsPage />} />
+                <Route path="admin/disputas" element={<AdminDisputesPage />} />
+                <Route path="admin/resenas" element={<AdminReviewsPage />} />
                 <Route path="admin/kyc/:token" element={<AdminKycReviewPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/inicio" replace />} />

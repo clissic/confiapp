@@ -4,7 +4,9 @@ import {
   BadgeCheck,
   CheckCircle2,
   Eye,
+  Facebook,
   Handshake,
+  Instagram,
   Lock,
   MessageSquare,
   Package,
@@ -13,6 +15,8 @@ import {
   ShoppingBag,
   Wallet,
 } from 'lucide-react';
+
+import { FACEBOOK_URL, INSTAGRAM_URL } from '@/shared/config/social';
 
 import '../styles/landing.css';
 import { Reveal, RevealGroup, RevealItem } from './Reveal';
@@ -503,6 +507,41 @@ export function LandingPage() {
                   <Link to="/ingresar?next=%2Fagente">Sumarme como Agente</Link>
                 </li>
               </ul>
+            </div>
+            <div className="ca-landing__footer-social">
+              <h4>Seguinos</h4>
+              <p className="ca-landing__footer-social-lead">
+                Novedades, tips y el día a día de ConfiApp. Sumate a la comunidad y enterate
+                primero de los lanzamientos.
+              </p>
+              <nav className="ca-landing__social" aria-label="Redes sociales">
+                <a
+                  href={INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram de ConfiApp"
+                >
+                  <Instagram size={18} strokeWidth={1.75} aria-hidden />
+                </a>
+                {FACEBOOK_URL ? (
+                  <a
+                    href={FACEBOOK_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Facebook de ConfiApp"
+                  >
+                    <Facebook size={18} strokeWidth={1.75} aria-hidden />
+                  </a>
+                ) : (
+                  <span
+                    className="ca-landing__social-pending"
+                    title="Facebook próximamente"
+                    aria-label="Facebook de ConfiApp (próximamente)"
+                  >
+                    <Facebook size={18} strokeWidth={1.75} aria-hidden />
+                  </span>
+                )}
+              </nav>
             </div>
           </div>
           <p className="ca-landing__copy">

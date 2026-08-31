@@ -32,7 +32,11 @@ export function NotificationsInboxPage() {
 
   if (isLoading) {
     return (
-      <div className="ca-notifications d-flex align-items-center gap-2">
+      <div
+        className="ca-notifications d-flex align-items-center justify-content-center gap-2"
+        style={{ minHeight: 'min(52vh, 28rem)' }}
+        role="status"
+      >
         <Spinner animation="border" size="sm" />
         Cargando notificaciones…
       </div>

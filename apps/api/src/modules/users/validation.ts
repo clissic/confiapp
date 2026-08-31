@@ -37,10 +37,13 @@ export const photoBodySchema = z.object({
   url: z
     .string()
     .trim()
-    .max(4_000_000)
+    .max(5_500_000)
     .refine(
-      (value) => /^https?:\/\//i.test(value) || value.startsWith('data:image/'),
-      'Se espera URL http(s) o data:image',
+      (value) =>
+        /^https?:\/\//i.test(value) ||
+        value.startsWith('data:image/') ||
+        value.startsWith('data:application/pdf'),
+      'Se espera URL http(s), data:image o data:application/pdf',
     ),
   storageKey: z.string().trim().max(512).optional(),
   kind: z.nativeEnum(UserPhotoKind).optional(),

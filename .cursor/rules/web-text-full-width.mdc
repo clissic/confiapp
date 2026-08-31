@@ -1,0 +1,22 @@
+---
+description: Textos de UI deben usar el ancho completo del contenedor
+globs: apps/web/**/*.{tsx,css}
+alwaysApply: false
+---
+
+# Textos a ancho completo
+
+En pantallas y componentes web de ConfiApp:
+
+- Los párrafos, leads, hints y copy descriptivo deben **ocupar el 100% del ancho** de su contenedor.
+- No limitar textos con `max-width` en `ch`/`em`/`rem` (p. ej. `max-width: 52ch`) salvo que el usuario lo pida explícitamente.
+- Si el layout es flex/grid con acciones a un lado, **sacar el texto fuera de la columna estrecha** para que recorra todo el ancho del bloque (fila propia debajo del título/acciones).
+- Evitar `justify-items: start` + copy estrecho en empty states: el texto estira; iconos/CTAs pueden quedar alineados al inicio.
+
+```css
+/* ❌ BAD */
+.lead { max-width: 52ch; }
+
+/* ✅ GOOD */
+.lead { width: 100%; max-width: none; }
+```

@@ -9,15 +9,17 @@
 }
 
 .ca-admin-fin__header {
+  display: grid;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.ca-admin-fin__header-top {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-}
-
-.ca-admin-fin__intro {
-  min-width: 0;
 }
 
 .ca-admin-fin__title-row {
@@ -40,6 +42,15 @@
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
+}
+
+.ca-admin-fin__lead {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .ca-admin-fin__chips {
@@ -76,16 +87,18 @@
 .ca-admin-fin__steps {
   display: grid;
   gap: 0.65rem;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .ca-admin-fin__step {
   display: grid;
-  gap: 0.25rem;
-  padding: 0.75rem 0.85rem;
+  gap: 0.35rem;
+  align-content: start;
+  padding: 0.85rem 1rem;
   border-radius: 0.75rem;
   border: 1px solid var(--ca-fin-border);
   background: var(--surface-sunken);
+  min-width: 0;
 }
 
 .ca-admin-fin__step-num {
@@ -98,16 +111,19 @@
 
 .ca-admin-fin__step-title {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
+  width: 100%;
 }
 
 .ca-admin-fin__step-text {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   line-height: 1.45;
-  color: var(--ca-fin-muted);
+  color: var(--text-secondary);
+  width: 100%;
+  max-width: none;
 }
 
 .ca-admin-fin-panel {
@@ -115,6 +131,11 @@
   border-radius: 0.85rem;
   background: var(--surface-raised, var(--surface-base));
   padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+  width: 100%;
+  min-width: 0;
 }
 
 .ca-admin-fin-panel__head {
@@ -123,7 +144,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.85rem;
+  margin: 0;
+}
+
+.ca-admin-fin-panel__head--stack {
+  align-items: flex-start;
+}
+
+.ca-admin-fin-panel__title-block {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .ca-admin-fin-panel__title-row {
@@ -137,6 +169,13 @@
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.ca-admin-fin-panel__meta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  width: 100%;
 }
 
 .ca-admin-fin__info {
@@ -155,8 +194,8 @@
 
 .ca-admin-fin__info:hover,
 .ca-admin-fin__info:focus-visible {
-  color: var(--brand-secondary, #01285d);
-  background: color-mix(in srgb, var(--brand-secondary, #01285d) 8%, transparent);
+  color: var(--brand-secondary, #55c5b5);
+  background: color-mix(in srgb, var(--brand-secondary, #55c5b5) 12%, transparent);
   outline: none;
 }
 
@@ -173,8 +212,8 @@
 .ca-admin-fin-form {
   display: grid;
   gap: 0.85rem;
-  max-width: 28rem;
   width: 100%;
+  max-width: none;
   min-width: 0;
 }
 
@@ -188,20 +227,111 @@
 .ca-admin-fin-form .form-control,
 .ca-admin-fin-form .form-check {
   max-width: 100%;
+  width: 100%;
+}
+
+.ca-admin-fin-quiet {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.75rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
 }
 
 .ca-admin-fin-empty {
-  margin: 0 auto;
-  padding: 1.25rem 0.5rem;
-  max-width: 28rem;
-  text-align: center;
-  color: var(--ca-fin-muted);
+  margin: 0;
+  padding: 0.85rem 0 0.25rem;
+  width: 100%;
+  max-width: none;
+  text-align: left;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
+.ca-admin-fin-filters {
+  --bs-accordion-bg: transparent;
+  --bs-accordion-border-color: var(--border-default);
+  --bs-accordion-btn-bg: transparent;
+  --bs-accordion-active-bg: transparent;
+  --bs-accordion-btn-color: var(--text-primary);
+  --bs-accordion-active-color: var(--text-primary);
+  --bs-accordion-btn-focus-box-shadow: none;
+}
+
+.ca-admin-fin-filters .accordion-item {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
+}
+
+.ca-admin-fin-filters .accordion-button {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.7rem 1rem;
+  box-shadow: none;
+}
+
+.ca-admin-fin-filters .accordion-button:not(.collapsed) {
+  box-shadow: none;
+}
+
+.ca-admin-fin-filters .accordion-body {
+  padding: 0.25rem 1rem 1rem;
+}
+
+.ca-admin-fin-filters__header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ca-admin-fin-filters__count {
+  font-size: 0.7rem;
+}
+
+.ca-admin-fin-filters__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.ca-admin-fin-filters__form .form-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.ca-admin-fin-filters__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.ca-admin-fin-filters__actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 2.25rem;
+  min-width: 6.5rem;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  border-radius: var(--radius-md, 0.5rem) !important;
+}
+
+.ca-admin-fin-filters__actions .ca-btn-cta {
+  min-height: 2.25rem;
+}
+
 .ca-admin-fin-table-wrap {
   overflow-x: auto;
+  width: 100%;
 }
 
 .ca-admin-fin-table {
@@ -220,6 +350,66 @@
 
 .ca-admin-fin-table td {
   vertical-align: middle;
+}
+
+.ca-admin-fin-table__row--active {
+  background: color-mix(in srgb, var(--ca-fin-accent) 8%, transparent);
+}
+
+.ca-admin-fin-table__amount {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.ca-admin-fin-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--brand-secondary, #55c5b5);
+  letter-spacing: 0.02em;
+}
+
+.ca-admin-fin-notes {
+  display: block;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.ca-admin-fin-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.ca-admin-fin-hint {
+  display: block;
+  width: 100%;
+  max-width: none;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.ca-admin-fin-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 45%, transparent);
+}
+
+.ca-admin-fin-pager .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ca-admin-fin-pager__status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
 }
 
 .ca-admin-fin-status {
@@ -264,18 +454,19 @@
 }
 
 .ca-admin-fin-detail__summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.25rem;
-  margin-bottom: 1rem;
-  padding: 0.75rem 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
   border-radius: 0.65rem;
   background: var(--surface-sunken);
+  width: 100%;
 }
 
 .ca-admin-fin-detail__stat {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
 .ca-admin-fin-detail__stat-label {
@@ -290,47 +481,117 @@
   font-size: 0.9375rem;
   font-weight: 700;
   color: var(--text-primary);
+  width: 100%;
+}
+
+.ca-admin-fin-detail__notes {
+  margin: 0;
+  width: 100%;
+  max-width: none;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.ca-admin-fin-detail__ref {
+  width: 100%;
+  max-width: none;
 }
 
 .ca-admin-fin-payments {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .ca-admin-fin-payment {
   display: grid;
-  gap: 0.65rem;
-  padding: 0.85rem;
+  gap: 0.85rem;
+  padding: 1rem;
   border: 1px solid var(--ca-fin-border);
   border-radius: 0.75rem;
   background: var(--surface-base);
+  min-width: 0;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 900px) {
   .ca-admin-fin-payment {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    align-items: center;
+    grid-template-columns: minmax(0, 1.4fr) auto auto;
+    align-items: start;
   }
 }
 
-.ca-admin-fin-payment__agent {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-primary);
+.ca-admin-fin-payment__who {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
 }
 
-.ca-admin-fin-payment__agent-id {
-  display: block;
-  margin-top: 0.15rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+.ca-admin-fin-payment__name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.ca-admin-fin-payment__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0;
+  font-size: 0.82rem;
+  width: 100%;
+}
+
+.ca-admin-fin-payment__meta dt {
+  margin: 0;
   color: var(--ca-fin-muted);
-  font-family: ui-monospace, monospace;
+  font-weight: 600;
+}
+
+.ca-admin-fin-payment__meta dd {
+  margin: 0;
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ca-admin-fin-payment__banks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.ca-admin-fin-payment__banks li {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface-sunken) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-default) 55%, transparent);
+  font-size: 0.8rem;
+}
+
+.ca-admin-fin-payment__banks strong {
+  color: var(--text-primary);
+  font-weight: 650;
+}
+
+.ca-admin-fin-payment__banks span {
+  color: var(--text-secondary);
+}
+
+.ca-admin-fin-payment__money {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
 }
 
 .ca-admin-fin-payment__amount {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
@@ -341,12 +602,44 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  justify-content: flex-end;
+  justify-content: flex-start;
+}
+
+@media (min-width: 900px) {
+  .ca-admin-fin-payment__actions {
+    justify-content: flex-end;
+  }
+
+  .ca-admin-fin-payment__money {
+    justify-items: end;
+    text-align: right;
+  }
 }
 
 .ca-admin-fin-payment__ref {
   font-size: 0.78rem;
   color: var(--ca-fin-muted);
+}
+
+.ca-btn-cta {
+  background: var(--action-cta-bg, #55c5b5) !important;
+  border-color: var(--action-cta-bg, #55c5b5) !important;
+  color: var(--action-cta-fg, #011533) !important;
+  font-weight: 650;
+  min-height: 2.5rem;
+  border-radius: var(--radius-md, 0.5rem) !important;
+}
+
+.ca-btn-cta:hover,
+.ca-btn-cta:focus-visible {
+  background: var(--action-cta-hover, #7dd5c4) !important;
+  border-color: var(--action-cta-hover, #7dd5c4) !important;
+  color: var(--action-cta-fg, #011533) !important;
+}
+
+.ca-btn-cta:disabled,
+.ca-btn-cta.disabled {
+  opacity: 0.55;
 }
 
 [data-theme='dark'] .ca-admin-fin__chip--ok {
@@ -367,4 +660,14 @@
 
 [data-theme='dark'] .ca-admin-fin-status--danger {
   color: #fca5a5;
+}
+
+[data-theme='dark'] .ca-admin-fin-status--progress {
+  color: #93c5fd;
+}
+
+@media (max-width: 768px) {
+  .ca-admin-fin__steps {
+    grid-template-columns: 1fr;
+  }
 }

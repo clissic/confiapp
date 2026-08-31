@@ -230,6 +230,12 @@ textarea {
   color: var(--color-secondary-400);
 }
 
+/* Spinner legible sobre el fondo teal del CTA */
+.ca-btn-cta .spinner-border,
+.btn.ca-btn-cta .spinner-border {
+  color: var(--action-cta-fg, #01285d) !important;
+}
+
 /* ——— App toasts (contraste claro / oscuro vía tokens) ——— */
 .ca-toast-container {
   z-index: 1090;

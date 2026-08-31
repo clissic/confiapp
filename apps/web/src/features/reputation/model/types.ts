@@ -68,6 +68,7 @@ export interface ReputationDto {
 export interface ReviewItem {
   id: string;
   transactionId: string;
+  transactionCode?: string;
   reviewerId: string;
   revieweeId: string;
   reviewerRole: PartyRole;
@@ -78,6 +79,14 @@ export interface ReviewItem {
   fraudFlags: string[];
   visibility: string;
   createdAt: string;
+}
+
+export interface ReviewsPage {
+  items: ReviewItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface PendingTargets {

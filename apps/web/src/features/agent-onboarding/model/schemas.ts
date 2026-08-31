@@ -55,16 +55,28 @@ export const scheduleStepSchema = z
     }
   });
 
-export const areaStepSchema = z.object({
-  workAreaLabel: z.string().trim().min(2, 'Indicá el área').max(200),
-  workAreaCity: z.string().trim().min(2, 'Ciudad requerida').max(120),
-  workAreaCountry: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{2}$/, 'País ISO de 2 letras'),
-  coverageRadiusKm: z.coerce.number().min(1, 'Mínimo 1 km').max(500, 'Máximo 500 km'),
-});
+export const areaStepSchema = z
+  .object({
+    workAreaLabel: z.string().trim().min(2, 'Indicá el centro en el mapa').max(200),
+    workAreaCity: z.string().trim().min(2, 'Ciudad requerida').max(120),
+    workAreaCountry: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z]{2}$/, 'País ISO de 2 letras'),
+    workAreaLat: z.number().nullable(),
+    workAreaLng: z.number().nullable(),
+    coverageRadiusKm: z.coerce.number().min(1, 'Mínimo 1 km').max(500, 'Máximo 500 km'),
+  })
+  .superRefine((value, ctx) => {
+    if (value.workAreaLat == null || value.workAreaLng == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Hacé click en el mapa para centrar la cobertura',
+        path: ['workAreaLat'],
+      });
+    }
+  });
 
 export const rateStepSchema = z.object({
   ratesAccepted: z.boolean().refine((value) => value === true, {

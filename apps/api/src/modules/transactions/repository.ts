@@ -481,4 +481,64 @@ export class TransactionsRepository {
       .limit(limit)
       .exec();
   }
+
+  /** Operaciones con una sola confirmación de entrega y plazo de auto-liberación vencido. */
+  async findStaleDeliveryAutoRelease(limit = 50): Promise<TransactionDocument[]> {
+    const now = new Date();
+    return TransactionModel.find({
+      deletedAt: null,
+      status: { $in: [TransactionStatus.FUNDED, TransactionStatus.IN_PROGRESS] },
+      'agentVerification.buyerDecision': 'ACCEPTED',
+      'deliveryConfirmation.autoReleaseAt': { $lte: now },
+      $or: [
+        {
+          'deliveryConfirmation.buyerArrivalConfirmedAt': { $exists: true, $ne: null },
+          $or: [
+            { 'deliveryConfirmation.agentDeliveryConfirmedAt': { $exists: false } },
+            { 'deliveryConfirmation.agentDeliveryConfirmedAt': null },
+          ],
+        },
+        {
+          'deliveryConfirmation.agentDeliveryConfirmedAt': { $exists: true, $ne: null },
+          $or: [
+            { 'deliveryConfirmation.buyerArrivalConfirmedAt': { $exists: false } },
+            { 'deliveryConfirmation.buyerArrivalConfirmedAt': null },
+          ],
+        },
+      ],
+    })
+      .limit(limit)
+      .exec();
+  }
+
+  /** Candidatas al recordatorio ~48h (faltan ≤24h para auto-liberación). */
+  async findDeliveryReminderCandidates(limit = 50): Promise<TransactionDocument[]> {
+    const now = new Date();
+    const reminderCutoff = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    return TransactionModel.find({
+      deletedAt: null,
+      status: { $in: [TransactionStatus.FUNDED, TransactionStatus.IN_PROGRESS] },
+      'agentVerification.buyerDecision': 'ACCEPTED',
+      'deliveryConfirmation.autoReleaseAt': { $gt: now, $lte: reminderCutoff },
+      'deliveryConfirmation.reminder48hSentAt': { $exists: false },
+      $or: [
+        {
+          'deliveryConfirmation.buyerArrivalConfirmedAt': { $exists: true, $ne: null },
+          $or: [
+            { 'deliveryConfirmation.agentDeliveryConfirmedAt': { $exists: false } },
+            { 'deliveryConfirmation.agentDeliveryConfirmedAt': null },
+          ],
+        },
+        {
+          'deliveryConfirmation.agentDeliveryConfirmedAt': { $exists: true, $ne: null },
+          $or: [
+            { 'deliveryConfirmation.buyerArrivalConfirmedAt': { $exists: false } },
+            { 'deliveryConfirmation.buyerArrivalConfirmedAt': null },
+          ],
+        },
+      ],
+    })
+      .limit(limit)
+      .exec();
+  }
 }

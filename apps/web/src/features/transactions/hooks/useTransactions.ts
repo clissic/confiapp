@@ -2,8 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   acceptPurchase,
+  agentConfirmDelivery,
+  buyerAcceptProduct,
+  buyerConfirmArrival,
   buyerConfirmChanges,
   buyerRejectChanges,
+  buyerRejectProduct,
   confirmSale,
   createSellerTransaction,
   createTransaction,
@@ -12,6 +16,7 @@ import {
   listTransactions,
   previewInvite,
   refreshInviteLink,
+  finalizeAgentVerification,
   toggleChecklistItem,
 } from '../api/transactions.api';
 import type {
@@ -129,6 +134,76 @@ export function useToggleChecklistItem(code: string | undefined) {
         [...transactionsQueryKey, 'code', result.data.code],
         result,
       );
+    },
+  });
+}
+
+export function useFinalizeAgentVerification(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (note?: string) => finalizeAgentVerification(code!, note),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useBuyerAcceptProduct(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => buyerAcceptProduct(code!),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useBuyerRejectProduct(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => buyerRejectProduct(code!),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useBuyerConfirmArrival(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => buyerConfirmArrival(code!),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useAgentConfirmDelivery(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => agentConfirmDelivery(code!),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
     },
   });
 }

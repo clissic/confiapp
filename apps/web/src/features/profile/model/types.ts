@@ -7,6 +7,7 @@ export type UserPhotoKind =
   | 'ID_FRONT'
   | 'ID_BACK'
   | 'SELFIE'
+  | 'ADDRESS_PROOF'
   | 'OTHER';
 
 export interface ProfileAddress {
