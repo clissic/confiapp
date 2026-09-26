@@ -58,7 +58,13 @@ export function TransactionDetailPage() {
     if (!pagoToastShownRef.current) {
       pagoToastShownRef.current = true;
       if (pago === 'ok' || pago === 'success') {
-        toast.success('Pago confirmado. El monto quedó en resguardo.');
+        const agentFeeOnly =
+          (data?.data?.fundingMode ?? 'AGENT_FEE_ONLY') === 'AGENT_FEE_ONLY';
+        toast.success(
+          agentFeeOnly
+            ? 'Pago confirmado. La contratación quedó retenida en ConfiApp.'
+            : 'Pago confirmado. El monto quedó en resguardo.',
+        );
         void refetch();
       } else if (pago === 'failure') {
         setError('El pago falló o fue cancelado en Mercado Pago.');
@@ -68,7 +74,7 @@ export function TransactionDetailPage() {
     next.delete('pago');
     next.delete('status');
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams, toast, refetch]);
+  }, [searchParams, setSearchParams, toast, refetch, data?.data?.fundingMode]);
 
   useEffect(() => {
     if (navToastShownRef.current) return;

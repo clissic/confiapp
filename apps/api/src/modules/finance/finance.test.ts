@@ -10,11 +10,11 @@ import {
 import { ManualPayoutProvider } from '../../infrastructure/payments/payout-provider';
 
 describe('finance MVP constants & fees', () => {
-  it('hold de 21 días', () => {
+  it('hold de 14 días', () => {
     const from = new Date('2026-08-11T18:00:00.000Z');
     const available = addCommissionHoldDays(from);
-    expect(AGENT_COMMISSION_HOLD_DAYS).toBe(21);
-    expect(available.toISOString()).toBe('2026-09-01T18:00:00.000Z');
+    expect(AGENT_COMMISSION_HOLD_DAYS).toBe(14);
+    expect(available.toISOString()).toBe('2026-08-25T18:00:00.000Z');
   });
 
   it('caso §30 BUYER $30.000', () => {

@@ -17,6 +17,7 @@ import { CountrySelect } from '@/features/profile/ui/sections/CountryDialSelect'
 import { UruguayCitySelect } from '@/features/profile/ui/sections/UruguayCitySelect';
 import { MercadoPagoConnectSection } from '@/features/profile/ui/sections/MercadoPagoConnectSection';
 import { useMercadoPagoConnection } from '@/features/payments/hooks/usePayments';
+import { AGENT_COMMISSION_HOLD_DAYS } from '@confiapp/shared';
 
 import {
   useAgentOnboarding,
@@ -1099,10 +1100,10 @@ function RateStep({
           y del <strong>20%</strong> (veinte por ciento) para ConfiApp.
         </p>
         <p>
-          Tras completar una operación, tu participación queda <strong>pendiente 21 días</strong>.
-          Luego pasa a disponible. Las transferencias del saldo disponible las realiza un
-          administrador de ConfiApp <strong>del 1 al 10 de cada mes</strong> (liquidación manual; no
-          hay retiro automático).
+          Tras completar una operación, tu participación queda{' '}
+          <strong>pendiente {AGENT_COMMISSION_HOLD_DAYS} días</strong>. Luego pasa a disponible. Las
+          transferencias del saldo disponible las realiza un administrador de ConfiApp{' '}
+          <strong>del 1 al 10 de cada mes</strong> (liquidación manual; no hay retiro automático).
         </p>
         <p>
           Todos los impuestos que se generen por el cobro del servicio de ConfiApp serán a cargo de

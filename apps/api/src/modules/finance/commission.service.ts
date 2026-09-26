@@ -6,7 +6,7 @@ import {
   WalletMovementType,
   type IAgentCommission,
 } from '@confiapp/database';
-import { addCommissionHoldDays } from '@confiapp/shared';
+import { addCommissionHoldDays, AGENT_COMMISSION_HOLD_DAYS } from '@confiapp/shared';
 import { Types } from 'mongoose';
 
 import { UserModel } from '../../database/models';
@@ -51,7 +51,7 @@ function toDto(doc: IAgentCommission & { _id?: Types.ObjectId }) {
 }
 
 /**
- * Comisiones de agente: PENDING al COMPLETED, AVAILABLE tras 21 días.
+ * Comisiones de agente: PENDING al COMPLETED, AVAILABLE tras AGENT_COMMISSION_HOLD_DAYS.
  */
 export class AgentCommissionService {
   /**
@@ -102,7 +102,7 @@ export class AgentCommissionService {
         direction: WalletMovementDirection.CREDIT,
         amountCents: input.agentShareCents,
         currency: input.currency,
-        description: `Comisión ganada (pendiente 21d) · ${input.transactionCode}`,
+        description: `Comisión ganada (pendiente ${AGENT_COMMISSION_HOLD_DAYS}d) · ${input.transactionCode}`,
         paymentId: input.paymentId,
         transactionId: input.transactionId,
         balanceAfter: agentAfter

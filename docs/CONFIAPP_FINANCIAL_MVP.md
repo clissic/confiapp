@@ -6,7 +6,7 @@
 **Proveedor de pagos (objetivo):** Mercado Pago  
 **Cobro comprador (transitorio MVP):** transferencia manual a cuenta Prex de la plataforma + comprobante (`PAYMENTS_CHECKOUT_MODE=manual_prex`). El flujo Checkout Pro / webhooks / OAuth permanece en el código y se reactiva con `PAYMENTS_CHECKOUT_MODE=mercadopago`.  
 **Payouts de Agentes:** Manuales  
-**Período de disponibilidad:** 21 días
+**Período de disponibilidad:** 14 días
 
 ---
 
@@ -390,11 +390,11 @@ PAID
 
 ## PENDING
 
-La operación terminó exitosamente, pero todavía no transcurrieron los 21 días.
+La operación terminó exitosamente, pero todavía no transcurrieron los 14 días.
 
 ## AVAILABLE
 
-Transcurrieron exactamente 21 días y el dinero puede ser incluido en una liquidación.
+Transcurrieron exactamente 14 días y el dinero puede ser incluido en una liquidación.
 
 ## PAID
 
@@ -413,7 +413,7 @@ COMPLETED
 debe establecerse:
 
 ```text
-availableAt = completedAt + 21 días
+availableAt = completedAt + 14 días
 ```
 
 Ejemplo:
@@ -849,7 +849,7 @@ La futura automatización debe poder implementarse sin modificar:
 - Operation
 - FinancialAudit
 - reglas de comisión
-- regla de 21 días
+- regla de 14 días
 
 ---
 
@@ -894,7 +894,7 @@ Commission = $800
 ↓
 Agent = $640 PENDING
 ↓
-21 días
+14 días
 ↓
 $640 AVAILABLE
 ↓
@@ -937,7 +937,7 @@ La implementación se considera correcta únicamente si:
 - ConfiApp conserva 20%
 - el precio del producto no se diluye
 - el fee payer funciona correctamente
-- las ganancias quedan PENDING durante 21 días
+- las ganancias quedan PENDING durante 14 días
 - AVAILABLE solamente contiene fondos liberados
 - un mismo saldo nunca puede pagarse dos veces
 - los payouts manuales son auditables
@@ -974,7 +974,7 @@ Máquina de estados.
 Webhooks e idempotencia.
 
 ### Fase 7
-Regla de disponibilidad de 21 días.
+Regla de disponibilidad de 14 días.
 
 ### Fase 8
 Wallet/ledger del Agente.
@@ -1054,7 +1054,7 @@ MERCADO PAGO
                            ▼
                     AGENT LEDGER
                            │
-                       21 días
+                       14 días
                            │
                            ▼
                        AVAILABLE

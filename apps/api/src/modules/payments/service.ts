@@ -16,7 +16,7 @@ import {
   type IPayment,
   type ITransaction,
 } from '@confiapp/database';
-import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
+import { AGENT_COMMISSION_HOLD_DAYS, AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 import { Types, type HydratedDocument } from 'mongoose';
 
 import { PaymentEventLogModel } from '../../database/models/payment-event-log.model';
@@ -39,7 +39,6 @@ import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
 import { sendManualPrexReceiptEmail } from './manual-prex-email';
 import { isManualPrexAdminConfirmed } from './manual-prex-gate';
-import { mercadoPagoOAuthService } from './mercadopago-oauth.service';
 import {
   computeEscrowSplit,
   IntermediationFeeError,
@@ -477,7 +476,7 @@ export class PaymentsService {
   }
 
   /**
-   * Contratación del Agente (UYU $400) → preferencia con token del Agente + marketplace_fee.
+   * Contratación del Agente (UYU $400) → preferencia a cuenta ConfiApp (retención).
    */
   private async createAgentFeeOnlyCheckout(
     userId: string,
@@ -487,13 +486,6 @@ export class PaymentsService {
     if (!parties.agentId) {
       throw new ValidationError(
         'Primero debe asignarse un Agente para poder pagar la contratación.',
-      );
-    }
-
-    const agentToken = await mercadoPagoOAuthService.getValidSellerAccessToken(parties.agentId);
-    if (!agentToken && !paymentProvider.isMock()) {
-      throw new ValidationError(
-        'El Agente no tiene Mercado Pago conectado. No se puede cobrar la contratación.',
       );
     }
 
@@ -545,6 +537,7 @@ export class PaymentsService {
       (await PaymentModel.create({
         transaction: tx._id,
         payer: new Types.ObjectId(parties.buyerId),
+        // Beneficiario contable del Agente; el cobro MP es a cuenta ConfiApp.
         payee: new Types.ObjectId(parties.agentId),
         type: PaymentType.ESCROW_HOLD,
         status: PaymentStatus.PENDING,
@@ -556,7 +549,7 @@ export class PaymentsService {
         idempotencyKey,
         metadata: {
           ...splitMeta,
-          phase: 'agent_fee',
+          phase: 'retention',
           country: env.MERCADOPAGO_COUNTRY,
           siteId: env.MERCADOPAGO_SITE_ID,
         },
@@ -564,7 +557,6 @@ export class PaymentsService {
 
     if (existingHold) {
       hold.amountCents = buyerPays;
-      hold.payee = new Types.ObjectId(parties.agentId);
     }
 
     const externalReference = String(hold._id);
@@ -588,12 +580,6 @@ export class PaymentsService {
         pending: `${backBase}?pago=pending`,
       },
       mockBridgeUrl: `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}/pagar/simular?paymentId=${encodeURIComponent(externalReference)}`,
-      ...(agentToken
-        ? {
-            collectorAccessToken: agentToken,
-            marketplaceFeeCents: platformFeeCents,
-          }
-        : {}),
     });
 
     hold.externalId = preference.id;
@@ -606,7 +592,7 @@ export class PaymentsService {
       preferenceId: preference.id,
       initPoint: preference.initPoint,
       sandboxInitPoint: preference.sandboxInitPoint,
-      phase: 'agent_fee',
+      phase: 'retention',
       fundingMode: FundingMode.AGENT_FEE_ONLY,
       transactionCode: tx.code,
       agentId: parties.agentId,
@@ -616,7 +602,7 @@ export class PaymentsService {
     await persistLog({
       source: 'checkout',
       event: 'checkout.created',
-      message: 'Checkout contratación Agente creado',
+      message: 'Checkout contratación Agente creado (retención ConfiApp)',
       transactionId: String(tx._id),
       paymentId: String(hold._id),
       externalId: preference.id,
@@ -1412,44 +1398,179 @@ export class PaymentsService {
       throw new ValidationError('El pago protegido ya fue liberado');
     }
 
-    // Solo contratación del Agente: el dinero ya se liquidó en MP (agente + marketplace_fee).
+    // Solo contratación del Agente: liberar comisión a wallet (sin payout de producto).
     if (resolvePaymentFundingMode(tx.fundingMode) === FundingMode.AGENT_FEE_ONLY) {
+      if (!parties.agentId) {
+        throw new ValidationError('No hay Agente asignado para acreditar la comisión');
+      }
+
+      const meta = (hold.metadata ?? {}) as Record<string, unknown>;
+      const buyerPays = hold.amountCents || AGENT_FEE_ONLY_UYU_CENTS;
+      const platformFee =
+        typeof meta.platformFeeCents === 'number'
+          ? Math.max(0, meta.platformFeeCents)
+          : Math.floor((buyerPays * env.PAYMENTS_PLATFORM_FEE_BPS) / 10_000);
+      const agentFee =
+        typeof meta.agentFeeCents === 'number'
+          ? Math.max(0, meta.agentFeeCents)
+          : Math.max(0, buyerPays - platformFee);
+      const currency = hold.currency || 'UYU';
       const now = new Date();
+      const provider = hold.provider;
+      const split = {
+        fundingMode: FundingMode.AGENT_FEE_ONLY,
+        productCents: 0,
+        commissionCents: buyerPays,
+        buyerPaysCents: buyerPays,
+        sellerNetCents: 0,
+        platformFeeCents: platformFee,
+        agentFeeCents: agentFee,
+        currency,
+        feePayer: 'BUYER' as const,
+      };
+
+      const fee = await PaymentModel.create({
+        transaction: tx._id,
+        payer: hold.payer,
+        type: PaymentType.PLATFORM_FEE,
+        status: PaymentStatus.CAPTURED,
+        provider,
+        amountCents: Math.max(1, platformFee || 1),
+        currency,
+        idempotencyKey: `fee:${String(tx._id)}`,
+        capturedAt: now,
+        metadata: { split, bps: env.PAYMENTS_PLATFORM_FEE_BPS, fundingMode: FundingMode.AGENT_FEE_ONLY },
+      });
+
+      const agentPayment = await PaymentModel.create({
+        transaction: tx._id,
+        payer: hold.payer,
+        payee: new Types.ObjectId(parties.agentId),
+        type: PaymentType.AGENT_PAYOUT,
+        status: PaymentStatus.CAPTURED,
+        provider,
+        amountCents: agentFee,
+        currency,
+        idempotencyKey: `agent:${String(tx._id)}`,
+        capturedAt: now,
+        metadata: {
+          split,
+          bps: env.PAYMENTS_AGENT_FEE_BPS,
+          holdDays: AGENT_COMMISSION_HOLD_DAYS,
+          accounting: 'PENDING_COMMISSION',
+          fundingMode: FundingMode.AGENT_FEE_ONLY,
+        },
+      });
+
+      await agentCommissionService.recordOnCompleted({
+        transactionId: String(tx._id),
+        transactionCode: tx.code,
+        agentId: parties.agentId,
+        commissionCents: buyerPays,
+        agentShareCents: agentFee,
+        platformShareCents: platformFee,
+        currency,
+        completedAt: now,
+        paymentId: String(agentPayment._id),
+        actorId: userId,
+        metadata: { split },
+      });
+
+      await financialAudit.record({
+        action: 'ESCROW_RELEASED',
+        idempotencyKey: `fa:release:${String(tx._id)}`,
+        operationId: String(tx._id),
+        paymentId: String(agentPayment._id),
+        agentId: parties.agentId,
+        actorId: userId,
+        amountCents: agentFee,
+        currency,
+        newStatus: 'COMPLETED',
+      });
+
+      // Registro de liberación (sin neto a vendedor).
+      const release = await PaymentModel.create({
+        transaction: tx._id,
+        payer: hold.payer,
+        payee: new Types.ObjectId(parties.agentId),
+        type: PaymentType.ESCROW_RELEASE,
+        status: PaymentStatus.RELEASED,
+        provider,
+        amountCents: Math.max(1, agentFee || 1),
+        currency,
+        idempotencyKey: `release:${String(tx._id)}`,
+        releasedAt: now,
+        capturedAt: now,
+        metadata: { split, fromHoldId: String(hold._id), fundingMode: FundingMode.AGENT_FEE_ONLY },
+      });
+
       hold.status = PaymentStatus.RELEASED;
       hold.releasedAt = now;
+      hold.metadata = { ...(hold.metadata ?? {}), phase: 'released', split };
       await hold.save();
 
-      // releaseEscrow solo se llama en FUNDED | IN_PROGRESS → COMPLETED.
       assertTransition(tx.status, TransactionStatus.COMPLETED);
       tx.status = TransactionStatus.COMPLETED;
       tx.completedAt = now;
+      const autoReleased = Boolean(
+        tx.deliveryConfirmation?.buyerArrivalAuto || tx.deliveryConfirmation?.agentDeliveryAuto,
+      );
       tx.statusHistory.push({
         status: TransactionStatus.COMPLETED,
         changedAt: now,
         changedBy: new Types.ObjectId(userId),
-        note: 'Operación completada — contratación Agente ya liquidada en Mercado Pago',
+        note: autoReleased
+          ? 'Operación completada (auto 72h) — comisión Agente pendiente en wallet'
+          : 'Operación completada — comisión Agente pendiente en wallet',
       });
       await tx.save();
+
+      await persistLog({
+        source: 'release',
+        event: 'escrow.released',
+        message: 'Contratación Agente liberada a comisión PENDING',
+        transactionId: String(tx._id),
+        paymentId: String(release._id),
+        payload: {
+          split,
+          feePaymentId: String(fee._id),
+          agentPaymentId: String(agentPayment._id),
+          releasedBy: userId,
+          fundingMode: FundingMode.AGENT_FEE_ONLY,
+        },
+      });
 
       auditService.track({
         actor: userId,
         action: AuditAction.PAYMENT_UPDATED,
         entityType: 'Payment',
-        entityId: String(hold._id),
+        entityId: String(release._id),
         outcome: AuditOutcome.SUCCESS,
         correlationId: tx.code,
         metadata: {
-          phase: 'agent_fee_only_complete',
+          phase: 'agent_fee_only_released',
           fundingMode: FundingMode.AGENT_FEE_ONLY,
           code: tx.code,
-          amountCents: hold.amountCents,
+          platformFeeId: String(fee._id),
+          agentPaymentId: String(agentPayment._id),
+          agentFeeCents: agentFee,
+          platformFeeCents: platformFee,
         },
       });
 
+      void this.dispatchReleaseSideEffects(tx, parties, autoReleased).catch((error) => {
+        logger.error('releaseEscrow side effects failed', { error, code: tx.code });
+      });
+
       return {
-        payment: toPaymentDto(hold.toObject()),
+        transactionStatus: tx.status,
         fundingMode: FundingMode.AGENT_FEE_ONLY,
-        message: 'Operación completada. La contratación del Agente ya estaba liquidada en Mercado Pago.',
+        split,
+        release: toPaymentDto(release.toObject()),
+        platformFee: toPaymentDto(fee.toObject()),
+        agentPayout: toPaymentDto(agentPayment.toObject()),
+        message:
+          'Operación completada. La comisión del Agente quedó pendiente en wallet hasta el hold.',
       };
     }
 
@@ -1506,7 +1627,7 @@ export class PaymentsService {
         metadata: {
           split,
           bps: env.PAYMENTS_AGENT_FEE_BPS,
-          holdDays: 21,
+          holdDays: AGENT_COMMISSION_HOLD_DAYS,
           accounting: 'PENDING_COMMISSION',
         },
       });
@@ -1685,16 +1806,24 @@ export class PaymentsService {
       parties.agentId,
     ].filter((id, idx, arr): id is string => Boolean(id) && arr.indexOf(id) === idx);
 
+    const isAgentFeeOnly =
+      resolvePaymentFundingMode(tx.fundingMode) === FundingMode.AGENT_FEE_ONLY;
+
     const partyBody = (uid: string): string => {
+      if (uid === parties.agentId) {
+        return autoReleased
+          ? `Se acreditó tu comisión de intermediación en ${tx.code} (liberación automática). Estará disponible para retiro en ${AGENT_COMMISSION_HOLD_DAYS} días.`
+          : `Se acreditó tu comisión de intermediación en ${tx.code}. Estará disponible para retiro en ${AGENT_COMMISSION_HOLD_DAYS} días.`;
+      }
+      if (isAgentFeeOnly) {
+        return autoReleased
+          ? `La operación ${tx.code} se completó automáticamente. La contratación del Agente quedó registrada.`
+          : `La operación ${tx.code} se completó. La contratación del Agente quedó registrada.`;
+      }
       if (uid === parties.sellerId) {
         return autoReleased
           ? `Se liberaron los fondos de ${tx.code} automáticamente tras 72h. El neto ya está en tu wallet disponible.`
           : `Se liberaron los fondos de ${tx.code}. El neto ya está en tu wallet disponible.`;
-      }
-      if (uid === parties.agentId) {
-        return autoReleased
-          ? `Se acreditó tu comisión de intermediación en ${tx.code} (liberación automática). Estará disponible para retiro en 21 días.`
-          : `Se acreditó tu comisión de intermediación en ${tx.code}. Estará disponible para retiro en 21 días.`;
       }
       return autoReleased
         ? `La operación ${tx.code} se completó con liberación automática de fondos al vendedor.`
@@ -1736,9 +1865,13 @@ export class PaymentsService {
           userId: String(admin._id),
           type: NotificationType.PAYMENT,
           title: `Fondos liberados · ${tx.code}`,
-          body: autoReleased
-            ? `Liberación automática tras 72h: neto del vendedor en wallet; comisión del agente pendiente 21 días.`
-            : `Neto del vendedor acreditado en wallet; comisión del agente pendiente 21 días.`,
+          body: isAgentFeeOnly
+            ? autoReleased
+              ? `Liberación automática tras 72h: comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`
+              : `Comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`
+            : autoReleased
+              ? `Liberación automática tras 72h: neto del vendedor en wallet; comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`
+              : `Neto del vendedor acreditado en wallet; comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`,
           data: {
             href: '/admin/finanzas',
             code: tx.code,

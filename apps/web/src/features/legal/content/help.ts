@@ -16,22 +16,23 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'primeros-pasos',
     title: 'Primeros pasos',
-    lead: 'ConfiApp conecta comprador, vendedor y un Agente de confianza para operaciones con pago protegido.',
+    lead: 'ConfiApp conecta comprador, vendedor y un Agente de confianza para operaciones con pago a la app.',
     bullets: [
       'Como comprador podés iniciar una operación o unirte a una oferta del vendedor.',
-      'Como vendedor publicás el producto y las condiciones; el pago queda en resguardo hasta la entrega.',
-      'Como Agente verificás el producto, lo trasladás y confirmás la entrega.',
+      'Como vendedor publicás el producto y las condiciones; el comprador paga a ConfiApp lo que corresponda al modo elegido.',
+      'Como Agente verificás el producto, lo trasladás y confirmás la entrega; tu comisión se acredita en wallet al completar.',
     ],
   },
   {
     id: 'operaciones',
     title: 'Operaciones y pagos',
     paragraphs: [
-      'Cada operación tiene estados claros: aceptación, pago protegido, en curso y completada. Los fondos se liberan al vendedor cuando comprador y Agente confirman la entrega (o tras el plazo automático de 72 h si corresponde).',
+      'Cada operación tiene estados claros: aceptación, pago, en curso y completada. El comprador paga a ConfiApp (hoy, en el modo disponible, la contratación fija del Agente cuando ya hay Agente asignado). Los fondos se liberan al completar: doble confirmación de entrega o el plazo automático de 72 h.',
     ],
     bullets: [
-      'El pago protegido evita transferencias directas entre particulares sin respaldo.',
-      'Podés seguir el historial desde el detalle de la operación.',
+      'En “Solo pago del Agente”, ConfiApp retiene la contratación hasta el fin de la operación; el precio del producto lo acuerdan las partes.',
+      'Al completar, la comisión del Agente queda pendiente 14 días en su wallet y luego pasa a disponible.',
+      'La liquidación del saldo disponible la hace un administrador entre el 1 y el 10 de cada mes.',
       'Si algo sale mal, el comprador puede abrir un reclamo para revisión de ConfiApp.',
     ],
   },
@@ -71,7 +72,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     id: 'reclamos',
     title: 'Reclamos y disputas',
     paragraphs: [
-      'Si no recibiste el producto o hay un problema grave, podés reportarlo desde la operación. El equipo de ConfiApp revisa el caso y puede reanudar, cancelar o reembolsar según corresponda.',
+      'Si no recibiste el producto, reportalo dentro de las 72 horas desde la primera confirmación de entrega o arribo. Para otros problemas graves, abrí un reclamo desde la operación. El equipo de ConfiApp revisa el caso y puede reanudar, cancelar o reembolsar según corresponda. Una disputa puede bloquear la comisión del Agente mientras se resuelve.',
     ],
   },
   {

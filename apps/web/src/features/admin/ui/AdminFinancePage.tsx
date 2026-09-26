@@ -11,7 +11,7 @@ import {
 } from 'react-bootstrap';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Filter, Info, X } from 'lucide-react';
-import { isWithinAgentPayoutWindow } from '@confiapp/shared';
+import { AGENT_COMMISSION_HOLD_DAYS, isWithinAgentPayoutWindow } from '@confiapp/shared';
 
 import { apiClient, getApiErrorMessage } from '@/shared/api/client';
 import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
@@ -106,7 +106,7 @@ function EstadoChip({ status, map }: { status: string; map: typeof ESTADO_LIQUID
 function mensajeErrorFinanzas(error: unknown): string {
   const raw = getApiErrorMessage(error, 'No se pudo completar la operación.');
   if (/no hay comisiones available para liquidar/i.test(raw)) {
-    return 'Todavía no hay comisiones listas para liquidar. Las comisiones quedan disponibles 21 días después de completar cada operación.';
+    return `Todavía no hay comisiones listas para liquidar. Las comisiones quedan disponibles ${AGENT_COMMISSION_HOLD_DAYS} días después de completar cada operación.`;
   }
   return raw.replace(/\bAVAILABLE\b/gi, 'disponibles');
 }
@@ -333,8 +333,9 @@ export function AdminFinancePage() {
           </div>
         </div>
         <p className="ca-admin-fin__lead">
-          Liquidá comisiones de intermediación ya maduras (21 días). Cada cierre agrupa a los
-          agentes con saldo disponible; vos transferís y confirmás el comprobante acá.
+          Liquidá comisiones de intermediación ya maduras ({AGENT_COMMISSION_HOLD_DAYS} días). Cada
+          cierre agrupa a los agentes con saldo disponible; vos transferís y confirmás el
+          comprobante acá.
         </p>
       </header>
 
@@ -343,7 +344,8 @@ export function AdminFinancePage() {
           <span className="ca-admin-fin__step-num">Paso 1</span>
           <h2 className="ca-admin-fin__step-title">Preparar liquidación</h2>
           <p className="ca-admin-fin__step-text">
-            Se agrupan todas las comisiones disponibles (21 días cumplidos) en un cierre de pagos.
+            Se agrupan todas las comisiones disponibles ({AGENT_COMMISSION_HOLD_DAYS} días cumplidos)
+            en un cierre de pagos.
           </p>
         </article>
         <article className="ca-admin-fin__step">

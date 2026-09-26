@@ -4,7 +4,7 @@ import type { AgentCommissionStatus } from '../types/enums';
 
 /**
  * Comisión del agente por operación completada.
- * Fuente de verdad del hold de 21 días y liquidación manual.
+ * Fuente de verdad del hold de comisión y liquidación manual.
  */
 export interface IAgentCommission {
   transaction: Types.ObjectId;

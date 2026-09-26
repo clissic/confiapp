@@ -14,6 +14,7 @@ import { convertCents } from '@/shared/lib/fx';
 import { CURRENCY_OPTIONS, formatDateTime, formatMoney } from '@/shared/lib/money';
 import { usePreferencesSnapshot } from '@/shared/preferences';
 import { useAppToast } from '@/shared/ui';
+import { AGENT_COMMISSION_HOLD_DAYS } from '@confiapp/shared';
 import { useProfile } from '@/features/profile/hooks/useProfile';
 import { formatPayoutMethodType } from '@/features/profile/model/payout-methods';
 import type { ProfilePayoutMethod } from '@/features/profile/model/types';
@@ -367,8 +368,9 @@ export function WalletPage() {
         <section className="ca-wallet-panel mb-3">
           <h3 className="h6">Comisiones de agente</h3>
           <p className="ca-wallet__hint mb-2">
-            Tras completar una operación, tu 80% queda pendiente 21 días. Las transferencias del
-            saldo disponible las realiza un administrador del <strong>1 al 10</strong> de cada mes.
+            Tras completar una operación, tu 80% queda pendiente {AGENT_COMMISSION_HOLD_DAYS} días.
+            Las transferencias del saldo disponible las realiza un administrador del{' '}
+            <strong>1 al 10</strong> de cada mes.
           </p>
           <div className="ca-wallet-balances">
             <div className="ca-wallet-balance">
@@ -381,7 +383,7 @@ export function WalletPage() {
               </strong>
             </div>
             <div className="ca-wallet-balance">
-              <span>Pendiente (21 días)</span>
+              <span>Pendiente ({AGENT_COMMISSION_HOLD_DAYS} días)</span>
               <strong>
                 {formatMoney(
                   summary.agentCommissions.pendingCents,

@@ -12,6 +12,7 @@ import {
 
 import { ReviewFormPanel } from '@/features/reputation';
 import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
+import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
@@ -133,6 +134,14 @@ export function BuyerOperationDetail({
         : [];
   const deliveryLabel = placeLabel(tx.party?.buyer?.meetingLocation?.label);
   const ownInstructions = tx.party?.buyer?.conditionsSummary || tx.conditions.summary;
+  const isAgentFeeOnly = (tx.fundingMode ?? 'AGENT_FEE_ONLY') === 'AGENT_FEE_ONLY';
+  const hasAcceptedAgent = tx.participants.some(
+    (p) => p.role === 'INTERMEDIARY' && p.status === 'ACCEPTED',
+  );
+  const payAmountCents = isAgentFeeOnly
+    ? AGENT_FEE_ONLY_UYU_CENTS
+    : (buyerTotalCents ?? tx.amountCents);
+  const payCurrency = isAgentFeeOnly ? 'UYU' : tx.currency;
 
   return (
     <div className="ca-tx ca-tx--detail ca-tx-agent-view">
@@ -192,28 +201,41 @@ export function BuyerOperationDetail({
           <section className="ca-tx-buyer-view__cta">
             <p className="ca-tx-buyer-view__cta-kicker">
               <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
-              Pago protegido
+              {isAgentFeeOnly ? 'Contratación del Agente' : 'Pago protegido'}
             </p>
             <h2>Esperando confirmación del pago</h2>
             <p className="mb-0">
-              Ya recibimos tu comprobante. Cuando se verifique, el dinero queda en resguardo.
+              {isAgentFeeOnly
+                ? 'Ya recibimos tu comprobante. Cuando se verifique, la contratación queda retenida en ConfiApp.'
+                : 'Ya recibimos tu comprobante. Cuando se verifique, el dinero queda en resguardo.'}
+            </p>
+          </section>
+        ) : isAgentFeeOnly && !hasAcceptedAgent ? (
+          <section className="ca-tx-buyer-view__cta">
+            <p className="ca-tx-buyer-view__cta-kicker">
+              <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
+              Contratación del Agente
+            </p>
+            <h2>Esperando Agente</h2>
+            <p className="mb-0">
+              Cuando un Agente acepte la operación, vas a poder pagar la contratación a ConfiApp.
             </p>
           </section>
         ) : (
           <section className="ca-tx-buyer-view__cta ca-tx-buyer-view__cta--action">
             <p className="ca-tx-buyer-view__cta-kicker">
               <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
-              Pago protegido
+              {isAgentFeeOnly ? 'Contratación del Agente' : 'Pago protegido'}
             </p>
             <h2>Listo para pagar</h2>
             <p>
-              Completá la transferencia. Verificamos el comprobante antes de habilitar el trabajo.
+              {isAgentFeeOnly
+                ? 'Pagá a ConfiApp la contratación del Agente. Queda retenida hasta el fin de la operación.'
+                : 'Completá la transferencia. Verificamos el comprobante antes de habilitar el trabajo.'}
             </p>
             <p className="ca-tx-buyer-view__cta-amount">
               Total:{' '}
-              <strong>
-                {formatOperationMoney(buyerTotalCents ?? tx.amountCents, tx.currency)}
-              </strong>
+              <strong>{formatOperationMoney(payAmountCents, payCurrency)}</strong>
             </p>
             <Button type="button" className="ca-btn-cta" onClick={onPayNow}>
               Pagar ahora

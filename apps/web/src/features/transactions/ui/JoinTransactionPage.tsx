@@ -688,7 +688,7 @@ function JoinAsBuyerWizard({
                     ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
-                        <dd>UYU $400 (la paga el comprador por Mercado Pago)</dd>
+                        <dd>UYU $400 (a ConfiApp; retenido hasta el fin de la operación)</dd>
                       </div>
                     ) : (
                       <>
@@ -1307,7 +1307,7 @@ function JoinAsSellerWizard({
                     ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
-                        <dd>UYU $400 (la paga el comprador por Mercado Pago)</dd>
+                        <dd>UYU $400 (a ConfiApp; retenido hasta el fin de la operación)</dd>
                       </div>
                     ) : (
                       <>

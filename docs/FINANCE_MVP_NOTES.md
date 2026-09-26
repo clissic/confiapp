@@ -30,7 +30,7 @@ Al subir comprobante:
 | Pieza | Ubicación |
 |---|---|
 | Franjas UYU + 80/20 | `packages/shared` (`agent-fee-tiers`, `intermediation-fees`) |
-| Hold 21 días / ventana 1–10 | `packages/shared/finance-constants.ts` |
+| Hold 14 días / ventana 1–10 | `packages/shared/finance-constants.ts` |
 | Modelos | `AgentCommission`, `PayoutBatch`, `AgentPayout`, `FinancialAuditEvent` |
 | Módulo API | `apps/api/src/modules/finance` |
 | PaymentProvider | `apps/api/src/infrastructure/payments/payment-provider.ts` |

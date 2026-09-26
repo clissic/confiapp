@@ -72,7 +72,7 @@ function upcomingForSeller(tx: Transaction, pendingPayment: boolean) {
         }
       : {
           title: 'Pago',
-          detail: 'A la espera de que el comprador pague. El dinero queda en resguardo.',
+          detail: 'A la espera de que el comprador pague. El monto queda retenido en ConfiApp.',
         };
   }
   if (tx.status === 'FUNDED' || tx.status === 'IN_PROGRESS') {
@@ -212,7 +212,7 @@ export function SellerOperationDetail({
           <p className="mb-0">
             {pendingPaymentConfirmation
               ? 'El comprador ya envió el comprobante. Estamos verificando la transferencia.'
-              : 'Cuando pague, el dinero queda en resguardo hasta confirmar la entrega.'}
+              : 'Cuando pague, ConfiApp retiene el monto hasta confirmar la entrega.'}
           </p>
         </section>
       ) : null}

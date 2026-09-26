@@ -260,7 +260,7 @@ export enum WalletMovementType {
   ADJUSTMENT = 'ADJUSTMENT',
   /** Comisión del agente al completar la operación (PENDING). */
   COMMISSION_EARNED = 'COMMISSION_EARNED',
-  /** Comisión liberada tras 21 días (AVAILABLE). */
+  /** Comisión liberada tras el hold de días (AVAILABLE). */
   COMMISSION_AVAILABLE = 'COMMISSION_AVAILABLE',
   /** Saldo reservado en un payout batch. */
   PAYOUT_RESERVED = 'PAYOUT_RESERVED',
