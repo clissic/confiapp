@@ -24,7 +24,6 @@ import {
 import { realtimeServer } from '../../infrastructure/realtime/socket-realtime.server';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
-import { mercadoPagoOAuthService } from '../payments/mercadopago-oauth.service';
 
 import { ACTIVE_AGENT_JOB_STATUSES } from './agent-jobs';
 import { advanceToInProgressOnAgentAccept } from './advance-on-accept';
@@ -132,15 +131,6 @@ function isOpenJobStatusForFundingMode(tx: {
     tx.status === TransactionStatus.IN_PROGRESS ||
     tx.status === TransactionStatus.DISPUTED
   );
-}
-
-async function assertAgentMercadoPagoConnected(agentId: string): Promise<void> {
-  const view = await mercadoPagoOAuthService.getConnection(agentId);
-  if (!view.connected) {
-    throw new ValidationError(
-      'Conectá tu cuenta de Mercado Pago para aceptar trabajos. Andá a Ser Agente o Perfil → Pagos.',
-    );
-  }
 }
 
 const AGENT_WITHDRAW_HISTORY_NOTE = 'Agente solicitó salida / reasignación';
@@ -493,8 +483,6 @@ export class OpenJobsService {
       deletedAt: null,
     }).exec();
     if (!tx) throw new NotFoundError('Trabajo no encontrado');
-
-    await assertAgentMercadoPagoConnected(agentId);
 
     if (!isOpenJobStatusForFundingMode(tx)) {
       throw new ValidationError('Este trabajo ya no está abierto');

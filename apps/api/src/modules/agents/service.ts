@@ -6,7 +6,7 @@ import {
 } from '@confiapp/database';
 import type { HydratedDocument } from 'mongoose';
 
-import { AppError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
+import { AppError, ForbiddenError, NotFoundError } from '../../shared/errors/app-error';
 import {
   AuditAction,
   AuditOutcome,
@@ -187,14 +187,6 @@ export class AgentsService {
 
     const { idDigitalService } = await import('../auth/id-digital.service');
     idDigitalService.assertOnboardingVerified(existing);
-
-    const { mercadoPagoOAuthService } = await import('../payments/mercadopago-oauth.service');
-    const mp = await mercadoPagoOAuthService.getConnection(userId);
-    if (!mp.connected) {
-      throw new ValidationError(
-        'Conectá tu cuenta de Mercado Pago para activarte como Agente.',
-      );
-    }
 
     const user = await this.repository.activateAgent(userId, {
       termsAccepted: true,

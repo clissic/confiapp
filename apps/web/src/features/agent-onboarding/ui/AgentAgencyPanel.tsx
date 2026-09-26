@@ -95,8 +95,10 @@ export function AgentAgencyPanel({
       ) : null}
 
       {!mpQuery.isLoading && !mpConnected ? (
-        <Alert variant="warning" className="ca-agency-alert mb-0">
-          Conectá Mercado Pago para poder tomar trabajos.{' '}
+        <Alert variant="info" className="ca-agency-alert mb-0">
+          Vinculá Mercado Pago cuando puedas para que ConfiApp gestione tus cobros. Mientras tanto
+          podés tomar trabajos: al completar, tu comisión se acredita en la wallet a la espera del
+          pago.{' '}
           <Link to="/perfil?tab=settings#mercadopago-conexion">Ir a vincular cuenta</Link>
         </Alert>
       ) : null}

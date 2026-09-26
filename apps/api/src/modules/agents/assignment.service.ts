@@ -19,7 +19,6 @@ import {
   isEscrowVisibleToAgents,
   loadManualPrexEscrowGate,
 } from '../payments/manual-prex-gate';
-import { mercadoPagoOAuthService } from '../payments/mercadopago-oauth.service';
 
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { advanceToInProgressOnAgentAccept } from './advance-on-accept';
@@ -259,13 +258,6 @@ export class AgentAssignmentService {
 
     const tx = await TransactionModel.findById(notification.entityId).exec();
     if (!tx) throw new NotFoundError('Operación no encontrada');
-
-    const mp = await mercadoPagoOAuthService.getConnection(userId);
-    if (!mp.connected) {
-      throw new ValidationError(
-        'Conectá tu cuenta de Mercado Pago para aceptar trabajos. Andá a Ser Agente o Perfil → Pagos.',
-      );
-    }
 
     const already = tx.participants.some(
       (p) =>

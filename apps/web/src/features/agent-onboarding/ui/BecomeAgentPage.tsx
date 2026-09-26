@@ -426,7 +426,7 @@ export function BecomeAgentPage() {
                 const message =
                   err instanceof ApiClientError
                     ? err.message
-                    : 'No se pudo completar el alta de agente. Verificá Identidad Digital y Mercado Pago.';
+                    : 'No se pudo completar el alta de agente. Verificá Identidad Digital e intentá de nuevo.';
                 setError(message);
               }
             }}
@@ -1205,7 +1205,7 @@ function PreviewStep({
     },
     {
       label: 'Mercado Pago',
-      value: mpConnected ? 'Cuenta conectada' : 'Pendiente de conexión',
+      value: mpConnected ? 'Cuenta conectada' : 'Pendiente (recomendado)',
     },
   ];
 
@@ -1227,8 +1227,9 @@ function PreviewStep({
 
       <div className="ca-agent-preview__mp">
         <p className="ca-agent-preview__mp-lead">
-          Para cobrar la contratación del Agente necesitás vincular Mercado Pago. Sin cuenta
-          conectada no podés activarte ni tomar trabajos.
+          Recomendamos vincular Mercado Pago para que ConfiApp pueda gestionar tus cobros. Podés
+          activarte y tomar trabajos sin vincularla: al completar, tu comisión se acredita en la
+          wallet y queda a la espera del pago cuando tengas la cuenta conectada.
         </p>
         <MercadoPagoConnectSection />
       </div>
@@ -1240,7 +1241,7 @@ function PreviewStep({
         <Button
           type="button"
           className="ca-btn-cta"
-          disabled={submitting || !mpConnected || mpQuery.isLoading}
+          disabled={submitting}
           onClick={() => void onSubmit()}
         >
           {submitting ? 'Confirmando…' : 'Confirmar y convertirme en agente'}

@@ -83,8 +83,10 @@ export function MercadoPagoConnectSection() {
         Mercado Pago
       </h3>
       <p className="ca-section-lead">
-        Vinculá tu cuenta de Mercado Pago para cobrar ventas de forma segura. No compartimos tu
-        contraseña: usás el inicio de sesión oficial de Mercado Pago.
+        Vinculá tu cuenta de Mercado Pago para que ConfiApp pueda gestionar tus cobros como Agente.
+        Podés seguir tomando trabajos sin vincularla: las comisiones se acreditan en tu wallet y el
+        pago queda pendiente hasta que la tengas conectada. No compartimos tu contraseña: usás el
+        inicio de sesión oficial de Mercado Pago.
       </p>
 
       {loading ? (
