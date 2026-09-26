@@ -1200,7 +1200,7 @@ export class PaymentsService {
           step: 'escrow_funded',
           to: TransactionStatus.FUNDED,
           note: 'pago_protegido',
-          ...feesAuditMeta(feeSnap),
+          ...(feeSnap ? feesAuditMeta(feeSnap) : {}),
         },
       });
 
@@ -1411,18 +1411,17 @@ export class PaymentsService {
       hold.releasedAt = now;
       await hold.save();
 
-      if (tx.status !== TransactionStatus.COMPLETED) {
-        assertTransition(tx.status, TransactionStatus.COMPLETED);
-        tx.status = TransactionStatus.COMPLETED;
-        tx.completedAt = now;
-        tx.statusHistory.push({
-          status: TransactionStatus.COMPLETED,
-          changedAt: now,
-          changedBy: new Types.ObjectId(userId),
-          note: 'Operación completada — contratación Agente ya liquidada en Mercado Pago',
-        });
-        await tx.save();
-      }
+      // releaseEscrow solo se llama en FUNDED | IN_PROGRESS → COMPLETED.
+      assertTransition(tx.status, TransactionStatus.COMPLETED);
+      tx.status = TransactionStatus.COMPLETED;
+      tx.completedAt = now;
+      tx.statusHistory.push({
+        status: TransactionStatus.COMPLETED,
+        changedAt: now,
+        changedBy: new Types.ObjectId(userId),
+        note: 'Operación completada — contratación Agente ya liquidada en Mercado Pago',
+      });
+      await tx.save();
 
       auditService.track({
         actor: userId,

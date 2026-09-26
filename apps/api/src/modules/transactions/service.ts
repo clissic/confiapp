@@ -1841,7 +1841,7 @@ export class TransactionsService {
         currency,
         condition: input.condition,
         category,
-        feePayer: feePayer ?? tx.feePayer,
+        feePayer: feePayer ?? tx.feePayer ?? 'BUYER',
       },
     );
     // En modo solo Agente el precio no forma parte del acuerdo monetario en app.

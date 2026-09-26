@@ -898,11 +898,14 @@ function applyConfirmSaleDemo(
       to: payload.description,
     });
   }
-  if (amountCents !== (current.amountCents ?? 0) || currency !== (current.currency ?? 'UYU')) {
+  if (
+    (amountCents ?? 0) !== (current.amountCents ?? 0) ||
+    currency !== (current.currency ?? 'UYU')
+  ) {
     changes.push({
       field: 'price',
       from: `${((current.amountCents ?? 0) / 100).toFixed(2)} ${current.currency ?? 'UYU'}`,
-      to: `${(amountCents / 100).toFixed(2)} ${currency}`,
+      to: `${((amountCents ?? 0) / 100).toFixed(2)} ${currency}`,
     });
   }
   if (changes.length > 0) {
