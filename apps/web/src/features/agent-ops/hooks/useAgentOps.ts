@@ -17,7 +17,13 @@ export function useOpenJobs(filters: OpenJobsFilters, enabled = true) {
 export function useAcceptOpenJob() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: acceptOpenJob,
+    mutationFn: ({
+      code,
+      idDigitalProofId,
+    }: {
+      code: string;
+      idDigitalProofId?: string;
+    }) => acceptOpenJob(code, idDigitalProofId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: openJobsQueryKey });
     },

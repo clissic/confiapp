@@ -12,6 +12,17 @@ export { NotificationModel, type NotificationDocument } from './notification.mod
 export { ReviewModel, type ReviewDocument } from './review.model';
 export { PaymentModel, type PaymentDocument } from './payment.model';
 export {
+  IdDigitalOAuthStateModel,
+  type IdDigitalOAuthStateDocument,
+  type IdDigitalPurpose,
+  type IIdDigitalOAuthState,
+} from './id-digital-oauth-state.model';
+export {
+  IdDigitalProofModel,
+  type IdDigitalProofDocument,
+  type IIdDigitalProof,
+} from './id-digital-proof.model';
+export {
   AgentAvailabilityModel,
   type AgentAvailabilityDocument,
 } from './agent-availability.model';

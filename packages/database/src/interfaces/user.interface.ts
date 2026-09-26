@@ -246,6 +246,18 @@ export interface UserAgentProfile {
   activatedAt?: Date;
 }
 
+/** Vínculo / verificación Identidad Digital Abitab. */
+export interface UserIdDigital {
+  /** Identificador único del usuario en ID Digital (`sub` del id_token). */
+  sub?: string;
+  linkedAt?: Date;
+  lastVerifiedAt?: Date;
+  lastAcr?: string;
+  lastAmr?: string[];
+  /** Completó verificación ID Digital para el alta de agente. */
+  onboardingVerifiedAt?: Date;
+}
+
 /**
  * Usuario de plataforma: USER | AGENT | ADMIN.
  * Incluye wallet, rating, estadísticas, geo, horarios, fotos, verificación y preferencias.
@@ -292,6 +304,8 @@ export interface IUser {
   verification: UserVerification;
   /** @deprecated Preferir verification.identity */
   kyc: UserKyc;
+  /** Identidad Digital Abitab (step-up agentes). */
+  idDigital?: UserIdDigital;
   preferences: UserPreferences;
   agent: UserAgentProfile;
   admin?: UserAdminProfile;

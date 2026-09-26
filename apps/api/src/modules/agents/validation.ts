@@ -172,3 +172,13 @@ export type OfferAssignmentBody = z.infer<typeof offerAssignmentBodySchema>;
 export type OpenJobsQuery = z.infer<typeof openJobsQuerySchema>;
 export type WithdrawJobBody = z.infer<typeof withdrawJobBodySchema>;
 
+export const idDigitalProofBodySchema = z.preprocess(
+  (value) => value ?? {},
+  z.object({
+    idDigitalProofId: z.string().trim().min(1).max(64).optional(),
+  }),
+);
+
+export type IdDigitalProofBody = {
+  idDigitalProofId?: string;
+};

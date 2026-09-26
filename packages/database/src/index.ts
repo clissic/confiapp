@@ -6,6 +6,7 @@ export * from './types/enums';
 export type {
   IUser,
   UserKyc,
+  UserIdDigital,
   UserReputation,
   UserWallet,
   UserRating,

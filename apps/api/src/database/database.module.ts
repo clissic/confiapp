@@ -6,6 +6,8 @@ import {
   ChatModel,
   DisputeModel,
   EvidenceModel,
+  IdDigitalOAuthStateModel,
+  IdDigitalProofModel,
   MessageModel,
   NotificationModel,
   PaymentModel,
@@ -57,6 +59,8 @@ export class DatabaseModule {
     void DisputeModel;
     void AuditLogModel;
     void RefreshTokenModel;
+    void IdDigitalOAuthStateModel;
+    void IdDigitalProofModel;
 
     this.bootstrapped = true;
     logger.info('DatabaseModule ready — models registered');

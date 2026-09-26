@@ -1,6 +1,5 @@
 import {
   AgentOnboardingStatus,
-  IdentityVerificationStatus,
   PlatformRole,
   UserStatus,
   type IUser,
@@ -186,15 +185,8 @@ export class AgentsService {
       throw new ForbiddenError('La cuenta debe estar activa para convertirse en agente');
     }
 
-    const kycVerified =
-      existing.kyc?.status === IdentityVerificationStatus.VERIFIED ||
-      existing.verification?.identity?.status === IdentityVerificationStatus.VERIFIED;
-
-    if (!kycVerified) {
-      throw new ForbiddenError(
-        'Debés verificar tu identidad (DNI o pasaporte) antes de convertirte en agente.',
-      );
-    }
+    const { idDigitalService } = await import('../auth/id-digital.service');
+    idDigitalService.assertOnboardingVerified(existing);
 
     const user = await this.repository.activateAgent(userId, {
       termsAccepted: true,

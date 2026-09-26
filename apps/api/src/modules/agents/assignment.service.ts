@@ -222,7 +222,18 @@ export class AgentAssignmentService {
     return list.map((n) => this.toDto(n));
   }
 
-  async acceptOffer(userId: string, notificationId: string): Promise<AgentNotificationDto> {
+  async acceptOffer(
+    userId: string,
+    notificationId: string,
+    idDigitalProofId?: string,
+  ): Promise<AgentNotificationDto> {
+    const { idDigitalService } = await import('../auth/id-digital.service');
+    await idDigitalService.consumeAcceptJobProof({
+      userId,
+      proofId: idDigitalProofId,
+      expectedRef: `offer:${notificationId}`,
+    });
+
     await this.expireDueOffers();
     const notification = await NotificationModel.findOne({
       _id: notificationId,

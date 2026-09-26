@@ -225,7 +225,10 @@ export async function listOpenJobs(
   }
 }
 
-export async function acceptOpenJob(code: string): Promise<OpenJob> {
+export async function acceptOpenJob(
+  code: string,
+  idDigitalProofId?: string,
+): Promise<OpenJob> {
   if (!hasAccessToken()) {
     const found = demoOpenJobs({
       lng: -58.3816,
@@ -235,7 +238,9 @@ export async function acceptOpenJob(code: string): Promise<OpenJob> {
     if (!found) throw new Error('Trabajo no encontrado');
     return found;
   }
-  const { data } = await apiClient.post<OpenJob>(`/agents/jobs/${code}/accept`);
+  const { data } = await apiClient.post<OpenJob>(`/agents/jobs/${code}/accept`, {
+    ...(idDigitalProofId ? { idDigitalProofId } : {}),
+  });
   return data;
 }
 

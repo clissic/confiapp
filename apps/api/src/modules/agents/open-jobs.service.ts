@@ -438,7 +438,18 @@ export class OpenJobsService {
     return jobs.slice(0, limit);
   }
 
-  async acceptOpenJob(agentId: string, code: string): Promise<OpenJobDto> {
+  async acceptOpenJob(
+    agentId: string,
+    code: string,
+    idDigitalProofId?: string,
+  ): Promise<OpenJobDto> {
+    const { idDigitalService } = await import('../auth/id-digital.service');
+    await idDigitalService.consumeAcceptJobProof({
+      userId: agentId,
+      proofId: idDigitalProofId,
+      expectedRef: `job:${code.toUpperCase()}`,
+    });
+
     const tx = await TransactionModel.findOne({
       code: code.toUpperCase(),
       deletedAt: null,

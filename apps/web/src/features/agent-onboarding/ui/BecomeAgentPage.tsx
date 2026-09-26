@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import { Controller } from 'react-hook-form';
-import { Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -10,7 +11,7 @@ import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/di
 import { useUserPreferences } from '@/shared/preferences';
 import { useAppToast } from '@/shared/ui';
 import { ApiClientError } from '@/shared/api/client';
-import { useProfile } from '@/features/profile/hooks/useProfile';
+import { fetchIdDigitalStatus, startIdDigital } from '@/features/auth/api/auth.api';
 import { TimezoneSelect } from '@/features/profile/ui/sections/TimezoneSelect';
 import { CountrySelect } from '@/features/profile/ui/sections/CountryDialSelect';
 import { UruguayCitySelect } from '@/features/profile/ui/sections/UruguayCitySelect';
@@ -420,7 +421,7 @@ export function BecomeAgentPage() {
                 toast.success('¡Ya sos agente de ConfiApp!');
               } catch {
                 setError(
-                  'No se pudo completar el alta de agente. Verificá tu identidad si aún no lo hiciste.',
+                  'No se pudo completar el alta de agente. Verificá tu Identidad Digital si aún no lo hiciste.',
                 );
               }
             }}
@@ -442,20 +443,64 @@ function TermsStep({
   saving: boolean;
   onNext: (accepted: true) => Promise<void>;
 }) {
-  const { data: profileData } = useProfile();
-  const profile = profileData?.profile;
-  const identityVerified =
-    Boolean(profile?.identityVerified) || profile?.kyc?.status === 'VERIFIED';
+  const toast = useAppToast();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [idError, setIdError] = useState<string | null>(null);
+  const [startingId, setStartingId] = useState(false);
+
+  const idDigitalQuery = useQuery({
+    queryKey: ['auth', 'id-digital', 'status'],
+    queryFn: fetchIdDigitalStatus,
+  });
+
+  const idDigitalOk = Boolean(idDigitalQuery.data?.onboardingVerified);
+  const idDigitalConfigured = idDigitalQuery.data?.configured !== false;
+
+  useEffect(() => {
+    const result = searchParams.get('idDigital');
+    if (!result) return;
+    const reason = searchParams.get('reason');
+    if (result === 'ok') {
+      toast.success('Identidad Digital verificada. Ya podés continuar el alta.');
+      void idDigitalQuery.refetch();
+    } else if (result === 'error') {
+      setIdError(
+        reason === 'cancelled'
+          ? 'Cancelaste la verificación en Identidad Digital.'
+          : reason === 'sub_conflict'
+            ? 'Esa Identidad Digital ya está vinculada a otra cuenta.'
+            : 'No se pudo verificar Identidad Digital. Intentá de nuevo.',
+      );
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete('idDigital');
+    next.delete('reason');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, toast, idDigitalQuery]);
 
   const form = useZodForm(termsStepSchema, {
     defaultValues: { termsAccepted: onboarding.termsAccepted },
   });
 
+  const startIdDigitalFlow = async () => {
+    setIdError(null);
+    setStartingId(true);
+    try {
+      const { authorizationUrl } = await startIdDigital({ purpose: 'agent_onboarding' });
+      window.location.assign(authorizationUrl);
+    } catch {
+      setIdError(
+        'No se pudo iniciar Identidad Digital. Si el servicio no está configurado, contactá a soporte.',
+      );
+      setStartingId(false);
+    }
+  };
+
   return (
     <Form
       className="ca-agent-wizard__stack"
       onSubmit={form.handleSubmit(async () => {
-        if (!identityVerified) return;
+        if (!idDigitalOk && idDigitalConfigured) return;
         await onNext(true);
       })}
     >
@@ -463,15 +508,27 @@ function TermsStep({
         Versión {onboarding.termsVersion}
       </p>
 
-      {!identityVerified ? (
+      {idError ? <Alert variant="danger">{idError}</Alert> : null}
+
+      {!idDigitalOk ? (
         <Alert variant="warning" className="mb-0">
-          Para continuar necesitás tener la identidad verificada (DNI o pasaporte con las fotos
-          requeridas).{' '}
-          <Link to="/perfil?tab=settings#verificar-identidad">
-            Ir a Configuración → Verificar identidad
-          </Link>
+          Para continuar necesitás autenticarte con Identidad Digital Abitab (PIN).
+          <div className="mt-2">
+            <Button
+              type="button"
+              className="ca-btn-primary"
+              disabled={disabled || startingId || idDigitalQuery.isLoading}
+              onClick={() => void startIdDigitalFlow()}
+            >
+              {startingId ? 'Redirigiendo…' : 'Verificar con Identidad Digital'}
+            </Button>
+          </div>
         </Alert>
-      ) : null}
+      ) : (
+        <Alert variant="success" className="mb-0">
+          Identidad Digital verificada. Podés aceptar los términos y continuar.
+        </Alert>
+      )}
 
       <pre className="ca-terms-box">{onboarding.termsText}</pre>
 
@@ -480,7 +537,7 @@ function TermsStep({
         id="termsAccepted"
         label="Acepto los términos y condiciones del agente intermediario"
         checked={Boolean(form.watch('termsAccepted'))}
-        disabled={disabled || !identityVerified}
+        disabled={disabled || (!idDigitalOk && idDigitalConfigured)}
         onChange={(event) =>
           form.setValue('termsAccepted', event.target.checked, {
             shouldValidate: true,
@@ -495,8 +552,10 @@ function TermsStep({
         <span />
         <Button
           type="submit"
-          className="ca-btn-cta"
-          disabled={disabled || saving || !identityVerified}
+          className="ca-btn-primary"
+          disabled={
+            disabled || saving || (!idDigitalOk && idDigitalConfigured) || startingId
+          }
         >
           {saving ? 'Guardando…' : 'Continuar'}
         </Button>

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
   Badge,
@@ -37,6 +37,7 @@ import { formatOperationMoney } from '@/shared/lib/money';
 import { distanceUnitLabel, formatDistance, fromKm, toKm } from '@/shared/lib/distance';
 import { usePreferencesSnapshot, useUserPreferences } from '@/shared/preferences';
 import { useAppToast } from '@/shared/ui';
+import { startIdDigital } from '@/features/auth/api/auth.api';
 
 import { useAcceptOpenJob, useOpenJobs } from '../hooks/useAgentOps';
 import {
@@ -103,7 +104,9 @@ export function OpenJobsPage() {
   usePreferencesSnapshot();
   const toast = useAppToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { distanceUnit } = useUserPreferences();
+  const resumeAcceptRef = useRef(false);
 
   const [pinLng, setPinLng] = useState(MONTEVIDEO[1]);
   const [pinLat, setPinLat] = useState(MONTEVIDEO[0]);
@@ -122,12 +125,52 @@ export function OpenJobsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
+  const [startingId, setStartingId] = useState(false);
 
   const { data, isFetching, isError } = useOpenJobs(applied);
   const accept = useAcceptOpenJob();
 
   const items = data?.items ?? [];
   const selected = items.find((job) => job.id === selectedId) ?? items[0] ?? null;
+
+  useEffect(() => {
+    if (resumeAcceptRef.current) return;
+    const result = searchParams.get('idDigital');
+    if (!result) return;
+    resumeAcceptRef.current = true;
+
+    const proofId = searchParams.get('proofId') ?? undefined;
+    const ref = searchParams.get('ref') ?? '';
+    const reason = searchParams.get('reason');
+    const next = new URLSearchParams(searchParams);
+    next.delete('idDigital');
+    next.delete('proofId');
+    next.delete('ref');
+    next.delete('reason');
+    setSearchParams(next, { replace: true });
+
+    if (result === 'error') {
+      setError(
+        reason === 'cancelled'
+          ? 'Cancelaste la verificación en Identidad Digital.'
+          : 'No se pudo verificar Identidad Digital para aceptar el trabajo.',
+      );
+      return;
+    }
+
+    if (result === 'ok' && proofId && ref.startsWith('job:')) {
+      const code = ref.slice('job:'.length);
+      void (async () => {
+        try {
+          await accept.mutateAsync({ code, idDigitalProofId: proofId });
+          toast.success(`Aceptaste el trabajo ${code}. Ya figurás como intermediario.`);
+          navigate(`/operaciones/${code}`, { state: { agentAccepted: true } });
+        } catch {
+          setError('No se pudo aceptar el trabajo tras Identidad Digital.');
+        }
+      })();
+    }
+  }, [searchParams, setSearchParams, accept, toast, navigate]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -182,12 +225,18 @@ export function OpenJobsPage() {
 
   const onAccept = async (job: OpenJob) => {
     setError(null);
+    setStartingId(true);
     try {
-      await accept.mutateAsync(job.code);
-      toast.success(`Aceptaste el trabajo ${job.code}. Ya figurás como intermediario.`);
-      navigate(`/operaciones/${job.code}`, { state: { agentAccepted: true } });
+      const { authorizationUrl } = await startIdDigital({
+        purpose: 'accept_job',
+        ref: `job:${job.code}`,
+      });
+      window.location.assign(authorizationUrl);
     } catch {
-      setError('No se pudo aceptar el trabajo. Puede que otro agente lo haya tomado.');
+      setStartingId(false);
+      setError(
+        'No se pudo iniciar Identidad Digital. Si el servicio no está configurado, contactá a soporte.',
+      );
     }
   };
 
@@ -548,13 +597,13 @@ export function OpenJobsPage() {
                     <div className="ca-form-actions mt-2">
                       <Button
                         className="ca-btn-cta"
-                        disabled={accept.isPending}
+                        disabled={accept.isPending || startingId}
                         onClick={(event) => {
                           event.stopPropagation();
                           void onAccept(job);
                         }}
                       >
-                        {accept.isPending ? (
+                        {accept.isPending || startingId ? (
                           <Spinner size="sm" animation="border" />
                         ) : (
                           'Aceptar trabajo'

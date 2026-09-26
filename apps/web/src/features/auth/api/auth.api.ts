@@ -140,3 +140,33 @@ export async function logoutRequest(): Promise<void> {
     // Igual limpiamos sesión local.
   }
 }
+
+export interface IdDigitalStatus {
+  configured: boolean;
+  linked: boolean;
+  onboardingVerified: boolean;
+  onboardingVerifiedAt?: string;
+  lastVerifiedAt?: string;
+  sub?: string;
+}
+
+export async function fetchIdDigitalStatus(): Promise<IdDigitalStatus> {
+  const { data } = await apiClient.get<IdDigitalStatus>('/auth/id-digital/status');
+  return data;
+}
+
+export async function startIdDigital(input: {
+  purpose: 'agent_onboarding' | 'accept_job';
+  ref?: string;
+}): Promise<{ authorizationUrl: string; configured: true }> {
+  const { data } = await apiClient.get<{ authorizationUrl: string; configured: true }>(
+    '/auth/id-digital/start',
+    {
+      params: {
+        purpose: input.purpose,
+        ...(input.ref ? { ref: input.ref } : {}),
+      },
+    },
+  );
+  return data;
+}

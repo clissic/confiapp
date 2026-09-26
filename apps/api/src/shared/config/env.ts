@@ -107,6 +107,24 @@ const envSchema = z.object({
   ADMIN_EMAIL: z.string().optional().default(''),
   ADMIN_PASSWORD: z.string().optional().default(''),
   ADMIN_FULL_NAME: z.string().optional().default('ConfiApp Admin'),
+  /**
+   * Identidad Digital Abitab (OAuth authorization code).
+   * Vacío client_id/secret/redirect = no configurado (503 en start).
+   */
+  ID_DIGITAL_CLIENT_ID: z.string().optional().default(''),
+  ID_DIGITAL_CLIENT_SECRET: z.string().optional().default(''),
+  ID_DIGITAL_AUTH_URL: z
+    .string()
+    .default('https://login.identidaddigital.com.uy/v2/authorize'),
+  ID_DIGITAL_TOKEN_URL: z
+    .string()
+    .default('https://auth.identificaciondigital.com.uy/api/v2/openid/token'),
+  ID_DIGITAL_ISSUER: z
+    .string()
+    .default('https://auth.identificaciondigital.com.uy/api/v2/openid'),
+  ID_DIGITAL_REDIRECT_URI: z.string().optional().default(''),
+  ID_DIGITAL_SCOPE: z.string().default('openid profile'),
+  ID_DIGITAL_ACR_VALUES: z.string().default('pin'),
 });
 
 const parsed = envSchema.safeParse(process.env);

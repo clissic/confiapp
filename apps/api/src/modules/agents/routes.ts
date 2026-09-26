@@ -7,6 +7,7 @@ import {
   notificationIdParamsSchema,
   offerAssignmentBodySchema,
   openJobsQuerySchema,
+  idDigitalProofBodySchema,
   saveAgentOnboardingBodySchema,
   submitAgentOnboardingBodySchema,
   transactionCodeParamsSchema,
@@ -56,7 +57,10 @@ agentsRoutes.get(
 agentsRoutes.post(
   '/jobs/:code/accept',
   authenticate,
-  validateRequest({ params: transactionCodeParamsSchema }),
+  validateRequest({
+    params: transactionCodeParamsSchema,
+    body: idDigitalProofBodySchema,
+  }),
   asyncHandler(controller.acceptOpenJob),
 );
 
@@ -89,7 +93,10 @@ agentsRoutes.get('/offers', authenticate, asyncHandler(controller.listOffers));
 agentsRoutes.post(
   '/offers/:id/accept',
   authenticate,
-  validateRequest({ params: notificationIdParamsSchema }),
+  validateRequest({
+    params: notificationIdParamsSchema,
+    body: idDigitalProofBodySchema,
+  }),
   asyncHandler(controller.acceptOffer),
 );
 

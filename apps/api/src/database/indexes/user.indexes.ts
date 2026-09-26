@@ -13,6 +13,10 @@ export function applyUserIndexes(schema: Schema<IUser>): void {
   // Verificación
   schema.index({ 'kyc.status': 1 });
   schema.index({ 'verification.identity.status': 1 });
+  schema.index(
+    { 'idDigital.sub': 1 },
+    { unique: true, sparse: true, partialFilterExpression: { 'idDigital.sub': { $type: 'string' } } },
+  );
   schema.index({ 'verification.email.verified': 1 });
   schema.index({ 'verification.phone.verified': 1 });
   schema.index({ 'verification.address.status': 1 });

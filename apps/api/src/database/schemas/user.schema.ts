@@ -627,6 +627,19 @@ export const userSchema = new Schema<IUser>(
       type: kycSchema,
       default: () => ({ status: IdentityVerificationStatus.UNVERIFIED }),
     },
+    idDigital: {
+      type: new Schema(
+        {
+          sub: { type: String, trim: true, maxlength: 128 },
+          linkedAt: { type: Date },
+          lastVerifiedAt: { type: Date },
+          lastAcr: { type: String, trim: true, maxlength: 32 },
+          lastAmr: { type: [{ type: String, trim: true, maxlength: 64 }], default: undefined },
+          onboardingVerifiedAt: { type: Date },
+        },
+        { _id: false },
+      ),
+    },
     preferences: {
       type: preferencesSchema,
       default: () => ({}),

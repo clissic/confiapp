@@ -74,9 +74,11 @@ export class AgentsController {
   };
 
   acceptOpenJob = async (req: Request, res: Response): Promise<void> => {
+    const body = (req.body ?? {}) as { idDigitalProofId?: string };
     const data = await this.openJobs.acceptOpenJob(
       req.user!.id,
       String(req.params.code),
+      body.idDigitalProofId,
     );
     res.status(200).json(data);
   };
@@ -103,7 +105,12 @@ export class AgentsController {
   };
 
   acceptOffer = async (req: Request, res: Response): Promise<void> => {
-    const data = await this.assignments.acceptOffer(req.user!.id, String(req.params.id));
+    const body = (req.body ?? {}) as { idDigitalProofId?: string };
+    const data = await this.assignments.acceptOffer(
+      req.user!.id,
+      String(req.params.id),
+      body.idDigitalProofId,
+    );
     res.status(200).json(data);
   };
 

@@ -30,6 +30,8 @@ export const AUDIT_ACTION_LABELS: Record<string, string> = {
   WALLET_WITHDRAWAL: 'Retiro de wallet',
   WALLET_MOVEMENT: 'Movimiento de wallet',
   CHAT_CREATED: 'Chat creado',
+  ID_DIGITAL_VERIFIED: 'Identidad Digital verificada',
+  ID_DIGITAL_FAILED: 'Identidad Digital fallida',
   SYSTEM: 'Evento del sistema',
 };
 

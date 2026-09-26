@@ -95,3 +95,17 @@ authRoutes.post(
 );
 
 authRoutes.get('/me', authenticate, asyncHandler(controller.me));
+
+authRoutes.get(
+  '/id-digital/status',
+  authenticate,
+  asyncHandler(controller.idDigitalStatus),
+);
+
+authRoutes.get(
+  '/id-digital/start',
+  authenticate,
+  asyncHandler(controller.idDigitalStart),
+);
+
+authRoutes.get('/id-digital/callback', asyncHandler(controller.idDigitalCallback));
