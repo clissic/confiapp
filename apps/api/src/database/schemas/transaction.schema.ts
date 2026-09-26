@@ -1,6 +1,7 @@
 import { Schema } from 'mongoose';
 import {
   FeePayer,
+  FundingMode,
   ParticipantRole,
   ParticipantStatus,
   TransactionInitiator,
@@ -200,6 +201,11 @@ export const transactionSchema = new Schema<ITransaction>(
       default: [],
     },
     evidenceIds: [{ type: Schema.Types.ObjectId, ref: 'Evidence' }],
+    fundingMode: {
+      type: String,
+      enum: Object.values(FundingMode),
+      default: FundingMode.ESCROW_FULL,
+    },
     amountCents: {
       type: Number,
       min: 0,

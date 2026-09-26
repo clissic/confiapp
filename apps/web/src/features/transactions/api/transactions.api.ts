@@ -89,9 +89,11 @@ function createDemoTransaction(payload: CreateTransactionPayload): Transaction {
       summary: payload.conditionsSummary,
       checklist,
     },
-    amountCents: Math.round(payload.amount * 100),
+    amountCents:
+      payload.amount != null ? Math.round(payload.amount * 100) : undefined,
     currency: payload.currency ?? 'UYU',
     feePayer: payload.feePayer,
+    fundingMode: payload.fundingMode,
     confiAnzaCents:
       payload.confiAnzaAmount && payload.confiAnzaAmount > 0
         ? Math.round(payload.confiAnzaAmount * 100)
@@ -151,7 +153,8 @@ function createDemoSellerTransaction(
   const code = demoCode();
   const token = `demo_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
   const shareUrl = `${window.location.origin}/operaciones/unirse/${token}`;
-  const amountCents = Math.round(payload.product.price * 100);
+  const amountCents =
+    payload.product.price != null ? Math.round(payload.product.price * 100) : undefined;
   const currency = payload.product.currency ?? 'UYU';
   const productId = `demo-product-${Date.now()}`;
   const checklist = createDemoChecklist(payload.checklist);
@@ -173,6 +176,7 @@ function createDemoSellerTransaction(
     amountCents,
     currency,
     feePayer: payload.feePayer,
+    fundingMode: payload.fundingMode,
     confiAnzaCents:
       payload.confiAnzaAmount && payload.confiAnzaAmount > 0
         ? Math.round(payload.confiAnzaAmount * 100)
@@ -813,7 +817,8 @@ function applyConfirmSaleDemo(
   if (current.product) throw new Error('Esta operación ya tiene un producto confirmado');
 
   const now = new Date().toISOString();
-  const amountCents = Math.round(payload.price * 100);
+  const amountCents =
+    payload.price != null ? Math.round(payload.price * 100) : undefined;
   const currency = payload.currency ?? current.currency ?? 'UYU';
   const hasCounter = current.participants.some((p) => p.role === 'COUNTERPARTY');
   const checklist = createDemoChecklist(payload.checklist);

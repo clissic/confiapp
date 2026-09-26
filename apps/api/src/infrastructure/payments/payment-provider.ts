@@ -21,6 +21,13 @@ export interface CreateCheckoutInput {
     pending: string;
   };
   mockBridgeUrl?: string;
+  /**
+   * Access token del cobrador (Agente). Si falta, usa la cuenta plataforma.
+   * Con marketplaceFeeCents, MP acredita el fee a la app.
+   */
+  collectorAccessToken?: string;
+  /** Fee de marketplace en centavos (va a la cuenta plataforma / sponsor). */
+  marketplaceFeeCents?: number;
 }
 
 export interface CheckoutResult {

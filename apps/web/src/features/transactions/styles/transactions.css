@@ -4796,6 +4796,26 @@
   gap: 1rem;
 }
 
+.ca-tx-price-readonly {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.ca-tx-price-readonly__label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ca-tx-price-readonly__value {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text-primary);
+}
+
 /* ——— Suma ConfiAnza ——— */
 .ca-tx-confianza {
   --bs-accordion-border-color: var(--border-subtle, rgba(1, 40, 93, 0.12));
@@ -5114,4 +5134,69 @@
 [data-theme='dark'] .ca-tx-buyer-wizard__actions {
   border-top-color: var(--border-default);
 }
+
+.ca-tx-funding {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.ca-tx-funding__card {
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border-default, #334155);
+  background: var(--surface-raised, #122033);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ca-tx-funding__card:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 55%, transparent);
+}
+
+.ca-tx-funding__card.is-selected {
+  border-color: var(--brand-secondary, #55c5b5);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-secondary, #55c5b5) 40%, transparent);
+}
+
+.ca-tx-funding__card--disabled,
+.ca-tx-funding__card:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.ca-tx-funding__badge {
+  display: inline-flex;
+  width: fit-content;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-secondary, #55c5b5) 22%, transparent);
+  color: var(--text-brand, #7dd5c4);
+}
+
+.ca-tx-funding__badge--soon {
+  background: color-mix(in srgb, var(--text-muted, #94a3b8) 22%, transparent);
+  color: var(--text-muted, #94a3b8);
+}
+
+.ca-tx-funding__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-tx-funding__lead {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--text-secondary, #cbd5e1);
+}
+
 

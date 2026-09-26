@@ -1,4 +1,5 @@
 import {
+  FundingMode,
   NotificationChannel,
   NotificationType,
   ParticipantRole,
@@ -23,6 +24,7 @@ import {
 import { realtimeServer } from '../../infrastructure/realtime/socket-realtime.server';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
+import { mercadoPagoOAuthService } from '../payments/mercadopago-oauth.service';
 
 import { ACTIVE_AGENT_JOB_STATUSES } from './agent-jobs';
 import { advanceToInProgressOnAgentAccept } from './advance-on-accept';
@@ -105,6 +107,37 @@ const OPEN_JOB_STATUSES: TransactionStatus[] = [
   TransactionStatus.IN_PROGRESS,
   TransactionStatus.DISPUTED,
 ];
+
+function isOpenJobStatusForFundingMode(tx: {
+  status: TransactionStatus;
+  fundingMode?: FundingMode | string | null;
+}): boolean {
+  if (!OPEN_JOB_STATUSES.includes(tx.status)) return false;
+  if (tx.fundingMode === FundingMode.AGENT_FEE_ONLY) {
+    // Sin fondeo de producto: ofertable desde ACCEPTED (antes del pago del Agente).
+    return (
+      tx.status === TransactionStatus.ACCEPTED ||
+      tx.status === TransactionStatus.FUNDED ||
+      tx.status === TransactionStatus.IN_PROGRESS ||
+      tx.status === TransactionStatus.DISPUTED
+    );
+  }
+  // Escrow completo / legacy: solo tras fondeo.
+  return (
+    tx.status === TransactionStatus.FUNDED ||
+    tx.status === TransactionStatus.IN_PROGRESS ||
+    tx.status === TransactionStatus.DISPUTED
+  );
+}
+
+async function assertAgentMercadoPagoConnected(agentId: string): Promise<void> {
+  const view = await mercadoPagoOAuthService.getConnection(agentId);
+  if (!view.connected) {
+    throw new ValidationError(
+      'Conectá tu cuenta de Mercado Pago para aceptar trabajos. Andá a Ser Agente o Perfil → Pagos.',
+    );
+  }
+}
 
 const AGENT_WITHDRAW_HISTORY_NOTE = 'Agente solicitó salida / reasignación';
 
@@ -243,7 +276,7 @@ function nearestDistanceKm(
 }
 
 const OPEN_JOB_SELECT =
-  'code title description status amountCents currency initiatedBy createdBy participants meetingLocation party createdAt';
+  'code title description status amountCents currency initiatedBy createdBy participants meetingLocation party createdAt fundingMode';
 
 export class OpenJobsService {
   constructor(private readonly assignments = new AgentAssignmentService()) {}
@@ -292,6 +325,7 @@ export class OpenJobsService {
     }
 
     const candidateTxs = [...byId.values()].filter((tx) => {
+      if (!isOpenJobStatusForFundingMode(tx)) return false;
       const agentOid = String(agentId);
       // No listar operaciones donde el agente ya es comprador/vendedor (creador o contraparte).
       if (String(tx.createdBy) === agentOid) return false;
@@ -456,7 +490,9 @@ export class OpenJobsService {
     }).exec();
     if (!tx) throw new NotFoundError('Trabajo no encontrado');
 
-    if (!OPEN_JOB_STATUSES.includes(tx.status)) {
+    await assertAgentMercadoPagoConnected(agentId);
+
+    if (!isOpenJobStatusForFundingMode(tx)) {
       throw new ValidationError('Este trabajo ya no está abierto');
     }
 
@@ -563,7 +599,10 @@ export class OpenJobsService {
           userId: uid,
           type: NotificationType.TRANSACTION_UPDATE,
           title: 'Ya tenés agente asignado',
-          body: `Un agente tomó la operación ${tx.code} desde trabajos abiertos.`,
+          body:
+            tx.fundingMode === FundingMode.AGENT_FEE_ONLY
+              ? `Un agente tomó ${tx.code}. El comprador debe pagar UYU $400 de contratación por Mercado Pago.`
+              : `Un agente tomó la operación ${tx.code} desde trabajos abiertos.`,
           data: {
             href: `/operaciones/${tx.code}`,
             code: tx.code,

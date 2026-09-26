@@ -2,6 +2,7 @@ import type { Types } from 'mongoose';
 
 import type {
   FeePayer,
+  FundingMode,
   ParticipantRole,
   ParticipantStatus,
   TransactionInitiator,
@@ -129,6 +130,11 @@ export interface ITransaction {
   status: TransactionStatus;
   statusHistory: TransactionStatusEvent[];
   evidenceIds: Types.ObjectId[];
+  /**
+   * Modo de fondeo. Legacy sin campo = ESCROW_FULL.
+   * AGENT_FEE_ONLY no custodia el precio del producto.
+   */
+  fundingMode?: FundingMode;
   /** Valor en unidades menores (centavos). */
   amountCents?: number;
   /** ISO 4217 */

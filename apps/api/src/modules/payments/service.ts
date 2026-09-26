@@ -1,4 +1,5 @@
 import {
+  FundingMode,
   NotificationChannel,
   NotificationType,
   ParticipantRole,
@@ -15,6 +16,7 @@ import {
   type IPayment,
   type ITransaction,
 } from '@confiapp/database';
+import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 import { Types, type HydratedDocument } from 'mongoose';
 
 import { PaymentEventLogModel } from '../../database/models/payment-event-log.model';
@@ -37,6 +39,7 @@ import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
 import { sendManualPrexReceiptEmail } from './manual-prex-email';
 import { isManualPrexAdminConfirmed } from './manual-prex-gate';
+import { mercadoPagoOAuthService } from './mercadopago-oauth.service';
 import {
   computeEscrowSplit,
   IntermediationFeeError,
@@ -287,13 +290,18 @@ export class PaymentsService {
 
   /** Pago del comprador → Preference MP + ESCROW_HOLD pendiente (retención). */
   async createBuyerCheckout(userId: string, code: string) {
-    if (env.PAYMENTS_CHECKOUT_MODE === 'manual_prex') {
+    const tx = await this.loadTxForParticipant(userId, code);
+    const fundingMode =
+      tx.fundingMode === FundingMode.AGENT_FEE_ONLY
+        ? FundingMode.AGENT_FEE_ONLY
+        : FundingMode.ESCROW_FULL;
+
+    if (fundingMode === FundingMode.ESCROW_FULL && env.PAYMENTS_CHECKOUT_MODE === 'manual_prex') {
       throw new ValidationError(
         'El cobro MVP es por transferencia Prex. Usá el endpoint de comprobante manual.',
       );
     }
 
-    const tx = await this.loadTxForParticipant(userId, code);
     const parties = resolveParties(tx);
 
     if (parties.buyerId !== userId) {
@@ -308,9 +316,17 @@ export class PaymentsService {
       );
     }
     if (tx.status === TransactionStatus.FUNDED) {
-      throw new ValidationError('La operación ya tiene el pago protegido');
+      throw new ValidationError(
+        fundingMode === FundingMode.AGENT_FEE_ONLY
+          ? 'La contratación del Agente ya está paga'
+          : 'La operación ya tiene el pago protegido',
+      );
     }
     assertNotPastDeadline(tx);
+
+    if (fundingMode === FundingMode.AGENT_FEE_ONLY) {
+      return this.createAgentFeeOnlyCheckout(userId, tx, parties);
+    }
 
     const existingHold = await PaymentModel.findOne({
       transaction: tx._id,
@@ -366,6 +382,7 @@ export class PaymentsService {
         metadata: {
           split,
           phase: 'retention',
+          fundingMode,
           country: env.MERCADOPAGO_COUNTRY,
           siteId: env.MERCADOPAGO_SITE_ID,
         },
@@ -409,6 +426,7 @@ export class PaymentsService {
       initPoint: preference.initPoint,
       sandboxInitPoint: preference.sandboxInitPoint,
       phase: 'retention',
+      fundingMode,
       transactionCode: tx.code,
     };
     await hold.save();
@@ -420,7 +438,7 @@ export class PaymentsService {
       transactionId: String(tx._id),
       paymentId: String(hold._id),
       externalId: preference.id,
-      payload: { code: tx.code, split, provider: hold.provider },
+      payload: { code: tx.code, split, provider: hold.provider, fundingMode },
     });
 
     auditService.track({
@@ -437,6 +455,7 @@ export class PaymentsService {
         provider: hold.provider,
         preferenceId: preference.id,
         reusedExisting: Boolean(existingHold),
+        fundingMode,
         ...feesAuditMeta(split),
       },
     });
@@ -446,6 +465,188 @@ export class PaymentsService {
       checkoutUrl: preference.sandboxInitPoint || preference.initPoint,
       preferenceId: preference.id,
       split,
+      providerMode: preference.provider,
+    };
+  }
+
+  /**
+   * Contratación del Agente (UYU $400) → preferencia con token del Agente + marketplace_fee.
+   */
+  private async createAgentFeeOnlyCheckout(
+    userId: string,
+    tx: TransactionDocument,
+    parties: ReturnType<typeof resolveParties>,
+  ) {
+    if (!parties.agentId) {
+      throw new ValidationError(
+        'Primero debe asignarse un Agente para poder pagar la contratación.',
+      );
+    }
+
+    const agentToken = await mercadoPagoOAuthService.getValidSellerAccessToken(parties.agentId);
+    if (!agentToken && !paymentProvider.isMock()) {
+      throw new ValidationError(
+        'El Agente no tiene Mercado Pago conectado. No se puede cobrar la contratación.',
+      );
+    }
+
+    const existingHold = await PaymentModel.findOne({
+      transaction: tx._id,
+      type: PaymentType.ESCROW_HOLD,
+      status: {
+        $in: [
+          PaymentStatus.PENDING,
+          PaymentStatus.REQUIRES_ACTION,
+          PaymentStatus.AUTHORIZED,
+          PaymentStatus.CAPTURED,
+        ],
+      },
+      deletedAt: null,
+    }).exec();
+
+    if (existingHold?.status === PaymentStatus.CAPTURED) {
+      throw new ValidationError('La contratación del Agente ya está paga');
+    }
+
+    const currency = 'UYU';
+    const buyerPays = AGENT_FEE_ONLY_UYU_CENTS;
+    const platformFeeCents = Math.floor(
+      (buyerPays * env.PAYMENTS_PLATFORM_FEE_BPS) / 10_000,
+    );
+    const agentFeeCents = buyerPays - platformFeeCents;
+
+    if (!tx.currency) {
+      tx.currency = currency;
+      await tx.save();
+    }
+
+    const idempotencyKey = `agent-fee:${String(tx._id)}`;
+    const splitMeta = {
+      fundingMode: FundingMode.AGENT_FEE_ONLY,
+      productCents: 0,
+      commissionCents: buyerPays,
+      buyerPaysCents: buyerPays,
+      sellerNetCents: 0,
+      platformFeeCents,
+      agentFeeCents,
+      currency,
+      feePayer: 'BUYER' as const,
+    };
+
+    let hold =
+      existingHold ??
+      (await PaymentModel.create({
+        transaction: tx._id,
+        payer: new Types.ObjectId(parties.buyerId),
+        payee: new Types.ObjectId(parties.agentId),
+        type: PaymentType.ESCROW_HOLD,
+        status: PaymentStatus.PENDING,
+        provider: paymentProvider.isMock()
+          ? PaymentProvider.MOCK
+          : PaymentProvider.MERCADOPAGO,
+        amountCents: buyerPays,
+        currency,
+        idempotencyKey,
+        metadata: {
+          ...splitMeta,
+          phase: 'agent_fee',
+          country: env.MERCADOPAGO_COUNTRY,
+          siteId: env.MERCADOPAGO_SITE_ID,
+        },
+      }));
+
+    if (existingHold) {
+      hold.amountCents = buyerPays;
+      hold.payee = new Types.ObjectId(parties.agentId);
+    }
+
+    const externalReference = String(hold._id);
+    const notificationUrl = `${env.API_PUBLIC_URL}/payments/webhooks/mercadopago`;
+    const backBase = `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}`;
+
+    const preference = await paymentProvider.createCheckout({
+      items: [
+        {
+          title: `Contratación Agente ConfiApp ${tx.code}`.slice(0, 250),
+          quantity: 1,
+          unitPriceCents: buyerPays,
+          currency,
+        },
+      ],
+      externalReference,
+      notificationUrl,
+      backUrls: {
+        success: `${backBase}?pago=ok`,
+        failure: `${backBase}?pago=failure`,
+        pending: `${backBase}?pago=pending`,
+      },
+      mockBridgeUrl: `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}/pagar/simular?paymentId=${encodeURIComponent(externalReference)}`,
+      ...(agentToken
+        ? {
+            collectorAccessToken: agentToken,
+            marketplaceFeeCents: platformFeeCents,
+          }
+        : {}),
+    });
+
+    hold.externalId = preference.id;
+    hold.status = PaymentStatus.REQUIRES_ACTION;
+    hold.provider =
+      preference.provider === 'MOCK' ? PaymentProvider.MOCK : PaymentProvider.MERCADOPAGO;
+    hold.metadata = {
+      ...(hold.metadata ?? {}),
+      ...splitMeta,
+      preferenceId: preference.id,
+      initPoint: preference.initPoint,
+      sandboxInitPoint: preference.sandboxInitPoint,
+      phase: 'agent_fee',
+      fundingMode: FundingMode.AGENT_FEE_ONLY,
+      transactionCode: tx.code,
+      agentId: parties.agentId,
+    };
+    await hold.save();
+
+    await persistLog({
+      source: 'checkout',
+      event: 'checkout.created',
+      message: 'Checkout contratación Agente creado',
+      transactionId: String(tx._id),
+      paymentId: String(hold._id),
+      externalId: preference.id,
+      payload: {
+        code: tx.code,
+        fundingMode: FundingMode.AGENT_FEE_ONLY,
+        amountCents: buyerPays,
+        platformFeeCents,
+        provider: hold.provider,
+      },
+    });
+
+    auditService.track({
+      actor: userId,
+      action: existingHold ? AuditAction.PAYMENT_UPDATED : AuditAction.PAYMENT_CREATED,
+      entityType: 'Payment',
+      entityId: String(hold._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: tx.code,
+      metadata: {
+        phase: 'agent_fee_checkout_created',
+        code: tx.code,
+        amountCents: buyerPays,
+        platformFeeCents,
+        agentFeeCents,
+        provider: hold.provider,
+        preferenceId: preference.id,
+        fundingMode: FundingMode.AGENT_FEE_ONLY,
+        reusedExisting: Boolean(existingHold),
+      },
+    });
+
+    return {
+      payment: toPaymentDto(hold.toObject()),
+      checkoutUrl: preference.sandboxInitPoint || preference.initPoint,
+      preferenceId: preference.id,
+      split: splitMeta,
       providerMode: preference.provider,
     };
   }
@@ -478,6 +679,12 @@ export class PaymentsService {
 
     const tx = await this.loadTxForParticipant(userId, code);
     const parties = resolveParties(tx);
+
+    if (tx.fundingMode === FundingMode.AGENT_FEE_ONLY) {
+      throw new ValidationError(
+        'En este modo el comprador paga la contratación del Agente por Mercado Pago, no por Prex.',
+      );
+    }
 
     if (parties.buyerId !== userId) {
       throw new ForbiddenError('Solo el comprador puede declarar el pago');
@@ -885,34 +1092,38 @@ export class PaymentsService {
     }
     await hold.save();
 
-    // Retención en wallet del vendedor (held), no disponible.
     const parties = resolveParties(tx);
-    await UserModel.updateOne(
-      { _id: parties.sellerId, 'wallet.status': { $ne: WalletStatus.CLOSED } },
-      {
-        $inc: { 'wallet.heldCents': hold.amountCents },
-        $set: { 'wallet.lastMovementAt': now },
-      },
-    ).exec();
+    const isAgentFeeOnly = tx.fundingMode === FundingMode.AGENT_FEE_ONLY;
 
-    const sellerAfter = await UserModel.findById(parties.sellerId).select('wallet').lean();
-    await walletLedger.record({
-      userId: parties.sellerId,
-      type: WalletMovementType.ESCROW_HOLD,
-      direction: WalletMovementDirection.CREDIT,
-      amountCents: hold.amountCents,
-      currency: hold.currency,
-      description: `Retención escrow ${tx.code}`,
-      paymentId: String(hold._id),
-      transactionId: String(tx._id),
-      balanceAfter: sellerAfter
-        ? {
-            availableCents: sellerAfter.wallet?.availableCents ?? 0,
-            pendingCents: sellerAfter.wallet?.pendingCents ?? 0,
-            heldCents: sellerAfter.wallet?.heldCents ?? 0,
-          }
-        : undefined,
-    });
+    // Retención en wallet del vendedor solo en escrow completo (producto).
+    if (!isAgentFeeOnly) {
+      await UserModel.updateOne(
+        { _id: parties.sellerId, 'wallet.status': { $ne: WalletStatus.CLOSED } },
+        {
+          $inc: { 'wallet.heldCents': hold.amountCents },
+          $set: { 'wallet.lastMovementAt': now },
+        },
+      ).exec();
+
+      const sellerAfter = await UserModel.findById(parties.sellerId).select('wallet').lean();
+      await walletLedger.record({
+        userId: parties.sellerId,
+        type: WalletMovementType.ESCROW_HOLD,
+        direction: WalletMovementDirection.CREDIT,
+        amountCents: hold.amountCents,
+        currency: hold.currency,
+        description: `Retención escrow ${tx.code}`,
+        paymentId: String(hold._id),
+        transactionId: String(tx._id),
+        balanceAfter: sellerAfter
+          ? {
+              availableCents: sellerAfter.wallet?.availableCents ?? 0,
+              pendingCents: sellerAfter.wallet?.pendingCents ?? 0,
+              heldCents: sellerAfter.wallet?.heldCents ?? 0,
+            }
+          : undefined,
+      });
+    }
 
     let justFunded = false;
     if (tx.status === TransactionStatus.ACCEPTED) {
@@ -925,8 +1136,23 @@ export class PaymentsService {
         changedBy: hold.payer,
         note:
           opts.note ??
-          'Pago protegido confirmado con Mercado Pago',
+          (isAgentFeeOnly
+            ? 'Contratación del Agente confirmada con Mercado Pago'
+            : 'Pago protegido confirmado con Mercado Pago'),
       });
+
+      // Si el Agente ya estaba asignado, pasar a en curso.
+      if (parties.agentId) {
+        assertTransition(tx.status, TransactionStatus.IN_PROGRESS);
+        tx.status = TransactionStatus.IN_PROGRESS;
+        tx.statusHistory.push({
+          status: TransactionStatus.IN_PROGRESS,
+          changedAt: now,
+          changedBy: hold.payer,
+          note: 'Operación en curso tras pago de la contratación del Agente',
+        });
+      }
+
       await tx.save();
       justFunded = true;
     }
@@ -941,7 +1167,9 @@ export class PaymentsService {
       payload: { status: hold.status, amountCents: hold.amountCents },
     });
 
-    const feeSnap = this.splitForTransaction(tx);
+    const feeSnap = isAgentFeeOnly
+      ? null
+      : this.splitForTransaction(tx);
     auditService.track({
       actor: String(hold.payer),
       action: AuditAction.PAYMENT_UPDATED,
@@ -950,12 +1178,13 @@ export class PaymentsService {
       outcome: AuditOutcome.SUCCESS,
       correlationId: tx.code,
       metadata: {
-        phase: 'hold_captured',
+        phase: isAgentFeeOnly ? 'agent_fee_captured' : 'hold_captured',
+        fundingMode: tx.fundingMode,
         code: tx.code,
         amountCents: hold.amountCents,
         transactionId: String(tx._id),
         status: hold.status,
-        ...feesAuditMeta(feeSnap),
+        ...(feeSnap ? feesAuditMeta(feeSnap) : {}),
       },
     });
     if (justFunded) {
@@ -1173,6 +1402,48 @@ export class PaymentsService {
     }).lean();
     if (alreadyReleased) {
       throw new ValidationError('El pago protegido ya fue liberado');
+    }
+
+    // Solo contratación del Agente: el dinero ya se liquidó en MP (agente + marketplace_fee).
+    if (tx.fundingMode === FundingMode.AGENT_FEE_ONLY) {
+      const now = new Date();
+      hold.status = PaymentStatus.RELEASED;
+      hold.releasedAt = now;
+      await hold.save();
+
+      if (tx.status !== TransactionStatus.COMPLETED) {
+        assertTransition(tx.status, TransactionStatus.COMPLETED);
+        tx.status = TransactionStatus.COMPLETED;
+        tx.completedAt = now;
+        tx.statusHistory.push({
+          status: TransactionStatus.COMPLETED,
+          changedAt: now,
+          changedBy: new Types.ObjectId(userId),
+          note: 'Operación completada — contratación Agente ya liquidada en Mercado Pago',
+        });
+        await tx.save();
+      }
+
+      auditService.track({
+        actor: userId,
+        action: AuditAction.PAYMENT_UPDATED,
+        entityType: 'Payment',
+        entityId: String(hold._id),
+        outcome: AuditOutcome.SUCCESS,
+        correlationId: tx.code,
+        metadata: {
+          phase: 'agent_fee_only_complete',
+          fundingMode: FundingMode.AGENT_FEE_ONLY,
+          code: tx.code,
+          amountCents: hold.amountCents,
+        },
+      });
+
+      return {
+        payment: toPaymentDto(hold.toObject()),
+        fundingMode: FundingMode.AGENT_FEE_ONLY,
+        message: 'Operación completada. La contratación del Agente ya estaba liquidada en Mercado Pago.',
+      };
     }
 
     const split = this.splitForTransaction(tx);

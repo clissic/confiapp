@@ -15,6 +15,8 @@ import { fetchIdDigitalStatus, startIdDigital } from '@/features/auth/api/auth.a
 import { TimezoneSelect } from '@/features/profile/ui/sections/TimezoneSelect';
 import { CountrySelect } from '@/features/profile/ui/sections/CountryDialSelect';
 import { UruguayCitySelect } from '@/features/profile/ui/sections/UruguayCitySelect';
+import { MercadoPagoConnectSection } from '@/features/profile/ui/sections/MercadoPagoConnectSection';
+import { useMercadoPagoConnection } from '@/features/payments/hooks/usePayments';
 
 import {
   useAgentOnboarding,
@@ -419,10 +421,12 @@ export function BecomeAgentPage() {
                   currency: current.currency || 'UYU',
                 });
                 toast.success('¡Ya sos agente de ConfiApp!');
-              } catch {
-                setError(
-                  'No se pudo completar el alta de agente. Verificá tu Identidad Digital si aún no lo hiciste.',
-                );
+              } catch (err) {
+                const message =
+                  err instanceof ApiClientError
+                    ? err.message
+                    : 'No se pudo completar el alta de agente. Verificá Identidad Digital y Mercado Pago.';
+                setError(message);
               }
             }}
           />
@@ -1151,6 +1155,9 @@ function PreviewStep({
   onSubmit: () => Promise<void>;
 }) {
   const { distanceUnit } = useUserPreferences();
+  const mpQuery = useMercadoPagoConnection();
+  const mpConnected = Boolean(mpQuery.data?.data?.connected);
+
   const slotsLabel = useMemo(() => {
     if (onboarding.unspecifiedSchedule) return 'Disponible 24 h';
     return onboarding.weeklySlots
@@ -1195,6 +1202,10 @@ function PreviewStep({
         ? 'Esquema de plataforma (80% agente / 20% ConfiApp)'
         : 'Pendiente',
     },
+    {
+      label: 'Mercado Pago',
+      value: mpConnected ? 'Cuenta conectada' : 'Pendiente de conexión',
+    },
   ];
 
   return (
@@ -1213,6 +1224,14 @@ function PreviewStep({
         ))}
       </dl>
 
+      <div className="ca-agent-preview__mp">
+        <p className="ca-agent-preview__mp-lead">
+          Para cobrar la contratación del Agente necesitás vincular Mercado Pago. Sin cuenta
+          conectada no podés activarte ni tomar trabajos.
+        </p>
+        <MercadoPagoConnectSection />
+      </div>
+
       <div className="ca-agent-wizard__actions">
         <Button type="button" variant="outline-secondary" onClick={onBack}>
           Atrás
@@ -1220,7 +1239,7 @@ function PreviewStep({
         <Button
           type="button"
           className="ca-btn-cta"
-          disabled={submitting}
+          disabled={submitting || !mpConnected || mpQuery.isLoading}
           onClick={() => void onSubmit()}
         >
           {submitting ? 'Confirmando…' : 'Confirmar y convertirme en agente'}

@@ -14,6 +14,7 @@ import {
 
 import { formatDistance } from '@/shared/lib/distance';
 import { useUserPreferences } from '@/shared/preferences';
+import { useMercadoPagoConnection } from '@/features/payments/hooks/usePayments';
 import { STATUS_LABELS } from '@/features/transactions/model/types';
 
 import { DAY_LABELS } from '../model/schemas';
@@ -50,6 +51,8 @@ export function AgentAgencyPanel({
   onClose: () => void;
 }) {
   const { distanceUnit } = useUserPreferences();
+  const mpQuery = useMercadoPagoConnection();
+  const mpConnected = Boolean(mpQuery.data?.data?.connected);
   const isInactive = onboarding.status === 'INACTIVE';
   const activeJobsCount = onboarding.activeJobsCount ?? 0;
   const activeJobs = onboarding.activeJobs ?? [];
@@ -88,6 +91,13 @@ export function AgentAgencyPanel({
       {isInactive ? (
         <Alert variant="warning" className="ca-agency-alert mb-0">
           Agencia en pausa — no aceptás asignaciones nuevas.
+        </Alert>
+      ) : null}
+
+      {!mpQuery.isLoading && !mpConnected ? (
+        <Alert variant="warning" className="ca-agency-alert mb-0">
+          Conectá Mercado Pago para poder tomar trabajos.{' '}
+          <Link to="/perfil?tab=settings#mercadopago-conexion">Ir a vincular cuenta</Link>
         </Alert>
       ) : null}
 

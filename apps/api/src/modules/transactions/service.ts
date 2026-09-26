@@ -4,6 +4,7 @@ import {
   NotificationActionStatus,
   NotificationChannel,
   NotificationType,
+  FundingMode,
   ParticipantRole,
   ParticipantStatus,
   ProductCategory,
@@ -75,6 +76,22 @@ function isInviteExpired(expiresAt?: Date | null): boolean {
 
 function buildShareUrl(rawToken: string): string {
   return `${env.APP_URL.replace(/\/$/, '')}/operaciones/unirse/${encodeURIComponent(rawToken)}`;
+}
+
+function resolveFundingMode(
+  value?: FundingMode | string | null,
+): FundingMode {
+  if (value === FundingMode.AGENT_FEE_ONLY) return FundingMode.AGENT_FEE_ONLY;
+  if (value === FundingMode.ESCROW_FULL) return FundingMode.ESCROW_FULL;
+  return FundingMode.ESCROW_FULL;
+}
+
+function assertEscrowFullEnabled(fundingMode: FundingMode) {
+  if (fundingMode === FundingMode.ESCROW_FULL && !env.FUNDING_ESCROW_FULL_ENABLED) {
+    throw new ValidationError(
+      'El resguardo completo en la app aún no está disponible. Elegí solo el pago del Agente.',
+    );
+  }
 }
 
 function assertFeeAffordable(
@@ -400,6 +417,7 @@ function toDto(
     amountCents: tx.amountCents,
     currency: tx.currency,
     feePayer: tx.feePayer,
+    fundingMode: resolveFundingMode(tx.fundingMode),
     confiAnzaCents: tx.confiAnzaCents,
     confiAnzaCurrency: tx.confiAnzaCurrency,
     meetingLocation: legacyMeeting,
@@ -506,11 +524,27 @@ export class TransactionsService {
   }
 
   async create(userId: string, input: CreateTransactionDto): Promise<TransactionDto> {
-    const amountCents = toAmountCents(input.amount);
-    if (amountCents < 100) {
-      throw new ValidationError('El monto mínimo es 1.00');
+    const fundingMode = resolveFundingMode(input.fundingMode ?? FundingMode.AGENT_FEE_ONLY);
+    assertEscrowFullEnabled(fundingMode);
+
+    let amountCents: number | undefined;
+    let feePayer: FeePayer | undefined;
+    const currency = (input.currency ?? 'UYU').toUpperCase();
+
+    if (fundingMode === FundingMode.ESCROW_FULL) {
+      if (input.amount == null) {
+        throw new ValidationError('El monto debe ser mayor a 0');
+      }
+      if (!input.feePayer) {
+        throw new ValidationError('Indicá quién paga la comisión');
+      }
+      amountCents = toAmountCents(input.amount);
+      if (amountCents < 100) {
+        throw new ValidationError('El monto mínimo es 1.00');
+      }
+      feePayer = input.feePayer;
+      assertFeeAffordable(amountCents, currency, feePayer);
     }
-    assertFeeAffordable(amountCents, (input.currency ?? 'UYU').toUpperCase(), input.feePayer);
 
     const code = await generateUniqueCode(this.repository);
     const { rawToken, inviteTokenHash } = buildInvitePair();
@@ -538,13 +572,16 @@ export class TransactionsService {
         summary: partyBuyer.conditionsSummary,
         checklist: buildChecklistItems(input.checklist),
       },
+      fundingMode,
       amountCents,
-      currency: (input.currency ?? 'UYU').toUpperCase(),
-      feePayer: input.feePayer,
-      ...(input.confiAnzaAmount && input.confiAnzaAmount > 0
+      currency,
+      feePayer,
+      ...(fundingMode === FundingMode.ESCROW_FULL &&
+      input.confiAnzaAmount &&
+      input.confiAnzaAmount > 0
         ? {
             confiAnzaCents: toAmountCents(input.confiAnzaAmount),
-            confiAnzaCurrency: (input.confiAnzaCurrency ?? input.currency ?? 'UYU').toUpperCase(),
+            confiAnzaCurrency: (input.confiAnzaCurrency ?? currency).toUpperCase(),
           }
         : {}),
       inviteTokenHash,
@@ -563,9 +600,10 @@ export class TransactionsService {
         code,
         step: 'buyer_create',
         initiatedBy: TransactionInitiator.BUYER,
+        fundingMode,
         amountCents,
-        currency: (input.currency ?? 'UYU').toUpperCase(),
-        feePayer: input.feePayer,
+        currency,
+        feePayer,
         status: TransactionStatus.WAITING_PARTICIPANT,
       },
     });
@@ -592,13 +630,28 @@ export class TransactionsService {
     userId: string,
     input: CreateSellerTransactionBody | CreateSellerTransactionDto,
   ): Promise<TransactionDto> {
-    const amountCents = toAmountCents(input.product.price);
-    if (amountCents < 100) {
-      throw new ValidationError('El precio mínimo es 1.00');
-    }
+    const fundingMode = resolveFundingMode(input.fundingMode ?? FundingMode.AGENT_FEE_ONLY);
+    assertEscrowFullEnabled(fundingMode);
 
     const currency = (input.product.currency ?? 'UYU').toUpperCase();
-    assertFeeAffordable(amountCents, currency, input.feePayer);
+    let amountCents: number | undefined;
+    let feePayer: FeePayer | undefined;
+
+    if (fundingMode === FundingMode.ESCROW_FULL) {
+      if (input.product.price == null) {
+        throw new ValidationError('El precio mínimo es 1.00');
+      }
+      if (!input.feePayer) {
+        throw new ValidationError('Indicá quién paga la comisión');
+      }
+      amountCents = toAmountCents(input.product.price);
+      if (amountCents < 100) {
+        throw new ValidationError('El precio mínimo es 1.00');
+      }
+      feePayer = input.feePayer;
+      assertFeeAffordable(amountCents, currency, feePayer);
+    }
+
     const code = await generateUniqueCode(this.repository);
     const { rawToken, inviteTokenHash } = buildInvitePair();
     const days = input.inviteExpiresInDays ?? 7;
@@ -620,7 +673,7 @@ export class TransactionsService {
         condition: input.product.condition,
         status: ProductStatus.IN_TRANSACTION,
         images,
-        estimatedValueCents: amountCents,
+        ...(amountCents != null ? { estimatedValueCents: amountCents } : {}),
         currency,
       });
     } catch (error) {
@@ -655,10 +708,13 @@ export class TransactionsService {
         summary: partySeller.conditionsSummary,
         checklist: buildChecklistItems(input.checklist),
       },
+      fundingMode,
       amountCents,
       currency,
-      feePayer: input.feePayer,
-      ...(input.confiAnzaAmount && input.confiAnzaAmount > 0
+      feePayer,
+      ...(fundingMode === FundingMode.ESCROW_FULL &&
+      input.confiAnzaAmount &&
+      input.confiAnzaAmount > 0
         ? {
             confiAnzaCents: toAmountCents(input.confiAnzaAmount),
             confiAnzaCurrency: (input.confiAnzaCurrency ?? currency).toUpperCase(),
@@ -683,9 +739,10 @@ export class TransactionsService {
         code,
         step: 'seller_create',
         initiatedBy: TransactionInitiator.SELLER,
+        fundingMode,
         amountCents,
         currency,
-        feePayer: input.feePayer,
+        feePayer,
         productId: String(product._id),
         status: TransactionStatus.WAITING_PARTICIPANT,
       },
@@ -1504,6 +1561,7 @@ export class TransactionsService {
       amountCents: tx.amountCents,
       currency: tx.currency,
       feePayer: tx.feePayer,
+      fundingMode: resolveFundingMode(tx.fundingMode),
       status: tx.status,
       initiatedBy,
       inviteExpiresAt: tx.inviteExpiresAt?.toISOString(),
@@ -1647,10 +1705,19 @@ export class TransactionsService {
     });
 
     const deadline = computeOperationDeadline();
-    const feePayer = (input.feePayer ?? tx.feePayer ?? 'BUYER') as FeePayer;
-    if (tx.amountCents && tx.currency) {
-      assertFeeAffordable(tx.amountCents, tx.currency, feePayer);
+    const fundingMode = resolveFundingMode(tx.fundingMode);
+    assertEscrowFullEnabled(
+      input.fundingMode ? resolveFundingMode(input.fundingMode) : fundingMode,
+    );
+
+    let feePayer: FeePayer | undefined;
+    if (fundingMode === FundingMode.ESCROW_FULL) {
+      feePayer = (input.feePayer ?? tx.feePayer ?? 'BUYER') as FeePayer;
+      if (tx.amountCents && tx.currency) {
+        assertFeeAffordable(tx.amountCents, tx.currency, feePayer);
+      }
     }
+
     const updated = await this.repository.acceptPurchase(
       tx,
       userId,
@@ -1663,7 +1730,10 @@ export class TransactionsService {
       userId: String(updated.createdBy),
       type: NotificationType.TRANSACTION_UPDATE,
       title: 'El comprador aceptó la compra',
-      body: `La operación ${updated.code} quedó aceptada. Pendiente de pago.`,
+      body:
+        fundingMode === FundingMode.AGENT_FEE_ONLY
+          ? `La operación ${updated.code} quedó aceptada. Cuando haya Agente, el comprador paga la contratación.`
+          : `La operación ${updated.code} quedó aceptada. Pendiente de pago.`,
       data: {
         href: `/operaciones/${updated.code}`,
         code: updated.code,
@@ -1724,13 +1794,28 @@ export class TransactionsService {
       throw new ValidationError('Ya hay una contraparte en esta operación');
     }
 
-    const amountCents = toAmountCents(input.price);
-    if (amountCents < 100) {
-      throw new ValidationError('El precio mínimo es 1.00');
-    }
+    const fundingMode = resolveFundingMode(tx.fundingMode ?? input.fundingMode);
+    assertEscrowFullEnabled(fundingMode);
 
     const currency = (input.currency ?? tx.currency ?? 'UYU').toUpperCase();
-    assertFeeAffordable(amountCents, currency, input.feePayer);
+    let amountCents: number | undefined;
+    let feePayer: FeePayer | undefined;
+
+    if (fundingMode === FundingMode.ESCROW_FULL) {
+      if (input.price == null) {
+        throw new ValidationError('El precio mínimo es 1.00');
+      }
+      if (!input.feePayer) {
+        throw new ValidationError('Indicá quién paga la comisión');
+      }
+      amountCents = toAmountCents(input.price);
+      if (amountCents < 100) {
+        throw new ValidationError('El precio mínimo es 1.00');
+      }
+      feePayer = input.feePayer;
+      assertFeeAffordable(amountCents, currency, feePayer);
+    }
+
     const images = input.images.map((img, index) => ({
       url: img.url.trim(),
       alt: img.alt?.trim(),
@@ -1752,14 +1837,19 @@ export class TransactionsService {
       {
         title: input.title,
         description: input.description,
-        amountCents,
+        amountCents: amountCents ?? 0,
         currency,
         condition: input.condition,
         category,
-        feePayer: input.feePayer,
+        feePayer: feePayer ?? tx.feePayer,
       },
     );
-    const hasVariation = changes.length > 0;
+    // En modo solo Agente el precio no forma parte del acuerdo monetario en app.
+    const filteredChanges =
+      fundingMode === FundingMode.AGENT_FEE_ONLY
+        ? changes.filter((c) => c.field !== 'Precio' && c.field !== 'Comisión')
+        : changes;
+    const hasVariation = filteredChanges.length > 0;
     const targetStatus = hasVariation
       ? TransactionStatus.PENDING_BUYER_CONFIRM
       : TransactionStatus.ACCEPTED;
@@ -1773,7 +1863,7 @@ export class TransactionsService {
       condition: input.condition,
       status: ProductStatus.IN_TRANSACTION,
       images,
-      estimatedValueCents: amountCents,
+      ...(amountCents != null ? { estimatedValueCents: amountCents } : {}),
       currency,
       activeTransaction: tx._id,
     });
@@ -1792,12 +1882,12 @@ export class TransactionsService {
       productId: String(product._id),
       amountCents,
       currency,
-      feePayer: input.feePayer,
+      feePayer,
       alreadyParticipant,
       partySeller,
       returnInstructions: input.returnInstructions,
       targetStatus,
-      pendingBuyerChanges: hasVariation ? changes : undefined,
+      pendingBuyerChanges: hasVariation ? filteredChanges : undefined,
       operationDeadlineAt: deadline,
     });
 

@@ -83,6 +83,14 @@ const envSchema = z.object({
   PAYMENTS_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
   /** % de la comisión de intermediación para el agente (8000 = 80%). */
   PAYMENTS_AGENT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(8000),
+  /**
+   * Habilita crear operaciones con fundingMode=ESCROW_FULL (resguardo completo).
+   * Off mientras no esté disponible el cobro MP 1:N.
+   */
+  FUNDING_ESCROW_FULL_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   /** SMTP — si SMTP_HOST está vacío y EMAIL_PROVIDER=auto, se prueba Resend o consola. */
   SMTP_HOST: z.string().optional().default(''),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

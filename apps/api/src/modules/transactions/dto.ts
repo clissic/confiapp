@@ -1,5 +1,6 @@
 import type {
   FeePayer,
+  FundingMode,
   ParticipantRole,
   ParticipantStatus,
   ProductCategory,
@@ -35,9 +36,10 @@ export interface CreateTransactionDto {
   description?: string;
   conditionsSummary: string;
   checklist?: string[];
-  amount: number;
+  fundingMode?: FundingMode;
+  amount?: number;
   currency?: string;
-  feePayer: FeePayer;
+  feePayer?: FeePayer;
   inviteExpiresInDays?: number;
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocationDto;
@@ -53,7 +55,8 @@ export interface CreateSellerTransactionDto {
   description?: string;
   conditionsSummary: string;
   checklist?: string[];
-  feePayer: FeePayer;
+  fundingMode?: FundingMode;
+  feePayer?: FeePayer;
   inviteExpiresInDays?: number;
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocationDto;
@@ -65,7 +68,7 @@ export interface CreateSellerTransactionDto {
     description: string;
     condition: ProductCondition;
     category?: ProductCategory;
-    price: number;
+    price?: number;
     currency?: string;
     images: Array<{ url: string; alt?: string }>;
   };
@@ -76,9 +79,10 @@ export interface ConfirmSaleProductDto {
   description: string;
   condition: ProductCondition;
   category?: ProductCategory;
-  price: number;
+  price?: number;
   currency?: string;
-  feePayer: FeePayer;
+  fundingMode?: FundingMode;
+  feePayer?: FeePayer;
   images: Array<{ url: string; alt?: string }>;
   conditionsSummary: string;
   checklist?: string[];
@@ -89,6 +93,7 @@ export interface ConfirmSaleProductDto {
 
 export interface AcceptPurchaseDto {
   conditionsSummary: string;
+  fundingMode?: FundingMode;
   feePayer?: FeePayer;
   checklist?: string[];
   meetingLocationMode?: MeetingLocationMode;
@@ -151,6 +156,8 @@ export interface TransactionDto {
   currency?: string;
   /** Quién asume la comisión de intermediación. */
   feePayer?: FeePayer;
+  /** Cómo se fondea la operación. */
+  fundingMode?: FundingMode;
   /** Tip ConfiAnza en centavos; lo paga siempre el creador. */
   confiAnzaCents?: number;
   confiAnzaCurrency?: string;
@@ -212,6 +219,7 @@ export interface InvitePreviewDto {
   amountCents?: number;
   currency?: string;
   feePayer?: FeePayer;
+  fundingMode?: FundingMode;
   status: TransactionStatus;
   initiatedBy: TransactionInitiator;
   inviteExpiresAt?: string;

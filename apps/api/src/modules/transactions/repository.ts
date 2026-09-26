@@ -1,6 +1,7 @@
 import type { HydratedDocument } from 'mongoose';
 import { Types } from 'mongoose';
 import {
+  FundingMode,
   ParticipantRole,
   ParticipantStatus,
   TransactionInitiator,
@@ -52,9 +53,10 @@ export class TransactionsRepository {
       summary: string;
       checklist?: Array<{ id: string; text: string; done: boolean }>;
     };
-    amountCents: number;
+    fundingMode: FundingMode;
+    amountCents?: number;
     currency: string;
-    feePayer: string;
+    feePayer?: string;
     confiAnzaCents?: number;
     confiAnzaCurrency?: string;
     inviteTokenHash: string;
@@ -83,9 +85,10 @@ export class TransactionsRepository {
         ? { returnInstructions: data.returnInstructions.trim() }
         : {}),
       conditions: data.conditions,
-      amountCents: data.amountCents,
+      fundingMode: data.fundingMode,
+      ...(data.amountCents != null ? { amountCents: data.amountCents } : {}),
       currency: data.currency,
-      feePayer: data.feePayer,
+      ...(data.feePayer ? { feePayer: data.feePayer } : {}),
       ...(data.confiAnzaCents && data.confiAnzaCents > 0
         ? {
             confiAnzaCents: data.confiAnzaCents,
@@ -342,9 +345,9 @@ export class TransactionsRepository {
     data: {
       userId: string;
       productId: string;
-      amountCents: number;
+      amountCents?: number;
       currency: string;
-      feePayer: string;
+      feePayer?: string;
       alreadyParticipant: boolean;
       partySeller?: TransactionPartyInstructions;
       returnInstructions?: string;
@@ -367,9 +370,13 @@ export class TransactionsRepository {
     }
 
     transaction.product = new Types.ObjectId(data.productId);
-    transaction.amountCents = data.amountCents;
+    if (data.amountCents != null) {
+      transaction.amountCents = data.amountCents;
+    }
     transaction.currency = data.currency;
-    transaction.feePayer = data.feePayer as ITransaction['feePayer'];
+    if (data.feePayer) {
+      transaction.feePayer = data.feePayer as ITransaction['feePayer'];
+    }
     transaction.operationDeadlineAt = data.operationDeadlineAt;
 
     if (data.partySeller) {

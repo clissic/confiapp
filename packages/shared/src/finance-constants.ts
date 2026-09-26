@@ -2,6 +2,12 @@
  * Constantes del sistema financiero MVP (UYU).
  */
 
+/**
+ * Contratación del Agente cuando `fundingMode=AGENT_FEE_ONLY`.
+ * Fijo en UYU; el comprador siempre lo paga vía Mercado Pago al Agente.
+ */
+export const AGENT_FEE_ONLY_UYU_CENTS = 40_000;
+
 /** Días de hold antes de que una comisión PENDING pase a AVAILABLE. */
 export const AGENT_COMMISSION_HOLD_DAYS = 21;
 

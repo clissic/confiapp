@@ -313,3 +313,5 @@ export class MercadoPagoOAuthService {
     }
   }
 }
+
+export const mercadoPagoOAuthService = new MercadoPagoOAuthService();

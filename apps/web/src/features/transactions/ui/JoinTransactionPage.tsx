@@ -25,9 +25,11 @@ import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
   FEE_PAYER_LABELS,
+  FUNDING_MODE_LABELS,
   STATUS_LABELS,
   type DeliveryLocationValue,
   type FeePayer,
+  type FundingMode,
   type InvitePreview,
   type ProductCategory,
   type ProductCondition,
@@ -40,6 +42,7 @@ import {
 } from './ChecklistEditor';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
 import { FeePayerFields } from './FeePayerFields';
+import { FundingModeStep } from './FundingModeStep';
 import { PhotoLightbox } from './PhotoLightbox';
 import '../styles/transactions.css';
 
@@ -51,6 +54,12 @@ const JOIN_STEPS = [
     label: 'Producto',
     title: 'Producto',
     lead: 'Revisá el producto y completá lo que hace falta.',
+  },
+  {
+    id: 'funding',
+    label: 'Pago',
+    title: 'Cómo se paga',
+    lead: 'Elegí si la app custodia el dinero o solo la contratación del Agente.',
   },
   {
     id: 'price',
@@ -82,6 +91,7 @@ type JoinStepId = (typeof JOIN_STEPS)[number]['id'];
 
 const BUYER_STEP_FIELDS: Record<JoinStepId, (keyof AcceptPurchaseValues)[]> = {
   product: ['productTitle', 'productDescription'],
+  funding: ['fundingMode'],
   price: ['feePayer'],
   meeting: [],
   agent: ['conditionsSummary'],
@@ -90,6 +100,7 @@ const BUYER_STEP_FIELDS: Record<JoinStepId, (keyof AcceptPurchaseValues)[]> = {
 
 const SELLER_STEP_FIELDS: Record<JoinStepId, (keyof ConfirmSaleValues)[]> = {
   product: ['title', 'description', 'condition', 'category'],
+  funding: ['fundingMode'],
   price: ['price', 'currency', 'feePayer'],
   meeting: [],
   agent: ['conditionsSummary', 'returnInstructions'],
@@ -108,6 +119,19 @@ function isHttpUrl(value: string): boolean {
 
 function majorToCents(amount: number): number {
   return Math.round(amount * 100);
+}
+
+function joinStepDelta(from: number, dir: 1 | -1, fundingMode: FundingMode): number {
+  let next = from + dir;
+  while (
+    next >= 0 &&
+    next < JOIN_STEPS.length &&
+    JOIN_STEPS[next]?.id === 'price' &&
+    fundingMode === 'AGENT_FEE_ONLY'
+  ) {
+    next += dir;
+  }
+  return Math.max(0, Math.min(next, JOIN_STEPS.length - 1));
 }
 
 function validateDelivery(
@@ -275,6 +299,7 @@ function JoinAsBuyerWizard({
   const acceptForm = useZodForm(acceptPurchaseSchema, {
     defaultValues: {
       conditionsSummary: '',
+      fundingMode: preview.fundingMode ?? 'AGENT_FEE_ONLY',
       feePayer: preview.feePayer ?? 'BUYER',
       productTitle: '',
       productDescription: '',
@@ -292,9 +317,13 @@ function JoinAsBuyerWizard({
     if (preview.feePayer) {
       acceptForm.setValue('feePayer', preview.feePayer);
     }
+    if (preview.fundingMode) {
+      acceptForm.setValue('fundingMode', preview.fundingMode);
+    }
   }, [preview, acceptForm]);
 
   const acceptFeePayer = acceptForm.watch('feePayer');
+  const acceptFundingMode = acceptForm.watch('fundingMode');
   const values = acceptForm.watch();
   const step = JOIN_STEPS[stepIndex]!;
   const isFirst = stepIndex === 0;
@@ -350,12 +379,16 @@ function JoinAsBuyerWizard({
       }
     }
 
-    setStepIndex((i) => Math.min(i + 1, JOIN_STEPS.length - 1));
+    setStepIndex((i) =>
+      joinStepDelta(i, 1, (acceptFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+    );
   }
 
   function goBack() {
     setError(null);
-    setStepIndex((i) => Math.max(i - 1, 0));
+    setStepIndex((i) =>
+      joinStepDelta(i, -1, (acceptFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+    );
   }
 
   function goToStep(index: number) {
@@ -370,14 +403,17 @@ function JoinAsBuyerWizard({
     const deliveryError = validateDelivery(buyerDelivery, profile);
     if (deliveryError) {
       setError(deliveryError);
-      setStepIndex(2);
+      setStepIndex(JOIN_STEPS.findIndex((s) => s.id === 'meeting'));
       return;
     }
     if (checklistPreview.length === 0) {
       setError('Agregá al menos un ítem en el checklist para el Agente.');
-      setStepIndex(3);
+      setStepIndex(JOIN_STEPS.findIndex((s) => s.id === 'agent'));
       return;
     }
+
+    const fundingMode =
+      formValues.fundingMode ?? preview.fundingMode ?? ('AGENT_FEE_ONLY' as FundingMode);
 
     try {
       const result = await acceptPurchase.mutateAsync({
@@ -390,7 +426,8 @@ function JoinAsBuyerWizard({
             buyerDelivery.mode === 'CHAT' ? undefined : buyerDelivery.meetingLocation,
           productTitle: formValues.productTitle,
           productDescription: formValues.productDescription,
-          feePayer: formValues.feePayer,
+          fundingMode,
+          ...(fundingMode === 'ESCROW_FULL' ? { feePayer: formValues.feePayer } : {}),
         },
       });
       navigate(`/operaciones/${result.data.code}`, {
@@ -522,25 +559,32 @@ function JoinAsBuyerWizard({
               </div>
             ) : null}
 
+            {step.id === 'funding' ? (
+              <FundingModeStep
+                value={(acceptFundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') as FundingMode}
+                onChange={(mode) => {
+                  if (preview.fundingMode) return;
+                  acceptForm.setValue('fundingMode', mode, { shouldValidate: true });
+                }}
+                escrowFullEnabled={preview.fundingMode === 'ESCROW_FULL'}
+              />
+            ) : null}
+
             {step.id === 'price' ? (
               <div className="ca-tx-buyer-wizard__stack">
                 <div className="ca-tx-start-grid ca-tx-start-grid--price">
-                  <Form.Group>
-                    <Form.Label>Precio</Form.Label>
-                    <Form.Control
-                      plaintext
-                      readOnly
-                      value={
-                        priceMajor != null
-                          ? formatOperationMoney(preview.amountCents, displayCurrency)
-                          : '—'
-                      }
-                    />
-                  </Form.Group>
+                  <div className="ca-tx-price-readonly">
+                    <span className="ca-tx-price-readonly__label">Precio</span>
+                    <p className="ca-tx-price-readonly__value">
+                      {priceMajor != null
+                        ? formatOperationMoney(preview.amountCents, displayCurrency)
+                        : '—'}
+                    </p>
+                  </div>
                 </div>
                 <FeePayerFields
                   controlId="buy-fee-payer"
-                  feePayer={acceptFeePayer}
+                  feePayer={acceptFeePayer ?? 'BUYER'}
                   onFeePayerChange={(value) =>
                     acceptForm.setValue('feePayer', value, { shouldValidate: true })
                   }
@@ -610,22 +654,44 @@ function JoinAsBuyerWizard({
                 </section>
 
                 <section className="ca-tx-buyer-review__block">
-                  <h3 className="ca-tx-buyer-review__label">Precio</h3>
+                  <h3 className="ca-tx-buyer-review__label">Pago</h3>
                   <dl className="ca-tx-buyer-review__dl">
-                    <div>
-                      <dt>Monto</dt>
+                    <div className="ca-tx-buyer-review__wide">
+                      <dt>Modo</dt>
                       <dd>
-                        {preview.amountCents != null
-                          ? formatOperationMoney(preview.amountCents, displayCurrency)
-                          : '—'}
+                        {
+                          FUNDING_MODE_LABELS[
+                            (values.fundingMode ??
+                              preview.fundingMode ??
+                              'AGENT_FEE_ONLY') as FundingMode
+                          ]
+                        }
                       </dd>
                     </div>
-                    <div>
-                      <dt>Comisión</dt>
-                      <dd>
-                        {FEE_PAYER_LABELS[values.feePayer as FeePayer] ?? values.feePayer}
-                      </dd>
-                    </div>
+                    {(values.fundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') ===
+                    'AGENT_FEE_ONLY' ? (
+                      <div className="ca-tx-buyer-review__wide">
+                        <dt>Contratación del Agente</dt>
+                        <dd>UYU $400 (la paga el comprador por Mercado Pago)</dd>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <dt>Monto</dt>
+                          <dd>
+                            {preview.amountCents != null
+                              ? formatOperationMoney(preview.amountCents, displayCurrency)
+                              : '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Comisión</dt>
+                          <dd>
+                            {FEE_PAYER_LABELS[values.feePayer as FeePayer] ?? values.feePayer}
+                          </dd>
+                        </div>
+                      </>
+                    )}
                   </dl>
                 </section>
 
@@ -711,7 +777,8 @@ function JoinAsSellerWizard({
       description: '',
       condition: 'GOOD',
       category: 'OTHER',
-      price: undefined as unknown as number,
+      fundingMode: preview.fundingMode ?? 'AGENT_FEE_ONLY',
+      price: undefined,
       currency: defaultPaymentCurrency(preferredCurrency),
       feePayer: preview.feePayer ?? 'BUYER',
       imageUrl: '',
@@ -739,9 +806,13 @@ function JoinAsSellerWizard({
     if (preview.feePayer) {
       form.setValue('feePayer', preview.feePayer);
     }
+    if (preview.fundingMode) {
+      form.setValue('fundingMode', preview.fundingMode);
+    }
   }, [preview, form, preferredCurrency]);
 
   const values = form.watch();
+  const sellerFundingMode = form.watch('fundingMode');
   const step = JOIN_STEPS[stepIndex]!;
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === JOIN_STEPS.length - 1;
@@ -834,12 +905,16 @@ function JoinAsSellerWizard({
       }
     }
 
-    setStepIndex((i) => Math.min(i + 1, JOIN_STEPS.length - 1));
+    setStepIndex((i) =>
+      joinStepDelta(i, 1, (sellerFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+    );
   }
 
   function goBack() {
     setError(null);
-    setStepIndex((i) => Math.max(i - 1, 0));
+    setStepIndex((i) =>
+      joinStepDelta(i, -1, (sellerFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+    );
   }
 
   function goToStep(index: number) {
@@ -859,9 +934,12 @@ function JoinAsSellerWizard({
     const deliveryError = validateDelivery(delivery, profile);
     if (deliveryError) {
       setError(deliveryError);
-      setStepIndex(2);
+      setStepIndex(JOIN_STEPS.findIndex((s) => s.id === 'meeting'));
       return;
     }
+
+    const fundingMode =
+      formValues.fundingMode ?? preview.fundingMode ?? ('AGENT_FEE_ONLY' as FundingMode);
 
     try {
       const result = await confirm.mutateAsync({
@@ -871,9 +949,14 @@ function JoinAsSellerWizard({
           description: formValues.description,
           condition: formValues.condition as ProductCondition,
           category: formValues.category as ProductCategory,
-          price: formValues.price,
-          currency: formValues.currency,
-          feePayer: formValues.feePayer,
+          fundingMode,
+          ...(fundingMode === 'ESCROW_FULL'
+            ? {
+                price: formValues.price,
+                currency: formValues.currency,
+                feePayer: formValues.feePayer,
+              }
+            : {}),
           images,
           conditionsSummary: formValues.conditionsSummary,
           meetingLocationMode: delivery.mode,
@@ -1027,6 +1110,19 @@ function JoinAsSellerWizard({
               </div>
             ) : null}
 
+            {step.id === 'funding' ? (
+              <FundingModeStep
+                value={
+                  (sellerFundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') as FundingMode
+                }
+                onChange={(mode) => {
+                  if (preview.fundingMode) return;
+                  form.setValue('fundingMode', mode, { shouldValidate: true });
+                }}
+                escrowFullEnabled={preview.fundingMode === 'ESCROW_FULL'}
+              />
+            ) : null}
+
             {step.id === 'price' ? (
               <div className="ca-tx-buyer-wizard__stack">
                 <div className="ca-tx-start-grid ca-tx-start-grid--price">
@@ -1064,7 +1160,7 @@ function JoinAsSellerWizard({
 
                 <FeePayerFields
                   controlId="sale-fee-payer"
-                  feePayer={values.feePayer}
+                  feePayer={values.feePayer ?? 'BUYER'}
                   onFeePayerChange={(value) =>
                     form.setValue('feePayer', value, { shouldValidate: true })
                   }
@@ -1169,25 +1265,47 @@ function JoinAsSellerWizard({
                 </section>
 
                 <section className="ca-tx-buyer-review__block">
-                  <h3 className="ca-tx-buyer-review__label">Precio</h3>
+                  <h3 className="ca-tx-buyer-review__label">Pago</h3>
                   <dl className="ca-tx-buyer-review__dl">
-                    <div>
-                      <dt>Monto</dt>
+                    <div className="ca-tx-buyer-review__wide">
+                      <dt>Modo</dt>
                       <dd>
-                        {Number(values.price) > 0
-                          ? formatOperationMoney(
-                              majorToCents(Number(values.price)),
-                              values.currency,
-                            )
-                          : '—'}
+                        {
+                          FUNDING_MODE_LABELS[
+                            (values.fundingMode ??
+                              preview.fundingMode ??
+                              'AGENT_FEE_ONLY') as FundingMode
+                          ]
+                        }
                       </dd>
                     </div>
-                    <div>
-                      <dt>Comisión</dt>
-                      <dd>
-                        {FEE_PAYER_LABELS[values.feePayer as FeePayer] ?? values.feePayer}
-                      </dd>
-                    </div>
+                    {(values.fundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') ===
+                    'AGENT_FEE_ONLY' ? (
+                      <div className="ca-tx-buyer-review__wide">
+                        <dt>Contratación del Agente</dt>
+                        <dd>UYU $400 (la paga el comprador por Mercado Pago)</dd>
+                      </div>
+                    ) : (
+                      <>
+                        <div>
+                          <dt>Monto</dt>
+                          <dd>
+                            {Number(values.price) > 0
+                              ? formatOperationMoney(
+                                  majorToCents(Number(values.price)),
+                                  values.currency,
+                                )
+                              : '—'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Comisión</dt>
+                          <dd>
+                            {FEE_PAYER_LABELS[values.feePayer as FeePayer] ?? values.feePayer}
+                          </dd>
+                        </div>
+                      </>
+                    )}
                   </dl>
                 </section>
 

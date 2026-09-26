@@ -26,6 +26,10 @@ export interface MpCreatePreferenceInput {
    * (p. ej. /operaciones/CODE/pagar/simular?paymentId=…).
    */
   mockBridgeUrl?: string;
+  /** Token del cobrador (Agente). Vacío = cuenta plataforma. */
+  collectorAccessToken?: string;
+  /** Fee marketplace en centavos → cuenta ConfiApp. */
+  marketplaceFeeCents?: number;
 }
 
 export interface MpPreferenceResult {
@@ -111,15 +115,21 @@ export class MercadoPagoClient {
         country: this.country(),
         siteId: this.siteId(),
       },
+      ...(input.marketplaceFeeCents != null && input.marketplaceFeeCents > 0
+        ? { marketplace_fee: centsToMajorUnit(input.marketplaceFeeCents) }
+        : {}),
       ...(input.payerEmail
         ? { payer: { email: input.payerEmail } }
         : {}),
     };
 
+    const bearer =
+      input.collectorAccessToken?.trim() || env.MERCADOPAGO_ACCESS_TOKEN;
+
     const response = await fetch(`${this.baseUrl}/checkout/preferences`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.MERCADOPAGO_ACCESS_TOKEN}`,
+        Authorization: `Bearer ${bearer}`,
         'Content-Type': 'application/json',
         'X-Idempotency-Key': input.externalReference,
       },

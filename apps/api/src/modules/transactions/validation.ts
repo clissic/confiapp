@@ -2,11 +2,13 @@ import { z } from 'zod';
 
 import {
   FeePayer,
+  FundingMode,
   ProductCategory,
   ProductCondition,
 } from '@confiapp/database';
 
 const feePayerSchema = z.nativeEnum(FeePayer);
+const fundingModeSchema = z.nativeEnum(FundingMode).default(FundingMode.AGENT_FEE_ONLY);
 const appCurrencySchema = z
   .string()
   .trim()
@@ -33,7 +35,8 @@ const productPayloadSchema = z.object({
   description: z.string().trim().min(10).max(10_000),
   condition: z.nativeEnum(ProductCondition),
   category: z.nativeEnum(ProductCategory).default(ProductCategory.OTHER),
-  price: z.coerce.number().positive('El precio debe ser mayor a 0').max(100_000_000),
+  /** Requerido solo con fundingMode ESCROW_FULL. */
+  price: z.coerce.number().positive('El precio debe ser mayor a 0').max(100_000_000).optional(),
   currency: appCurrencySchema.default('UYU'),
   images: z.array(imageSchema).min(1, 'Agregá al menos una foto').max(20),
 });
@@ -66,6 +69,45 @@ function refineMeetingLocation(
   }
 }
 
+function refineEscrowFullPricing(
+  data: {
+    fundingMode?: FundingMode;
+    amount?: number;
+    feePayer?: FeePayer;
+    price?: number;
+  },
+  ctx: z.RefinementCtx,
+  opts: { amountPath?: (string | number)[]; pricePath?: (string | number)[] } = {},
+) {
+  if (data.fundingMode !== FundingMode.ESCROW_FULL) return;
+
+  if (opts.amountPath) {
+    if (data.amount == null || !(data.amount > 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: opts.amountPath,
+        message: 'El monto debe ser mayor a 0',
+      });
+    }
+  }
+  if (opts.pricePath) {
+    if (data.price == null || !(data.price > 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: opts.pricePath,
+        message: 'El precio debe ser mayor a 0',
+      });
+    }
+  }
+  if (!data.feePayer) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['feePayer'],
+      message: 'Indicá quién paga la comisión',
+    });
+  }
+}
+
 const agentInstructionsFieldsSchema = z.object({
   conditionsSummary: z.string().trim().min(10).max(5000),
   checklist: z.array(z.string().trim().min(1).max(500)).max(20).optional(),
@@ -77,9 +119,10 @@ export const createTransactionBodySchema = z
   .object({
     title: z.string().trim().min(3).max(200),
     description: z.string().trim().max(5000).optional(),
-    amount: z.coerce.number().positive('El monto debe ser mayor a 0').max(100_000_000),
+    fundingMode: fundingModeSchema,
+    amount: z.coerce.number().positive('El monto debe ser mayor a 0').max(100_000_000).optional(),
     currency: appCurrencySchema.default('UYU'),
-    feePayer: feePayerSchema,
+    feePayer: feePayerSchema.optional(),
     inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
     productTitle: z.string().trim().min(3).max(200),
     productDescription: z.string().trim().min(10).max(10_000),
@@ -91,13 +134,17 @@ export const createTransactionBodySchema = z
   })
   .merge(agentInstructionsFieldsSchema)
   .merge(meetingLocationFieldsSchema)
-  .superRefine(refineMeetingLocation);
+  .superRefine((data, ctx) => {
+    refineMeetingLocation(data, ctx);
+    refineEscrowFullPricing(data, ctx, { amountPath: ['amount'] });
+  });
 
 export const createSellerTransactionBodySchema = z
   .object({
     title: z.string().trim().min(3).max(200),
     description: z.string().trim().max(5000).optional(),
-    feePayer: feePayerSchema,
+    fundingMode: fundingModeSchema,
+    feePayer: feePayerSchema.optional(),
     inviteExpiresInDays: z.coerce.number().int().min(1).max(30).default(7),
     returnInstructions: z
       .string()
@@ -113,11 +160,23 @@ export const createSellerTransactionBodySchema = z
   })
   .merge(agentInstructionsFieldsSchema.omit({ productTitle: true, productDescription: true }))
   .merge(meetingLocationFieldsSchema)
-  .superRefine(refineMeetingLocation);
+  .superRefine((data, ctx) => {
+    refineMeetingLocation(data, ctx);
+    refineEscrowFullPricing(
+      {
+        fundingMode: data.fundingMode,
+        feePayer: data.feePayer,
+        price: data.product.price,
+      },
+      ctx,
+      { pricePath: ['product', 'price'] },
+    );
+  });
 
 export const confirmSaleBodySchema = productPayloadSchema
   .extend({
-    feePayer: feePayerSchema,
+    fundingMode: fundingModeSchema.optional(),
+    feePayer: feePayerSchema.optional(),
     returnInstructions: z
       .string()
       .trim()
@@ -126,16 +185,29 @@ export const confirmSaleBodySchema = productPayloadSchema
   })
   .merge(agentInstructionsFieldsSchema.omit({ productTitle: true, productDescription: true }))
   .merge(meetingLocationFieldsSchema)
-  .superRefine(refineMeetingLocation);
+  .superRefine((data, ctx) => {
+    refineMeetingLocation(data, ctx);
+    refineEscrowFullPricing(data, ctx, { pricePath: ['price'] });
+  });
 
 export const acceptPurchaseBodySchema = agentInstructionsFieldsSchema
   .extend({
+    fundingMode: fundingModeSchema.optional(),
     feePayer: feePayerSchema.optional(),
     productTitle: z.string().trim().min(3).max(200).optional(),
     productDescription: z.string().trim().min(10).max(10_000).optional(),
   })
   .merge(meetingLocationFieldsSchema)
-  .superRefine(refineMeetingLocation);
+  .superRefine((data, ctx) => {
+    refineMeetingLocation(data, ctx);
+    if (data.fundingMode === FundingMode.ESCROW_FULL && !data.feePayer) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['feePayer'],
+        message: 'Indicá quién paga la comisión',
+      });
+    }
+  });
 
 export const transactionCodeParamsSchema = z.object({
   code: z

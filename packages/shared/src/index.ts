@@ -38,6 +38,7 @@ export {
 } from './intermediation-fees.js';
 
 export {
+  AGENT_FEE_ONLY_UYU_CENTS,
   AGENT_COMMISSION_HOLD_DAYS,
   AGENT_PAYOUT_WINDOW_START_DAY,
   AGENT_PAYOUT_WINDOW_END_DAY,

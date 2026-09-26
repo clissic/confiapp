@@ -20,8 +20,10 @@ import {
   CATEGORY_LABELS,
   CONDITION_LABELS,
   FEE_PAYER_LABELS,
+  FUNDING_MODE_LABELS,
   type DeliveryLocationValue,
   type FeePayer,
+  type FundingMode,
   type ProductCategory,
   type ProductCondition,
 } from '../model/types';
@@ -33,6 +35,7 @@ import {
 } from './ChecklistEditor';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
 import { FeePayerFields } from './FeePayerFields';
+import { FundingModeStep } from './FundingModeStep';
 import { ConfiAnzaBonusFields, ConfiAnzaMark } from './ConfiAnzaBonusFields';
 import '../styles/transactions.css';
 
@@ -44,6 +47,12 @@ const BUYER_STEPS = [
     label: 'Producto',
     title: 'Producto',
     lead: 'Describe el producto de la transacción.',
+  },
+  {
+    id: 'funding',
+    label: 'Pago',
+    title: 'Cómo se paga',
+    lead: 'Elegí si la app custodia el dinero o solo la contratación del Agente.',
   },
   {
     id: 'price',
@@ -75,6 +84,7 @@ type BuyerStepId = (typeof BUYER_STEPS)[number]['id'];
 
 const STEP_FIELDS: Record<BuyerStepId, (keyof CreateTransactionValues)[]> = {
   product: ['productTitle', 'productDescription', 'condition', 'category'],
+  funding: ['fundingMode'],
   price: ['amount', 'currency', 'feePayer'],
   meeting: [],
   agent: ['title', 'description', 'conditionsSummary', 'inviteExpiresInDays'],
@@ -124,7 +134,8 @@ export function StartTransactionPage() {
       productDescription: '',
       condition: 'GOOD',
       category: 'OTHER',
-      amount: undefined as unknown as number,
+      fundingMode: 'AGENT_FEE_ONLY',
+      amount: undefined,
       currency: defaultPaymentCurrency(preferredCurrency),
       feePayer: 'BUYER',
       confiAnzaAmount: undefined,
@@ -135,6 +146,7 @@ export function StartTransactionPage() {
   const watchedAmount = form.watch('amount');
   const watchedCurrency = form.watch('currency');
   const watchedFeePayer = form.watch('feePayer');
+  const watchedFundingMode = form.watch('fundingMode');
   const watchedConfiAnzaAmount = form.watch('confiAnzaAmount');
   const watchedConfiAnzaCurrency = form.watch('confiAnzaCurrency');
   const values = form.watch();
@@ -147,6 +159,19 @@ export function StartTransactionPage() {
     () => checklistItems.map((item) => item.text.trim()).filter(Boolean),
     [checklistItems],
   );
+
+  function stepDelta(from: number, dir: 1 | -1): number {
+    let next = from + dir;
+    while (
+      next >= 0 &&
+      next < BUYER_STEPS.length &&
+      BUYER_STEPS[next]?.id === 'price' &&
+      watchedFundingMode === 'AGENT_FEE_ONLY'
+    ) {
+      next += dir;
+    }
+    return Math.max(0, Math.min(next, BUYER_STEPS.length - 1));
+  }
 
   function validateDelivery(): string | null {
     if (delivery.mode === 'MAP') {
@@ -192,12 +217,12 @@ export function StartTransactionPage() {
       }
     }
 
-    setStepIndex((i) => Math.min(i + 1, BUYER_STEPS.length - 1));
+    setStepIndex((i) => stepDelta(i, 1));
   }
 
   function goBack() {
     setError(null);
-    setStepIndex((i) => Math.max(i - 1, 0));
+    setStepIndex((i) => stepDelta(i, -1));
   }
 
   function goToStep(index: number) {
@@ -213,14 +238,14 @@ export function StartTransactionPage() {
     const deliveryError = validateDelivery();
     if (deliveryError) {
       setError(deliveryError);
-      setStepIndex(2);
+      setStepIndex(BUYER_STEPS.findIndex((s) => s.id === 'meeting'));
       return;
     }
 
     const checklist = checklistDraftToPayload(checklistItems);
     if (!checklist?.length) {
       setError('Agregá al menos un ítem en el checklist para el Agente.');
-      setStepIndex(3);
+      setStepIndex(BUYER_STEPS.findIndex((s) => s.id === 'agent'));
       return;
     }
 
@@ -230,12 +255,17 @@ export function StartTransactionPage() {
         description: formValues.description?.trim() || undefined,
         conditionsSummary: formValues.conditionsSummary,
         checklist,
-        amount: formValues.amount,
-        currency: formValues.currency,
-        feePayer: formValues.feePayer,
+        fundingMode: formValues.fundingMode,
+        ...(formValues.fundingMode === 'ESCROW_FULL'
+          ? {
+              amount: formValues.amount,
+              currency: formValues.currency,
+              feePayer: formValues.feePayer,
+              confiAnzaAmount: formValues.confiAnzaAmount,
+              confiAnzaCurrency: formValues.confiAnzaCurrency,
+            }
+          : { currency: 'UYU' }),
         inviteExpiresInDays: formValues.inviteExpiresInDays,
-        confiAnzaAmount: formValues.confiAnzaAmount,
-        confiAnzaCurrency: formValues.confiAnzaCurrency,
         meetingLocationMode: delivery.mode,
         meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,
         productTitle: formValues.productTitle,
@@ -384,6 +414,15 @@ export function StartTransactionPage() {
                 </div>
               ) : null}
 
+              {step.id === 'funding' ? (
+                <FundingModeStep
+                  value={(watchedFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode}
+                  onChange={(mode) =>
+                    form.setValue('fundingMode', mode, { shouldValidate: true })
+                  }
+                />
+              ) : null}
+
               {step.id === 'price' ? (
                 <div className="ca-tx-buyer-wizard__stack">
                   <div className="ca-tx-start-grid ca-tx-start-grid--price">
@@ -428,7 +467,7 @@ export function StartTransactionPage() {
 
                   <FeePayerFields
                     controlId="tx-fee-payer"
-                    feePayer={watchedFeePayer}
+                    feePayer={watchedFeePayer ?? 'BUYER'}
                     onFeePayerChange={(value) =>
                       form.setValue('feePayer', value, { shouldValidate: true })
                     }
@@ -572,39 +611,54 @@ export function StartTransactionPage() {
                   </section>
 
                   <section className="ca-tx-buyer-review__block">
-                    <h3 className="ca-tx-buyer-review__label">Precio</h3>
+                    <h3 className="ca-tx-buyer-review__label">Pago</h3>
                     <dl className="ca-tx-buyer-review__dl">
-                      <div>
-                        <dt>Monto</dt>
+                      <div className="ca-tx-buyer-review__wide">
+                        <dt>Modo</dt>
                         <dd>
-                          {Number(values.amount) > 0
-                            ? formatOperationMoney(
-                                majorToCents(Number(values.amount)),
-                                values.currency,
-                              )
-                            : '—'}
+                          {FUNDING_MODE_LABELS[(values.fundingMode as FundingMode) ?? 'AGENT_FEE_ONLY']}
                         </dd>
                       </div>
-                      <div>
-                        <dt>Comisión</dt>
-                        <dd>
-                          {FEE_PAYER_LABELS[values.feePayer as FeePayer] ?? values.feePayer}
-                        </dd>
-                      </div>
-                      {Number(values.confiAnzaAmount) > 0 ? (
+                      {values.fundingMode === 'AGENT_FEE_ONLY' ? (
                         <div className="ca-tx-buyer-review__wide">
-                          <dt>
-                            <ConfiAnzaMark />
-                          </dt>
-                          <dd>
-                            {formatOperationMoney(
-                              majorToCents(Number(values.confiAnzaAmount)),
-                              values.confiAnzaCurrency || values.currency,
-                            )}{' '}
-                            <span className="text-muted">(lo pagás vos)</span>
-                          </dd>
+                          <dt>Contratación del Agente</dt>
+                          <dd>UYU $400 (la paga el comprador por Mercado Pago)</dd>
                         </div>
-                      ) : null}
+                      ) : (
+                        <>
+                          <div>
+                            <dt>Monto</dt>
+                            <dd>
+                              {Number(values.amount) > 0
+                                ? formatOperationMoney(
+                                    majorToCents(Number(values.amount)),
+                                    values.currency,
+                                  )
+                                : '—'}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Comisión</dt>
+                            <dd>
+                              {FEE_PAYER_LABELS[values.feePayer as FeePayer] ?? values.feePayer}
+                            </dd>
+                          </div>
+                          {Number(values.confiAnzaAmount) > 0 ? (
+                            <div className="ca-tx-buyer-review__wide">
+                              <dt>
+                                <ConfiAnzaMark />
+                              </dt>
+                              <dd>
+                                {formatOperationMoney(
+                                  majorToCents(Number(values.confiAnzaAmount)),
+                                  values.confiAnzaCurrency || values.currency,
+                                )}{' '}
+                                <span className="text-muted">(lo pagás vos)</span>
+                              </dd>
+                            </div>
+                          ) : null}
+                        </>
+                      )}
                     </dl>
                   </section>
 

@@ -70,6 +70,15 @@ textarea {
 }
 
 /* ——— Dark mode: Bootstrap + utilidades de contraste ——— */
+[data-theme='dark'] {
+  --bs-body-color: var(--text-primary);
+  --bs-body-bg: var(--surface-canvas);
+  --bs-secondary-color: var(--text-secondary);
+  --bs-tertiary-color: var(--text-muted);
+  --bs-emphasis-color: var(--text-primary);
+  --bs-heading-color: var(--text-primary);
+}
+
 [data-theme='dark'] .text-muted {
   color: var(--text-muted) !important;
 }
@@ -81,6 +90,11 @@ textarea {
   background-color: var(--surface-sunken);
   color: var(--text-primary);
   border-color: var(--border-default);
+}
+
+/* Bootstrap plaintext hereda --bs-body-color; forzar contraste por si el var no llega */
+[data-theme='dark'] .form-control-plaintext {
+  color: var(--text-primary);
 }
 
 [data-theme='dark'] .input-group-text {

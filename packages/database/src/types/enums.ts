@@ -52,6 +52,16 @@ export enum FeePayer {
   SPLIT_50_50 = 'SPLIT_50_50',
 }
 
+/**
+ * Cómo se fondea la operación.
+ * - ESCROW_FULL: la app resguarda producto + comisión (requiere MP 1:N).
+ * - AGENT_FEE_ONLY: solo contratación del Agente vía MP; producto fuera de la app.
+ */
+export enum FundingMode {
+  ESCROW_FULL = 'ESCROW_FULL',
+  AGENT_FEE_ONLY = 'AGENT_FEE_ONLY',
+}
+
 export enum ParticipantRole {
   CREATOR = 'CREATOR',
   COUNTERPARTY = 'COUNTERPARTY',

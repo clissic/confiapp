@@ -13,6 +13,13 @@ export type TransactionInitiator = 'BUYER' | 'SELLER';
 
 export type FeePayer = 'BUYER' | 'SELLER' | 'SPLIT_50_50';
 
+export type FundingMode = 'ESCROW_FULL' | 'AGENT_FEE_ONLY';
+
+export const FUNDING_MODE_LABELS: Record<FundingMode, string> = {
+  ESCROW_FULL: 'Resguardo en la app',
+  AGENT_FEE_ONLY: 'Solo pago del Agente',
+};
+
 export type ParticipantRole = 'CREATOR' | 'COUNTERPARTY' | 'INTERMEDIARY';
 export type ParticipantStatus = 'INVITED' | 'ACCEPTED' | 'DECLINED' | 'REMOVED';
 
@@ -99,6 +106,7 @@ export interface Transaction {
   amountCents?: number;
   currency?: string;
   feePayer?: FeePayer;
+  fundingMode?: FundingMode;
   /** Tip ConfiAnza en centavos; lo paga siempre el creador. */
   confiAnzaCents?: number;
   confiAnzaCurrency?: string;
@@ -161,6 +169,7 @@ export interface InvitePreview {
   amountCents?: number;
   currency?: string;
   feePayer?: FeePayer;
+  fundingMode?: FundingMode;
   status: TransactionStatus;
   initiatedBy: TransactionInitiator;
   inviteExpiresAt?: string;
@@ -183,9 +192,10 @@ export interface AgentInstructionsPayload {
 export interface CreateTransactionPayload extends AgentInstructionsPayload {
   title: string;
   description?: string;
-  amount: number;
+  fundingMode: FundingMode;
+  amount?: number;
   currency?: string;
-  feePayer: FeePayer;
+  feePayer?: FeePayer;
   inviteExpiresInDays?: number;
   productTitle: string;
   productDescription: string;
@@ -199,7 +209,8 @@ export interface CreateSellerTransactionPayload {
   description?: string;
   conditionsSummary: string;
   checklist?: string[];
-  feePayer: FeePayer;
+  fundingMode: FundingMode;
+  feePayer?: FeePayer;
   inviteExpiresInDays?: number;
   meetingLocationMode?: MeetingLocationMode;
   meetingLocation?: MeetingLocation;
@@ -214,13 +225,14 @@ export interface ConfirmSaleProductFields {
   description: string;
   condition: ProductCondition;
   category?: ProductCategory;
-  price: number;
+  price?: number;
   currency?: string;
   images: Array<{ url: string; alt?: string }>;
 }
 
 export interface ConfirmSalePayload extends ConfirmSaleProductFields {
-  feePayer: FeePayer;
+  fundingMode?: FundingMode;
+  feePayer?: FeePayer;
   conditionsSummary: string;
   checklist?: string[];
   meetingLocationMode?: MeetingLocationMode;
@@ -229,6 +241,7 @@ export interface ConfirmSalePayload extends ConfirmSaleProductFields {
 }
 
 export type AcceptPurchasePayload = AgentInstructionsPayload & {
+  fundingMode?: FundingMode;
   feePayer?: FeePayer;
 };
 
