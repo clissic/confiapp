@@ -82,8 +82,12 @@ function resolveFundingMode(
   value?: FundingMode | string | null,
 ): FundingMode {
   if (value === FundingMode.AGENT_FEE_ONLY) return FundingMode.AGENT_FEE_ONLY;
-  if (value === FundingMode.ESCROW_FULL) return FundingMode.ESCROW_FULL;
-  return FundingMode.ESCROW_FULL;
+  if (value === FundingMode.ESCROW_FULL) {
+    // Mientras el cobro completo no esté habilitado, tratar todo como solo Agente.
+    if (!env.FUNDING_ESCROW_FULL_ENABLED) return FundingMode.AGENT_FEE_ONLY;
+    return FundingMode.ESCROW_FULL;
+  }
+  return FundingMode.AGENT_FEE_ONLY;
 }
 
 function assertEscrowFullEnabled(fundingMode: FundingMode) {
@@ -1705,10 +1709,12 @@ export class TransactionsService {
     });
 
     const deadline = computeOperationDeadline();
-    const fundingMode = resolveFundingMode(tx.fundingMode);
-    assertEscrowFullEnabled(
-      input.fundingMode ? resolveFundingMode(input.fundingMode) : fundingMode,
-    );
+    const fundingMode = resolveFundingMode(input.fundingMode ?? tx.fundingMode);
+    assertEscrowFullEnabled(fundingMode);
+    if (tx.fundingMode !== fundingMode) {
+      tx.fundingMode = fundingMode;
+      await tx.save();
+    }
 
     let feePayer: FeePayer | undefined;
     if (fundingMode === FundingMode.ESCROW_FULL) {

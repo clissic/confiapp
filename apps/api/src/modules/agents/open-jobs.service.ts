@@ -113,7 +113,11 @@ function isOpenJobStatusForFundingMode(tx: {
   fundingMode?: FundingMode | string | null;
 }): boolean {
   if (!OPEN_JOB_STATUSES.includes(tx.status)) return false;
-  if (tx.fundingMode === FundingMode.AGENT_FEE_ONLY) {
+  const isAgentFeeOnly =
+    tx.fundingMode === FundingMode.AGENT_FEE_ONLY ||
+    tx.fundingMode == null ||
+    !env.FUNDING_ESCROW_FULL_ENABLED;
+  if (isAgentFeeOnly) {
     // Sin fondeo de producto: ofertable desde ACCEPTED (antes del pago del Agente).
     return (
       tx.status === TransactionStatus.ACCEPTED ||
@@ -122,7 +126,7 @@ function isOpenJobStatusForFundingMode(tx: {
       tx.status === TransactionStatus.DISPUTED
     );
   }
-  // Escrow completo / legacy: solo tras fondeo.
+  // Escrow completo: solo tras fondeo.
   return (
     tx.status === TransactionStatus.FUNDED ||
     tx.status === TransactionStatus.IN_PROGRESS ||

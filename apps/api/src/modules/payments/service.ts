@@ -50,6 +50,16 @@ import {
 export type PaymentDocument = HydratedDocument<IPayment>;
 type TransactionDocument = HydratedDocument<ITransaction>;
 
+function resolvePaymentFundingMode(
+  value?: FundingMode | string | null,
+): FundingMode {
+  if (value === FundingMode.AGENT_FEE_ONLY) return FundingMode.AGENT_FEE_ONLY;
+  if (value === FundingMode.ESCROW_FULL && env.FUNDING_ESCROW_FULL_ENABLED) {
+    return FundingMode.ESCROW_FULL;
+  }
+  return FundingMode.AGENT_FEE_ONLY;
+}
+
 function feesAuditMeta(split: EscrowSplit) {
   return {
     feePayer: split.feePayer,
@@ -291,10 +301,7 @@ export class PaymentsService {
   /** Pago del comprador → Preference MP + ESCROW_HOLD pendiente (retención). */
   async createBuyerCheckout(userId: string, code: string) {
     const tx = await this.loadTxForParticipant(userId, code);
-    const fundingMode =
-      tx.fundingMode === FundingMode.AGENT_FEE_ONLY
-        ? FundingMode.AGENT_FEE_ONLY
-        : FundingMode.ESCROW_FULL;
+    const fundingMode = resolvePaymentFundingMode(tx.fundingMode);
 
     if (fundingMode === FundingMode.ESCROW_FULL && env.PAYMENTS_CHECKOUT_MODE === 'manual_prex') {
       throw new ValidationError(
@@ -680,7 +687,7 @@ export class PaymentsService {
     const tx = await this.loadTxForParticipant(userId, code);
     const parties = resolveParties(tx);
 
-    if (tx.fundingMode === FundingMode.AGENT_FEE_ONLY) {
+    if (resolvePaymentFundingMode(tx.fundingMode) === FundingMode.AGENT_FEE_ONLY) {
       throw new ValidationError(
         'En este modo el comprador paga la contratación del Agente por Mercado Pago, no por Prex.',
       );
@@ -1093,7 +1100,8 @@ export class PaymentsService {
     await hold.save();
 
     const parties = resolveParties(tx);
-    const isAgentFeeOnly = tx.fundingMode === FundingMode.AGENT_FEE_ONLY;
+    const isAgentFeeOnly =
+      resolvePaymentFundingMode(tx.fundingMode) === FundingMode.AGENT_FEE_ONLY;
 
     // Retención en wallet del vendedor solo en escrow completo (producto).
     if (!isAgentFeeOnly) {
@@ -1405,7 +1413,7 @@ export class PaymentsService {
     }
 
     // Solo contratación del Agente: el dinero ya se liquidó en MP (agente + marketplace_fee).
-    if (tx.fundingMode === FundingMode.AGENT_FEE_ONLY) {
+    if (resolvePaymentFundingMode(tx.fundingMode) === FundingMode.AGENT_FEE_ONLY) {
       const now = new Date();
       hold.status = PaymentStatus.RELEASED;
       hold.releasedAt = now;

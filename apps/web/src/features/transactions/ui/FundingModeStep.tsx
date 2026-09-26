@@ -33,8 +33,9 @@ export function FundingModeStep({
         <span className="ca-tx-funding__badge">Disponible</span>
         <strong className="ca-tx-funding__title">Solo pago del Agente</strong>
         <p className="ca-tx-funding__lead">
-          El comprador paga {AGENT_FEE_LABEL} por contratar al Agente vía Mercado Pago. El
-          precio del producto lo acuerdan y pagan por fuera (transferencia, efectivo, etc.).
+          El comprador paga {AGENT_FEE_LABEL} por contratar al Agente a través de Mercado
+          Pago. El precio y la forma de pago del producto serán acordados directamente entre
+          las partes. ConfiApp no interviene ni participa en esta decisión.
         </p>
       </button>
 
@@ -44,7 +45,7 @@ export function FundingModeStep({
         aria-checked={value === 'ESCROW_FULL'}
         aria-disabled={!escrowFullEnabled}
         disabled={!escrowFullEnabled}
-        className={`ca-tx-funding__card ca-tx-funding__card--disabled${
+        className={`ca-tx-funding__card${!escrowFullEnabled ? ' ca-tx-funding__card--disabled' : ''}${
           value === 'ESCROW_FULL' ? ' is-selected' : ''
         }`}
         onClick={() => {
@@ -54,8 +55,9 @@ export function FundingModeStep({
         <span className="ca-tx-funding__badge ca-tx-funding__badge--soon">Próximamente</span>
         <strong className="ca-tx-funding__title">Resguardo en la app</strong>
         <p className="ca-tx-funding__lead">
-          La app custodia el dinero del producto, la comisión y el pago del Agente. Disponible
-          cuando Mercado Pago permita el cobro completo en la plataforma.
+          Próximamente, ConfiApp podrá gestionar y custodiar el pago del producto y el pago
+          del Agente directamente desde la plataforma, haciendo que todo el proceso sea más
+          simple, seguro y transparente para ambas partes.
         </p>
       </button>
     </div>

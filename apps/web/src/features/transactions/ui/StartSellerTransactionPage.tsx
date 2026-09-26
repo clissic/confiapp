@@ -157,12 +157,14 @@ export function StartSellerTransactionPage() {
   const isLast = stepIndex === SELLER_STEPS.length - 1;
 
   function stepDelta(from: number, dir: 1 | -1): number {
+    const mode =
+      watchedFundingMode === 'ESCROW_FULL' ? 'AGENT_FEE_ONLY' : watchedFundingMode;
     let next = from + dir;
     while (
       next >= 0 &&
       next < SELLER_STEPS.length &&
       SELLER_STEPS[next]?.id === 'price' &&
-      watchedFundingMode === 'AGENT_FEE_ONLY'
+      mode === 'AGENT_FEE_ONLY'
     ) {
       next += dir;
     }
@@ -287,6 +289,10 @@ export function StartSellerTransactionPage() {
     }
 
     try {
+      const fundingMode: FundingMode =
+        formValues.fundingMode === 'ESCROW_FULL'
+          ? 'AGENT_FEE_ONLY'
+          : formValues.fundingMode ?? 'AGENT_FEE_ONLY';
       const result = await create.mutateAsync({
         title: formValues.title,
         description: formValues.description || undefined,
@@ -295,8 +301,8 @@ export function StartSellerTransactionPage() {
         meetingLocationMode: delivery.mode,
         meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,
         returnInstructions: formValues.returnInstructions,
-        fundingMode: formValues.fundingMode,
-        ...(formValues.fundingMode === 'ESCROW_FULL'
+        fundingMode,
+        ...(fundingMode === 'ESCROW_FULL'
           ? {
               feePayer: formValues.feePayer,
               confiAnzaAmount: formValues.confiAnzaAmount,
@@ -308,7 +314,7 @@ export function StartSellerTransactionPage() {
           description: formValues.productDescription,
           condition: formValues.condition as ProductCondition,
           category: formValues.category as ProductCategory,
-          ...(formValues.fundingMode === 'ESCROW_FULL'
+          ...(fundingMode === 'ESCROW_FULL'
             ? {
                 price: formValues.price,
                 currency: formValues.currency,
@@ -509,9 +515,17 @@ export function StartSellerTransactionPage() {
 
           {step.id === 'funding' ? (
             <FundingModeStep
-              value={(watchedFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode}
+              value={
+                watchedFundingMode === 'ESCROW_FULL'
+                  ? 'AGENT_FEE_ONLY'
+                  : ((watchedFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode)
+              }
               onChange={(mode) =>
-                form.setValue('fundingMode', mode, { shouldValidate: true })
+                form.setValue(
+                  'fundingMode',
+                  mode === 'ESCROW_FULL' ? 'AGENT_FEE_ONLY' : mode,
+                  { shouldValidate: true },
+                )
               }
             />
           ) : null}

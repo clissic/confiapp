@@ -4677,8 +4677,9 @@
 }
 
 .ca-tx-buyer-wizard__steps {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.4rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
 }
 
 .ca-tx-buyer-wizard__steps > li {
@@ -4689,6 +4690,13 @@
 .ca-tx-buyer-wizard__steps .ca-tx-steps__item {
   width: 100%;
   cursor: default;
+  min-width: 0;
+}
+
+.ca-tx-buyer-wizard__steps .ca-tx-steps__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ca-tx-buyer-wizard__steps .ca-tx-steps__item:not(:disabled) {
@@ -5099,12 +5107,13 @@
 @media (min-width: 768px) and (max-width: 991.98px) {
   .ca-tx-buyer-wizard__steps .ca-tx-steps__item {
     flex-direction: column;
-    min-height: 4rem;
-    padding: 0.5rem 0.25rem;
+    min-height: 3.75rem;
+    padding: 0.4rem 0.15rem;
+    gap: 0.3rem;
   }
 
   .ca-tx-buyer-wizard__steps .ca-tx-steps__label {
-    font-size: 0.68rem;
+    font-size: 0.62rem;
   }
 }
 
@@ -5113,13 +5122,17 @@
   .ca-tx.ca-tx--seller.ca-tx-buyer-wizard,
   .ca-tx.ca-tx--invite-buy.ca-tx-buyer-wizard,
   .ca-tx.ca-tx--invite-sell.ca-tx-buyer-wizard {
-    max-width: 44rem;
+    max-width: 48rem;
   }
 
   .ca-tx-buyer-wizard__steps .ca-tx-steps__item {
     justify-content: center;
-    gap: 0.45rem;
-    padding: 0.55rem 0.4rem;
+    gap: 0.35rem;
+    padding: 0.5rem 0.3rem;
+  }
+
+  .ca-tx-buyer-wizard__steps .ca-tx-steps__label {
+    font-size: 0.75rem;
   }
 }
 

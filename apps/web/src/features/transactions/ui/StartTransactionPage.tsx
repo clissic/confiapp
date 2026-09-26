@@ -161,12 +161,14 @@ export function StartTransactionPage() {
   );
 
   function stepDelta(from: number, dir: 1 | -1): number {
+    const mode =
+      watchedFundingMode === 'ESCROW_FULL' ? 'AGENT_FEE_ONLY' : watchedFundingMode;
     let next = from + dir;
     while (
       next >= 0 &&
       next < BUYER_STEPS.length &&
       BUYER_STEPS[next]?.id === 'price' &&
-      watchedFundingMode === 'AGENT_FEE_ONLY'
+      mode === 'AGENT_FEE_ONLY'
     ) {
       next += dir;
     }
@@ -250,13 +252,17 @@ export function StartTransactionPage() {
     }
 
     try {
+      const fundingMode: FundingMode =
+        formValues.fundingMode === 'ESCROW_FULL'
+          ? 'AGENT_FEE_ONLY'
+          : formValues.fundingMode ?? 'AGENT_FEE_ONLY';
       const result = await create.mutateAsync({
         title: formValues.title,
         description: formValues.description?.trim() || undefined,
         conditionsSummary: formValues.conditionsSummary,
         checklist,
-        fundingMode: formValues.fundingMode,
-        ...(formValues.fundingMode === 'ESCROW_FULL'
+        fundingMode,
+        ...(fundingMode === 'ESCROW_FULL'
           ? {
               amount: formValues.amount,
               currency: formValues.currency,
@@ -416,9 +422,17 @@ export function StartTransactionPage() {
 
               {step.id === 'funding' ? (
                 <FundingModeStep
-                  value={(watchedFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode}
+                  value={
+                    watchedFundingMode === 'ESCROW_FULL'
+                      ? 'AGENT_FEE_ONLY'
+                      : ((watchedFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode)
+                  }
                   onChange={(mode) =>
-                    form.setValue('fundingMode', mode, { shouldValidate: true })
+                    form.setValue(
+                      'fundingMode',
+                      mode === 'ESCROW_FULL' ? 'AGENT_FEE_ONLY' : mode,
+                      { shouldValidate: true },
+                    )
                   }
                 />
               ) : null}

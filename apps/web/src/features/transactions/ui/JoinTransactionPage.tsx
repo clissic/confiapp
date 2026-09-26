@@ -134,6 +134,12 @@ function joinStepDelta(from: number, dir: 1 | -1, fundingMode: FundingMode): num
   return Math.max(0, Math.min(next, JOIN_STEPS.length - 1));
 }
 
+/** Escrow completo deshabilitado: siempre forzar solo pago del Agente en la UI. */
+function effectiveJoinFundingMode(mode?: FundingMode | null): FundingMode {
+  if (mode === 'ESCROW_FULL') return 'AGENT_FEE_ONLY';
+  return mode ?? 'AGENT_FEE_ONLY';
+}
+
 function validateDelivery(
   delivery: DeliveryLocationValue,
   profile: Parameters<typeof hasRegisteredAddress>[0],
@@ -299,7 +305,7 @@ function JoinAsBuyerWizard({
   const acceptForm = useZodForm(acceptPurchaseSchema, {
     defaultValues: {
       conditionsSummary: '',
-      fundingMode: preview.fundingMode ?? 'AGENT_FEE_ONLY',
+      fundingMode: effectiveJoinFundingMode(preview.fundingMode),
       feePayer: preview.feePayer ?? 'BUYER',
       productTitle: '',
       productDescription: '',
@@ -317,9 +323,7 @@ function JoinAsBuyerWizard({
     if (preview.feePayer) {
       acceptForm.setValue('feePayer', preview.feePayer);
     }
-    if (preview.fundingMode) {
-      acceptForm.setValue('fundingMode', preview.fundingMode);
-    }
+    acceptForm.setValue('fundingMode', effectiveJoinFundingMode(preview.fundingMode));
   }, [preview, acceptForm]);
 
   const acceptFeePayer = acceptForm.watch('feePayer');
@@ -380,14 +384,22 @@ function JoinAsBuyerWizard({
     }
 
     setStepIndex((i) =>
-      joinStepDelta(i, 1, (acceptFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+      joinStepDelta(
+        i,
+        1,
+        effectiveJoinFundingMode(acceptFundingMode as FundingMode | undefined),
+      ),
     );
   }
 
   function goBack() {
     setError(null);
     setStepIndex((i) =>
-      joinStepDelta(i, -1, (acceptFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+      joinStepDelta(
+        i,
+        -1,
+        effectiveJoinFundingMode(acceptFundingMode as FundingMode | undefined),
+      ),
     );
   }
 
@@ -412,8 +424,9 @@ function JoinAsBuyerWizard({
       return;
     }
 
-    const fundingMode =
-      formValues.fundingMode ?? preview.fundingMode ?? ('AGENT_FEE_ONLY' as FundingMode);
+    const fundingMode = effectiveJoinFundingMode(
+      formValues.fundingMode ?? preview.fundingMode,
+    );
 
     try {
       const result = await acceptPurchase.mutateAsync({
@@ -561,12 +574,14 @@ function JoinAsBuyerWizard({
 
             {step.id === 'funding' ? (
               <FundingModeStep
-                value={(acceptFundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') as FundingMode}
+                value={effectiveJoinFundingMode(
+                  (acceptFundingMode ?? preview.fundingMode) as FundingMode | undefined,
+                )}
                 onChange={(mode) => {
-                  if (preview.fundingMode) return;
-                  acceptForm.setValue('fundingMode', mode, { shouldValidate: true });
+                  acceptForm.setValue('fundingMode', effectiveJoinFundingMode(mode), {
+                    shouldValidate: true,
+                  });
                 }}
-                escrowFullEnabled={preview.fundingMode === 'ESCROW_FULL'}
               />
             ) : null}
 
@@ -661,15 +676,16 @@ function JoinAsBuyerWizard({
                       <dd>
                         {
                           FUNDING_MODE_LABELS[
-                            (values.fundingMode ??
-                              preview.fundingMode ??
-                              'AGENT_FEE_ONLY') as FundingMode
+                            effectiveJoinFundingMode(
+                              (values.fundingMode ?? preview.fundingMode) as FundingMode | undefined,
+                            )
                           ]
                         }
                       </dd>
                     </div>
-                    {(values.fundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') ===
-                    'AGENT_FEE_ONLY' ? (
+                    {effectiveJoinFundingMode(
+                      (values.fundingMode ?? preview.fundingMode) as FundingMode | undefined,
+                    ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
                         <dd>UYU $400 (la paga el comprador por Mercado Pago)</dd>
@@ -777,7 +793,7 @@ function JoinAsSellerWizard({
       description: '',
       condition: 'GOOD',
       category: 'OTHER',
-      fundingMode: preview.fundingMode ?? 'AGENT_FEE_ONLY',
+      fundingMode: effectiveJoinFundingMode(preview.fundingMode),
       price: undefined,
       currency: defaultPaymentCurrency(preferredCurrency),
       feePayer: preview.feePayer ?? 'BUYER',
@@ -806,9 +822,7 @@ function JoinAsSellerWizard({
     if (preview.feePayer) {
       form.setValue('feePayer', preview.feePayer);
     }
-    if (preview.fundingMode) {
-      form.setValue('fundingMode', preview.fundingMode);
-    }
+    form.setValue('fundingMode', effectiveJoinFundingMode(preview.fundingMode));
   }, [preview, form, preferredCurrency]);
 
   const values = form.watch();
@@ -906,14 +920,22 @@ function JoinAsSellerWizard({
     }
 
     setStepIndex((i) =>
-      joinStepDelta(i, 1, (sellerFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+      joinStepDelta(
+        i,
+        1,
+        effectiveJoinFundingMode(sellerFundingMode as FundingMode | undefined),
+      ),
     );
   }
 
   function goBack() {
     setError(null);
     setStepIndex((i) =>
-      joinStepDelta(i, -1, (sellerFundingMode ?? 'AGENT_FEE_ONLY') as FundingMode),
+      joinStepDelta(
+        i,
+        -1,
+        effectiveJoinFundingMode(sellerFundingMode as FundingMode | undefined),
+      ),
     );
   }
 
@@ -938,8 +960,9 @@ function JoinAsSellerWizard({
       return;
     }
 
-    const fundingMode =
-      formValues.fundingMode ?? preview.fundingMode ?? ('AGENT_FEE_ONLY' as FundingMode);
+    const fundingMode = effectiveJoinFundingMode(
+      formValues.fundingMode ?? preview.fundingMode,
+    );
 
     try {
       const result = await confirm.mutateAsync({
@@ -1112,14 +1135,14 @@ function JoinAsSellerWizard({
 
             {step.id === 'funding' ? (
               <FundingModeStep
-                value={
-                  (sellerFundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') as FundingMode
-                }
+                value={effectiveJoinFundingMode(
+                  (sellerFundingMode ?? preview.fundingMode) as FundingMode | undefined,
+                )}
                 onChange={(mode) => {
-                  if (preview.fundingMode) return;
-                  form.setValue('fundingMode', mode, { shouldValidate: true });
+                  form.setValue('fundingMode', effectiveJoinFundingMode(mode), {
+                    shouldValidate: true,
+                  });
                 }}
-                escrowFullEnabled={preview.fundingMode === 'ESCROW_FULL'}
               />
             ) : null}
 
@@ -1272,15 +1295,16 @@ function JoinAsSellerWizard({
                       <dd>
                         {
                           FUNDING_MODE_LABELS[
-                            (values.fundingMode ??
-                              preview.fundingMode ??
-                              'AGENT_FEE_ONLY') as FundingMode
+                            effectiveJoinFundingMode(
+                              (values.fundingMode ?? preview.fundingMode) as FundingMode | undefined,
+                            )
                           ]
                         }
                       </dd>
                     </div>
-                    {(values.fundingMode ?? preview.fundingMode ?? 'AGENT_FEE_ONLY') ===
-                    'AGENT_FEE_ONLY' ? (
+                    {effectiveJoinFundingMode(
+                      (values.fundingMode ?? preview.fundingMode) as FundingMode | undefined,
+                    ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
                         <dd>UYU $400 (la paga el comprador por Mercado Pago)</dd>

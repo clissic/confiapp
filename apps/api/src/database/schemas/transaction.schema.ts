@@ -204,7 +204,7 @@ export const transactionSchema = new Schema<ITransaction>(
     fundingMode: {
       type: String,
       enum: Object.values(FundingMode),
-      default: FundingMode.ESCROW_FULL,
+      default: FundingMode.AGENT_FEE_ONLY,
     },
     amountCents: {
       type: Number,
