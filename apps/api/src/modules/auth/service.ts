@@ -36,7 +36,7 @@ import { AuthRepository, type UserDocument } from './repository';
 
 const REFRESH_COOKIE = 'refreshToken';
 const VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
-const RESET_TTL_MS = 60 * 60 * 1000;
+const RESET_TTL_MS = 15 * 60 * 1000;
 
 function toAuthUser(user: HydratedDocument<IUser> | UserDocument): AuthUserDto {
   const identityStatus = user.kyc?.status ?? user.verification?.identity?.status;
@@ -420,9 +420,9 @@ export class AuthService {
     const resetUrl = `${env.APP_URL}/reset-password?token=${token}`;
     const branded = buildBrandedEmail({
       title: 'Restablecé tu contraseña',
-      preheader: 'El enlace vence en 1 hora.',
+      preheader: 'El enlace vence en 15 minutos.',
       bodyHtml: emailParagraphs(
-        'Pediste restablecer tu contraseña en ConfiApp.\n\nEl enlace vence en 1 hora. Si no fuiste vos, ignorá este mensaje.',
+        'Pediste restablecer tu contraseña en ConfiApp.\n\nEl enlace vence en 15 minutos. Si no fuiste vos, ignorá este mensaje.',
       ),
       cta: { label: 'Restablecer contraseña', href: resetUrl },
       footnote: 'Por seguridad, este enlace solo funciona una vez.',
@@ -430,7 +430,7 @@ export class AuthService {
     await emailSender.send({
       to: user.email,
       subject: 'ConfiApp — Restablecé tu contraseña',
-      text: `Pediste restablecer tu contraseña. El enlace vence en 1 hora:\n\n${resetUrl}\n\nSi no fuiste vos, ignorá este mensaje.`,
+      text: `Pediste restablecer tu contraseña. El enlace vence en 15 minutos:\n\n${resetUrl}\n\nSi no fuiste vos, ignorá este mensaje.`,
       html: branded.html,
       attachments: branded.attachments,
     });

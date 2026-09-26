@@ -95,6 +95,18 @@ export function LoginPage() {
             />
           </label>
 
+          <p className="ca-auth__hint">
+            <Link
+              to={
+                email.trim()
+                  ? `/recuperar-contrasena?email=${encodeURIComponent(email.trim())}`
+                  : '/recuperar-contrasena'
+              }
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </p>
+
           <button className="ca-auth__submit" type="submit" disabled={loading}>
             {loading ? 'Ingresando…' : 'Ingresar'}
           </button>

@@ -19,6 +19,12 @@ const RegisterPage = lazy(() =>
 const VerifyEmailPage = lazy(() =>
   import('@/pages/VerifyEmailPage').then((m) => ({ default: m.VerifyEmailPage })),
 );
+const ForgotPasswordPage = lazy(() =>
+  import('@/pages/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage })),
+);
+const ResetPasswordPage = lazy(() =>
+  import('@/pages/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage })),
+);
 const WorkspacePlaceholderPage = lazy(() =>
   import('@/pages/WorkspacePlaceholderPage').then((m) => ({
     default: m.WorkspacePlaceholderPage,
@@ -138,6 +144,8 @@ export function AppRouter() {
           <Route path="/registro" element={<RegisterPage />} />
           <Route path="/verificar-email" element={<VerifyEmailPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route element={<LegalAccessLayout />}>
             <Route path="terminos" element={<TermsPage />} />

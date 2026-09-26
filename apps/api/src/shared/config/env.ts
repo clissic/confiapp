@@ -83,7 +83,7 @@ const envSchema = z.object({
   PAYMENTS_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
   /** % de la comisión de intermediación para el agente (8000 = 80%). */
   PAYMENTS_AGENT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(8000),
-  /** SMTP — si SMTP_HOST está vacío, se usa el mailer de consola (dev). */
+  /** SMTP — si SMTP_HOST está vacío y EMAIL_PROVIDER=auto, se prueba Resend o consola. */
   SMTP_HOST: z.string().optional().default(''),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_SECURE: z
@@ -92,6 +92,16 @@ const envSchema = z.object({
     .transform((value) => value === 'true'),
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASS: z.string().optional().default(''),
+  /**
+   * Transporte de email: `auto` | `smtp` | `resend` | `console`.
+   * - auto: SMTP si hay host; si no, Resend si hay API key; si no, consola.
+   * - smtp: Nodemailer (Gmail u otro SMTP).
+   * - resend: API Resend.
+   */
+  EMAIL_PROVIDER: z.enum(['auto', 'smtp', 'resend', 'console']).default('auto'),
+  /** API key de Resend (https://resend.com). Requerido si EMAIL_PROVIDER=resend. */
+  RESEND_API_KEY: z.string().optional().default(''),
+  /** Remitente. Con Resend: dominio verificado, p. ej. ConfiApp <confiapp@jpc-dev.uy> */
   MAIL_FROM: z.string().default('ConfiApp <noreply@confiapp.local>'),
   /** Destinatario de notificaciones internas (KYC). Vacío = email parseado de MAIL_FROM. */
   PLATFORM_NOTIFY_EMAIL: z.string().default(''),

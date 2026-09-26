@@ -170,3 +170,23 @@ export async function startIdDigital(input: {
   );
   return data;
 }
+
+export async function forgotPasswordRequest(email: string): Promise<{ message: string }> {
+  const { data } = await apiClient.post<{ message: string }>(
+    '/auth/forgot-password',
+    { email },
+    { timeout: 45_000 },
+  );
+  return data;
+}
+
+export async function resetPasswordRequest(
+  token: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  const { data } = await apiClient.post<{ message: string }>('/auth/reset-password', {
+    token,
+    newPassword,
+  });
+  return data;
+}
