@@ -252,6 +252,7 @@ export function StartTransactionPage() {
     }
 
     try {
+      // Escrow deshabilitado: forzar AGENT_FEE_ONLY (no enviar amount/feePayer).
       const fundingMode: FundingMode =
         formValues.fundingMode === 'ESCROW_FULL'
           ? 'AGENT_FEE_ONLY'
@@ -262,15 +263,7 @@ export function StartTransactionPage() {
         conditionsSummary: formValues.conditionsSummary,
         checklist,
         fundingMode,
-        ...(fundingMode === 'ESCROW_FULL'
-          ? {
-              amount: formValues.amount,
-              currency: formValues.currency,
-              feePayer: formValues.feePayer,
-              confiAnzaAmount: formValues.confiAnzaAmount,
-              confiAnzaCurrency: formValues.confiAnzaCurrency,
-            }
-          : { currency: 'UYU' }),
+        currency: 'UYU',
         inviteExpiresInDays: formValues.inviteExpiresInDays,
         meetingLocationMode: delivery.mode,
         meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,

@@ -289,6 +289,7 @@ export function StartSellerTransactionPage() {
     }
 
     try {
+      // Escrow deshabilitado: forzar AGENT_FEE_ONLY (no enviar price/feePayer).
       const fundingMode: FundingMode =
         formValues.fundingMode === 'ESCROW_FULL'
           ? 'AGENT_FEE_ONLY'
@@ -302,24 +303,12 @@ export function StartSellerTransactionPage() {
         meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,
         returnInstructions: formValues.returnInstructions,
         fundingMode,
-        ...(fundingMode === 'ESCROW_FULL'
-          ? {
-              feePayer: formValues.feePayer,
-              confiAnzaAmount: formValues.confiAnzaAmount,
-              confiAnzaCurrency: formValues.confiAnzaCurrency,
-            }
-          : {}),
         product: {
           title: formValues.productTitle,
           description: formValues.productDescription,
           condition: formValues.condition as ProductCondition,
           category: formValues.category as ProductCategory,
-          ...(fundingMode === 'ESCROW_FULL'
-            ? {
-                price: formValues.price,
-                currency: formValues.currency,
-              }
-            : { currency: 'UYU' }),
+          currency: 'UYU',
           images,
         },
       });
