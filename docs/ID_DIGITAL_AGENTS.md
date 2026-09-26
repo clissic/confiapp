@@ -1,143 +1,170 @@
-# Identidad Digital Abitab — confirmación de identidad de Agentes
+# Identidad Digital Abitab — Agentes ConfiApp
 
-> **Estado:** documentado / **no implementado** (decisión de producto 2026-08-29).  
-> Este documento fija el diseño acordado para cuando se implemente. No hay código de integración aún.
+> **Estado:** documentado / **no implementado** (decisiones actualizadas 2026-09-26).  
+> Diseño acordado para cuando existan credenciales (`client_id` / `client_secret`) y `redirect_uri` registradas. No hay código de integración aún.
 
 ## 1. Objetivo
 
-Confirmar la identidad de los **Agentes** de ConfiApp mediante el servicio oficial **Identidad Digital Abitab (ID Digital 2.0)**, además de las credenciales propias de la app (email + contraseña).
+Confirmar la identidad de los **Agentes** mediante **Identidad Digital Abitab (ID Digital 2.0)**.
 
-- **Quién:** solo usuarios con rol/perfil de Agente.
-- **Cuándo:** en **cada ingreso** a la aplicación (cada login nuevo).
-- **Quién no:** compradores, vendedores y admin (siguen solo con email/password).
+- **Quién:** usuarios en onboarding o activos como Agente.
+- **Cuándo:**
+  1. Al **inicio del onboarding** para convertirse en Agente (reemplaza la *exigencia* del KYC por fotos).
+  2. En **cada aceptación de un trabajo** (misma autenticación ID Digital que en el alta).
+- **Quién no:** compradores, vendedores y admin para estos gates (siguen sin ID Digital obligatorio).
 
-No reemplaza el alta KYC por review admin ni el onboarding de agencia; es un **step-up de autenticación** en el login.
+No reemplaza ni elimina el flujo KYC por fotos + review admin: ese canal **sigue existiendo** como verificación de menor valor para la app. Solo se **quita el bloqueo** del wizard de agente que hoy exige “identidad verificada (DNI/pasaporte con fotos)” (`BecomeAgentPage`).
 
-## 2. Documentación externa (fuente de verdad del proveedor)
+## 2. Documentación externa
 
 | Recurso | URL |
 |---------|-----|
 | Primeros pasos | https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/first-steps |
-| Flujos de autorización | https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows |
-| Definiciones (OAuth/OIDC) | https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/definitions |
-| Soporte proveedor | ayuda@id.com.uy |
+| Flujo authorization code (recomendado) | https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/code |
+| Flujo implícito (claims del `id_token`) | https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/implicit |
+| Definiciones | https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/definitions |
+| Soporte | ayuda@id.com.uy |
 
-Resumen del proveedor ([primeros pasos](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/first-steps)):
+Resumen del proveedor:
 
-1. Credenciales: `client_id` + `client_secret` (almacenar solo en backend).
-2. Registrar `redirect_uri` (HTTPS) en ID Digital.
-3. Implementar un flujo de autorización (recomiendan **authorization code**).
-4. Tras autorizar, obtener datos del usuario vía su API (`openid` / `profile`).
+1. Credenciales: `client_id` + `client_secret` (solo backend).
+2. Registrar `redirect_uri` HTTPS en ID Digital.
+3. Flujo de autorización (preferimos **authorization code**).
+4. Datos de identidad vía `id_token` / API según documentación.
 
-Parámetros relevantes ([definiciones](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/definitions)):
-
-- `scope`: p. ej. `openid profile`
-- `state` (anti-CSRF), `nonce` (obligatorio en flujo implícito)
-- `response_type`: `code` (authorization code) o `token` (implícito)
-- `acr_values`: métodos (`pin`, `liveness`, `face-match`, `email-otp`, `phone-otp`, `signature`, …)
-- Respuesta de nivel: `loa2` / `loa3`; métodos usados en `amr`
-
-Advertencia del proveedor: no depender de cookies ajenas al servicio; autenticar solo con lo documentado en su flujo.
-
-## 3. Decisiones de producto (2026-08-29)
+## 3. Decisiones de producto (2026-09-26)
 
 | # | Decisión | Detalle |
 |---|----------|---------|
-| D1 | Alcance | **Solo Agentes** deben pasar por ID Digital. |
-| D2 | Momento | En **cada login** a la app (no en cada navegación interna). |
-| D3 | Modelo | **Step-up**: primero credenciales ConfiApp, después ID Digital. |
-| D4 | No-agentes | Comprador / vendedor / admin: solo email + contraseña. |
-| D5 | Misma sesión | Refresh de access token / navegación dentro de la app: **no** volver a pedir ID Digital. |
-| D6 | Nuevo login | Cerrar sesión y volver a ingresar: **sí** pedir ID Digital otra vez. |
-| D7 | Flujo OAuth | Usar **authorization code** (recomendado por Abitab; `client_secret` solo en API). |
-| D8 | Matching | Además de un token válido de Abitab, **matchear documento/cédula** con la cuenta ConfiApp. Si no coincide → rechazar. |
-| D9 | Relación con KYC | ID Digital es step-up de login; **no sustituye** el flujo KYC/admin ni el onboarding `/agente`. Pueden coexistir (`User.kyc.provider`, etc.). |
-| D10 | Implementación | **Documentar ahora; implementar después.** No hay endpoints ni UI aún. |
+| D1 | Alcance | Solo flujos de **Agente** (onboarding + aceptar trabajo). |
+| D2 | Onboarding | ID Digital **al inicio** del alta de agente; **deja de ser obligatorio** el KYC por fotos para continuar el wizard. |
+| D3 | KYC fotos | **Se conserva** el sistema de fotos + admin review; deja de ser gate del onboarding de agente. |
+| D4 | Aceptar trabajo | Cada vez que un agente **acepta** un trabajo → nueva autenticación ID Digital (mismo método que en el registro/onboarding). |
+| D5 | Login app | **No** se exige ID Digital en cada login email/password (supersede decisión 2026-08-29 de step-up por login). |
+| D6 | Método actual | `acr_values=pin` (PIN en la app ID Digital). |
+| D7 | Roadmap ACR | Escalar luego a `liveness` (reconocimiento facial). Ver README. |
+| D8 | Flujo OAuth | **Authorization code** en producción (secreto en API). Claims de usuario según lo documentado para el `id_token` (tabla del [flujo implícito](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/implicit)): `sub`, nombres, `email`, `acr`, `amr`, etc. |
+| D9 | Credenciales | Aún **no** hay `client_id` / `client_secret`; primero definir y registrar `redirect_uri`(s). |
+| D10 | Plataforma | Solo **web** por ahora. Flujo móvil/nativo cuando existan apps nativas. |
+| D11 | Matching | Validar identidad contra la cuenta ConfiApp con los claims disponibles del proveedor (p. ej. `sub` vinculado a la cuenta agente; documento si el proveedor lo expone en userinfo/`id_token` según paquete comercial). |
 
-### Qué es “step-up” en este contexto
+### Relación con el KYC actual
 
-1. El agente ingresa con **email + contraseña** (login actual).
-2. El backend detecta que es agente.
-3. La sesión queda **pendiente** de verificación ID Digital (no entra operativo a la app).
-4. Redirección a Identidad Digital Abitab.
-5. Callback en ConfiApp: exchange del `code`, userinfo, matching de documento.
-6. Recién ahí sesión completa → acceso a la app como agente.
+```text
+Antes:  BecomeAgent → exige identityVerified (fotos KYC) → términos → …
+Ahora:  BecomeAgent → exige ID Digital (PIN) → términos → …
+        Configuración → “Verificar identidad” (fotos) sigue disponible, sin bloquear el wizard.
+```
+
+Gate a reemplazar en UI: alerta en `apps/web/.../BecomeAgentPage.tsx`  
+(“Para continuar necesitás tener la identidad verificada…”).
+
+Segundo gate: aceptar oferta/trabajo (p. ej. `acceptOffer` / UI de trabajos abiertos) → exigir prueba ID Digital fresca antes de confirmar.
 
 ## 4. Flujo acordado (a implementar)
 
+### 4.1 Onboarding agente
+
 ```text
-Agente → POST /auth/login (email + password)
-       → Backend: credenciales OK + es agente
-       → Respuesta: requiresIdDigital = true (sesión limitada o flag)
-       → Front redirige a GET /auth/id-digital/start
-       → Usuario autentica en ID Digital Abitab
-       → Redirect a /auth/id-digital/callback?code=…&state=…
-       → API: valida state, intercambia code, userinfo, match documento
-       → Sesión completa (claim/flag agentStepUp / idDigitalVerifiedAt)
-       → Front → /inicio (u another next)
+Usuario autenticado ConfiApp → /agente (onboarding)
+  → Si no hay idDigitalVerifiedAt / flag de sesión de onboarding:
+       GET /auth/id-digital/start?purpose=agent_onboarding
+       → redirect ID Digital (acr=pin)
+       → callback: code → tokens → validar id_token (iss, aud, exp, …)
+       → marcar step-up onboarding OK
+  → Continuar wizard (términos, zona, etc.) sin exigir KYC fotos
 ```
 
-Comprador/vendedor/admin: login normal sin `requiresIdDigital`.
+### 4.2 Aceptar trabajo
 
-## 5. Diseño técnico previsto (sin código aún)
+```text
+Agente → Aceptar trabajo / oferta
+  → GET /auth/id-digital/start?purpose=accept_job&jobId=… (o notificationId)
+  → ID Digital (pin) → callback
+  → Solo entonces acceptOffer / claim del trabajo
+```
 
-### 5.1 Backend (`apps/api`)
+### 4.3 Redirect URIs a registrar (borrador)
 
-- Variables de entorno (ejemplo):  
-  `ID_DIGITAL_CLIENT_ID`, `ID_DIGITAL_CLIENT_SECRET`,  
-  `ID_DIGITAL_AUTH_URL`, `ID_DIGITAL_TOKEN_URL`, `ID_DIGITAL_USERINFO_URL`,  
-  `ID_DIGITAL_REDIRECT_URI`, `ID_DIGITAL_ACR_VALUES`, `ID_DIGITAL_SCOPE`
-- Endpoints tentativos:
-  - `GET /auth/id-digital/start` — arma URL de autorización (`state`/`nonce`); exige sesión y rol/perfil agente.
-  - `GET /auth/id-digital/callback` — exchange + userinfo + matching.
-- Extender login: si es agente → `requiresIdDigital: true` hasta completar step-up.
-- Guardas: rutas de agente / sesión “completa” requieren flag de step-up en la sesión actual.
-- Auditoría: eventos de inicio de step-up, éxito, fallo y mismatch de documento.
+Definir con Abitab antes de pedir credenciales. Ejemplos:
 
-### 5.2 Frontend (`apps/web`)
+| Entorno | URI (tentativa) |
+|---------|-----------------|
+| Local | `http://localhost:3001/auth/id-digital/callback` (si el proveedor allowlista HTTP local) o túnel HTTPS |
+| Staging / prod | `https://<dominio-confiapp>/auth/id-digital/callback` |
 
-- Tras login, si `requiresIdDigital` → redirect a start (o pantalla intermedia “Verificá tu identidad”).
-- Ruta/página de callback que complete el flujo y redirija al `next` seguro.
-- Guard (p. ej. junto a `RequireAgent`): sin step-up → forzar verificación; no dejar usar `/agente/trabajos` etc.
+La API puede recibir el callback y luego redirigir al front, o el front recibe y manda el `code` al backend — decidir en implementación (preferible: callback front → API exchange, o callback API → redirect front).
 
-### 5.3 Matching de identidad
+## 5. URLs del proveedor
 
-- Fuente ConfiApp: `documentNumber` / `documentNumberHash` del usuario.
-- Fuente ID Digital: claims/userinfo del proveedor (documento/CI según API).
-- Comparación normalizada; nunca loguear el documento en claro en auditoría de detalle.
+| Uso | URL primaria | Alternativa |
+|-----|--------------|-------------|
+| Authorize | `https://login.identidaddigital.com.uy/v2/authorize` | Si falla de forma sistemática, evaluar hosts del paquete / `auth.identificaciondigital.com.uy` (ver README) |
+| Token (ejemplo doc) | Host en ejemplos: `auth.identificaciondigital.com.uy` — `POST /api/v2/openid/token` | Confirmar con credenciales oficiales |
+| Issuer (`iss` en id_token) | `https://auth.identificaciondigital.com.uy/api/v2/openid` | Según [flujo implícito](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/implicit) |
 
-### 5.4 Criterio “es agente”
+Hay **dos ortografías de dominio** en la documentación del proveedor (`identidaddigital` vs `identificaciondigital`). Asumir authorize en `login.identidaddigital.com.uy` y no descartar el host `auth.identificaciondigital.com.uy` para token/`iss`. Documentado también en el README raíz.
 
-Alineado con el guard actual `RequireAgent`: perfil de onboarding `ACTIVE` o `INACTIVE`, o flag/rol de agente equivalente. Definir en implementación si `INACTIVE` también exige step-up (**recomendación: sí**, misma política que acceso a área agente).
+## 6. Claims del `id_token` (referencia)
 
-## 6. Decisiones abiertas (para cuando se implemente)
+Según la documentación del [flujo implícito](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/implicit) (misma forma de JWT / claims a usar como referencia de identidad):
 
-Pendientes de cerrar con producto / comercial Abitab:
+| Claim | Uso |
+|-------|-----|
+| `iss` | Verificar emisor esperado |
+| `aud` | Debe ser nuestro `client_id` |
+| `nonce` | Obligatorio en implícito; recomendable también en code si se usa |
+| `iat` / `exp` | Ventana de validez |
+| `sub` | Identificador único del usuario en ID Digital (vincular a User) |
+| `first_name`, `second_name`, `last_name`, `second_last_name` | Perfil |
+| `email` | Correo en ID Digital |
+| `acr` | Nivel (`loa2` / `loa3`) |
+| `amr` | Métodos usados (p. ej. pin) |
 
-1. Valores exactos de `acr_values` (p. ej. `pin`, `liveness`, `face-match`) y nivel `loa2` vs `loa3`.
-2. ¿El rol **ADMIN** queda fuera del gate? (**recomendación documentada: sí, fuera**).
-3. Comportamiento si el agente aún no tiene documento cargado en ConfiApp.
-4. Entornos sandbox vs producción y lista de `redirect_uri`.
-5. Flujo móvil / WebView (la doc del proveedor tiene sección específica).
+**Nota:** el flujo de implementación será **authorization code** (más seguro). El implícito se usa como **fuente de verdad de claims**; el exchange del `code` ocurre solo en el backend.
 
-## 7. Referencias internas
+## 7. Diseño técnico previsto (sin código aún)
 
-| Doc | Relación |
-|-----|----------|
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Módulos auth / agents |
-| [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | AuthN/AuthZ y KYC a escala |
-| [`WEB_APP.md`](./WEB_APP.md) | Rutas de agente y guards |
-| Código actual login | `apps/api/src/modules/auth`, `apps/web/src/features/auth` |
-| Guard agente | `apps/web/src/features/auth/ui/RequireAgent.tsx` |
-| Modelo KYC usuario | `packages/database` → `User.kyc` / `verification.identity` |
+### Backend
 
-## 8. Checklist de implementación futura
+- Env: `ID_DIGITAL_CLIENT_ID`, `ID_DIGITAL_CLIENT_SECRET`, `ID_DIGITAL_AUTH_URL`, `ID_DIGITAL_TOKEN_URL`, `ID_DIGITAL_REDIRECT_URI`, `ID_DIGITAL_ACR_VALUES=pin`, `ID_DIGITAL_SCOPE=openid profile`, `ID_DIGITAL_ISSUER`.
+- `GET /auth/id-digital/start` — `purpose`: `agent_onboarding` | `accept_job`; genera `state` (+ `nonce`); exige sesión.
+- `GET` o `POST /auth/id-digital/callback` — valida `state`, intercambia `code`, valida `id_token`, audita.
+- Persistencia: vínculo `User` ↔ `sub` ID Digital; timestamp de última verificación por propósito; para `accept_job`, prueba de vida reciente atada al job/oferta.
+- Guardas: onboarding agente y `acceptOffer` requieren verificación ID Digital válida para ese acto.
 
-- [ ] Credenciales y redirect registrados en ID Digital (sandbox)
-- [ ] Env + cliente HTTP en API (sin secretos en web)
-- [ ] `start` + `callback` + persistencia de `state`/`nonce`
-- [ ] Flag/claim de sesión post-login solo agentes
-- [ ] Matching de documento + auditoría
-- [ ] UI login → redirect → callback → errores amigables
-- [ ] Tests (unit + e2e del happy path y mismatch)
-- [ ] Cerrar `acr_values` y política ADMIN / documento faltante
+### Frontend
+
+- Sustituir alerta KYC del primer paso del wizard por CTA “Verificar con Identidad Digital Abitab”.
+- Pantalla/ruta de callback (fragment no aplica en code flow: query `?code=&state=`).
+- Al aceptar trabajo: interrumpir → ID Digital → reanudar aceptación.
+- No montar flujo móvil nativo todavía.
+
+### KYC fotos
+
+- Mantener `/perfil` → Verificar identidad, emails admin, endpoints KYC.
+- Quitar (solo) el `if (!identityVerified)` que bloquea términos / Continuar en onboarding agente.
+
+## 8. Checklist previo a implementar
+
+- [ ] Definir y registrar `redirect_uri` (local + prod) con Abitab
+- [ ] Obtener `client_id` / `client_secret`
+- [ ] Confirmar URL exacta de token y JWKS (si aplica) con el paquete comercial
+- [ ] Cerrar si el documento/CI viene en userinfo o solo `sub`+nombre
+- [ ] Env + cliente HTTP en API
+- [ ] `start` + `callback` + `state` persistido (TTL corto)
+- [ ] Quitar gate fotos en `BecomeAgentPage` (no borrar módulo KYC)
+- [ ] Gate en aceptar trabajo
+- [ ] UI errores (`error` / `error_description` del redirect)
+- [ ] Tests happy path + cancelación + state inválido
+- [ ] Solo web; mobile documented as later
+
+## 9. Referencias internas
+
+| Doc / código | Relación |
+|--------------|----------|
+| [`README.md`](../README.md) | Roadmap PIN → liveness; URLs primarias/alternativas |
+| [`WEB_APP.md`](./WEB_APP.md) | Rutas agente |
+| KYC fotos | `KycDocumentsSection`, admin review |
+| Gate actual onboarding | `BecomeAgentPage.tsx` (alerta identidad verificada) |
+| Aceptar trabajo | `AgentAssignmentService.acceptOffer`, UI agent-ops |

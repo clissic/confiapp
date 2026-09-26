@@ -1142,6 +1142,116 @@
   color: var(--text-muted);
 }
 
+.ca-profile-history-filters {
+  --bs-accordion-bg: transparent;
+  --bs-accordion-border-color: var(--border-default);
+  --bs-accordion-btn-bg: transparent;
+  --bs-accordion-active-bg: transparent;
+  --bs-accordion-btn-color: var(--text-primary);
+  --bs-accordion-active-color: var(--text-primary);
+  --bs-accordion-btn-focus-box-shadow: none;
+}
+
+.ca-profile-history-filters .accordion-item {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-sunken) 55%, transparent);
+}
+
+.ca-profile-history-filters .accordion-button {
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.7rem 1rem;
+  box-shadow: none;
+}
+
+.ca-profile-history-filters .accordion-button:not(.collapsed) {
+  box-shadow: none;
+}
+
+.ca-profile-history-filters .accordion-body {
+  padding: 0.25rem 1rem 1rem;
+}
+
+.ca-profile-history-filters__header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ca-profile-history-filters__count {
+  font-size: 0.7rem;
+}
+
+.ca-profile-history-filters__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.ca-profile-history-filters__form .form-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.ca-profile-history-filters__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.ca-profile-history-filters__actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 2.25rem;
+  min-width: 6.5rem;
+  padding: 0.4rem 0.95rem;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.2;
+  border-radius: var(--radius-md, 0.5rem) !important;
+}
+
+.ca-profile-history-filters__actions .ca-btn-cta {
+  min-height: 2.25rem;
+}
+
+.ca-profile-history__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 45%, transparent);
+}
+
+.ca-profile-history__pager .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ca-profile-history__pager-status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.ca-profile-history__pager-status--solo {
+  margin: 0.75rem 0 0;
+  text-align: center;
+}
+
+.ca-profile-history__pager-hint {
+  color: var(--text-muted);
+}
+
 .ca-empty {
   display: grid;
   justify-items: center;

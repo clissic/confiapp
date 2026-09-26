@@ -59,8 +59,8 @@ export default defineConfig({
   server: {
     host: true,
     port: 3001,
-    // Túneles demo (Cloudflare quick tunnel) + LAN
-    allowedHosts: ['.trycloudflare.com'],
+    // Túneles demo + Railway (Host header público)
+    allowedHosts: ['.trycloudflare.com', '.up.railway.app'],
     proxy: {
       ...Object.fromEntries(API_PROXY_PATHS.map((p) => [p, apiProxy])),
       // Prefijo `/audit` también matchea `/auditoria` (SPA): bypassear esa ruta.
@@ -78,5 +78,10 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/api/, ''),
       },
     },
+  },
+  preview: {
+    host: true,
+    port: 3001,
+    allowedHosts: ['.trycloudflare.com', '.up.railway.app'],
   },
 });
