@@ -1,8 +1,12 @@
+import path from 'node:path';
+
 import { config as loadEnv } from 'dotenv';
 import { z } from 'zod';
 
-loadEnv({ path: '.env.local' });
-loadEnv({ path: '.env' });
+/** Siempre desde `apps/api`, aunque el cwd sea la raíz del monorepo. */
+const apiRoot = path.resolve(__dirname, '../../..');
+loadEnv({ path: path.join(apiRoot, '.env.local') });
+loadEnv({ path: path.join(apiRoot, '.env') });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),

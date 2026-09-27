@@ -25,6 +25,9 @@ async function bootstrap(): Promise<void> {
   const server: Server = app.listen(env.PORT, env.HOST, () => {
     logger.info(`listening on http://localhost:${env.PORT}`);
     logger.info(`swagger at http://localhost:${env.PORT}/docs`);
+    logger.info(
+      `payments checkoutMode=${env.PAYMENTS_CHECKOUT_MODE} mpToken=${env.MERCADOPAGO_ACCESS_TOKEN?.trim() ? 'set' : 'empty'}`,
+    );
     logger.info('database status', {
       readyState: DatabaseModule.getReadyState(),
       connected: DatabaseModule.isReady(),

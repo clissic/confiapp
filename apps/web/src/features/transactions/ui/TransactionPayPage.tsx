@@ -222,7 +222,7 @@ export function TransactionPayPage() {
   const tipSameCurrency = tipCurrency === (tx.currency || 'UYU').toUpperCase();
   const creatorIsBuyer = (tx.initiatedBy ?? 'BUYER') === 'BUYER';
   const totalPayNow = isAgentFeeOnly
-    ? (escrow?.amountDueCents ?? AGENT_FEE_ONLY_UYU_CENTS)
+    ? AGENT_FEE_ONLY_UYU_CENTS
     : escrow?.amountDueCents ??
       (creatorIsBuyer && tipSameCurrency && feePreview
         ? feePreview.buyerPaysCents + confiAnzaCents
@@ -396,8 +396,8 @@ export function TransactionPayPage() {
         <p className="ca-tx-pay-standby text-muted mb-0">
           <Link to={`/operaciones/${tx.code}`}>Cancelar y volver</Link>
           {' · '}
-          Mercado Pago queda en standby hasta tener credenciales (
-          <code>PAYMENTS_CHECKOUT_MODE=mercadopago</code>).
+          Cobro por transferencia Prex. Para usar Mercado Pago, configurá{' '}
+          <code>PAYMENTS_CHECKOUT_MODE=mercadopago</code> en la API y reiniciala.
         </p>
       ) : null}
     </div>

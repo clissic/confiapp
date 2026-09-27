@@ -16,24 +16,23 @@ const TABS: Array<{ id: OpsTab; label: string; empty: string; createTo: string; 
     {
       id: 'buyer',
       label: 'Como comprador',
-      empty: 'Todavía no iniciaste operaciones como comprador.',
+      empty: 'Todavía no tenés operaciones como comprador.',
       createTo: '/operaciones/nueva/comprador',
       createLabel: 'Iniciar como comprador',
     },
     {
       id: 'seller',
       label: 'Como vendedor',
-      empty: 'Todavía no iniciaste operaciones como vendedor.',
+      empty: 'Todavía no tenés operaciones como vendedor.',
       createTo: '/operaciones/nueva/vendedor',
       createLabel: 'Iniciar como vendedor',
     },
   ];
 
-function isInitiatedAs(tx: Transaction, tab: OpsTab): boolean {
-  if (tab === 'buyer') {
-    return tx.initiatedBy === 'BUYER' && tx.viewerRole === 'BUYER';
-  }
-  return tx.initiatedBy === 'SELLER' && tx.viewerRole === 'SELLER';
+/** Ops en las que participás con ese rol (iniciadas por vos o por la contraparte). */
+function isViewerAs(tx: Transaction, tab: OpsTab): boolean {
+  if (tab === 'buyer') return tx.viewerRole === 'BUYER';
+  return tx.viewerRole === 'SELLER';
 }
 
 export function TransactionsListPage() {
@@ -41,14 +40,14 @@ export function TransactionsListPage() {
   const [tab, setTab] = useState<OpsTab>('buyer');
 
   const list = data?.data ?? [];
-  const filtered = useMemo(() => list.filter((tx) => isInitiatedAs(tx, tab)), [list, tab]);
+  const filtered = useMemo(() => list.filter((tx) => isViewerAs(tx, tab)), [list, tab]);
   const activeTab = TABS.find((item) => item.id === tab)!;
   const buyerCount = useMemo(
-    () => list.filter((tx) => isInitiatedAs(tx, 'buyer')).length,
+    () => list.filter((tx) => isViewerAs(tx, 'buyer')).length,
     [list],
   );
   const sellerCount = useMemo(
-    () => list.filter((tx) => isInitiatedAs(tx, 'seller')).length,
+    () => list.filter((tx) => isViewerAs(tx, 'seller')).length,
     [list],
   );
   const counts: Record<OpsTab, number> = { buyer: buyerCount, seller: sellerCount };
@@ -75,8 +74,8 @@ export function TransactionsListPage() {
             <p className="ca-tx__kicker">Operaciones</p>
             <h2 className="ca-tx__title">Tus acuerdos de confianza</h2>
             <p className="ca-tx__lead">
-              Separá las operaciones que iniciaste como comprador de las que iniciaste como
-              vendedor.
+              Operaciones en las que participás como comprador o como vendedor (las que iniciaste y
+              las que te invitaron).
             </p>
           </div>
         </div>
@@ -88,7 +87,7 @@ export function TransactionsListPage() {
         </div>
       </header>
 
-      <div className="ca-tx-ops-tabs" role="tablist" aria-label="Rol con el que iniciaste">
+      <div className="ca-tx-ops-tabs" role="tablist" aria-label="Rol en la operación">
         {TABS.map((item) => {
           const selected = item.id === tab;
           return (

@@ -83,7 +83,7 @@ function partyRoles(initiatedBy: TransactionInitiator): {
   return { buyerRole: 'creator', sellerRole: 'counterparty' };
 }
 
-/** Monto que debe transferir el comprador ahora (comisión + tip ConfiAnza si aplica). */
+/** Monto que debe pagar el comprador ahora. */
 function buyerAmountDueCents(
   tx: {
     amountCents?: number;
@@ -92,9 +92,14 @@ function buyerAmountDueCents(
     initiatedBy?: TransactionInitiator | string;
     confiAnzaCents?: number;
     confiAnzaCurrency?: string;
+    fundingMode?: FundingMode | string | null;
   },
   split: EscrowSplit,
 ): number {
+  if (resolvePaymentFundingMode(tx.fundingMode) === FundingMode.AGENT_FEE_ONLY) {
+    return AGENT_FEE_ONLY_UYU_CENTS;
+  }
+
   let cents = split.buyerPaysCents;
   const tip = tx.confiAnzaCents && tx.confiAnzaCents > 0 ? tx.confiAnzaCents : 0;
   if (tip <= 0) return cents;
@@ -249,8 +254,13 @@ export class PaymentsService {
   async getTransactionEscrow(userId: string, code: string) {
     const tx = await this.loadTxForParticipant(userId, code);
     const parties = resolveParties(tx);
-    const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
+    const fundingMode = resolvePaymentFundingMode(tx.fundingMode);
+    const currency =
+      fundingMode === FundingMode.AGENT_FEE_ONLY
+        ? 'UYU'
+        : assertAppCurrency(tx.currency ?? defaultCurrency());
     const split = this.splitForTransaction(tx);
+    const amountDue = buyerAmountDueCents(tx, split);
     const payments = await PaymentModel.find({
       transaction: tx._id,
       deletedAt: null,
@@ -266,12 +276,35 @@ export class PaymentsService {
       currency,
       country: env.MERCADOPAGO_COUNTRY,
       siteId: env.MERCADOPAGO_SITE_ID,
-      grossCents: split.buyerPaysCents,
-      amountDueCents: buyerAmountDueCents(tx, split),
-      productCents: split.productCents,
-      commissionCents: split.commissionCents,
+      grossCents: amountDue,
+      amountDueCents: amountDue,
+      productCents:
+        fundingMode === FundingMode.AGENT_FEE_ONLY ? 0 : split.productCents,
+      commissionCents:
+        fundingMode === FundingMode.AGENT_FEE_ONLY
+          ? AGENT_FEE_ONLY_UYU_CENTS
+          : split.commissionCents,
       feePayer: split.feePayer,
-      split,
+      split:
+        fundingMode === FundingMode.AGENT_FEE_ONLY
+          ? {
+              ...split,
+              productCents: 0,
+              commissionCents: AGENT_FEE_ONLY_UYU_CENTS,
+              buyerPaysCents: AGENT_FEE_ONLY_UYU_CENTS,
+              sellerNetCents: 0,
+              platformFeeCents: Math.floor(
+                (AGENT_FEE_ONLY_UYU_CENTS * env.PAYMENTS_PLATFORM_FEE_BPS) / 10_000,
+              ),
+              agentFeeCents:
+                AGENT_FEE_ONLY_UYU_CENTS -
+                Math.floor(
+                  (AGENT_FEE_ONLY_UYU_CENTS * env.PAYMENTS_PLATFORM_FEE_BPS) / 10_000,
+                ),
+              currency: 'UYU' as const,
+              feePayer: 'BUYER' as const,
+            }
+          : split,
       parties,
       checkoutMode: env.PAYMENTS_CHECKOUT_MODE,
       prexAccount: env.PAYMENTS_CHECKOUT_MODE === 'manual_prex' ? prexAccountDto() : undefined,
