@@ -59,4 +59,4 @@ Vinculación por usuario (sin split 1:N aún).
 | API | `GET/DELETE /payments/mercadopago/connection`, `GET .../oauth/start`, `GET .../oauth/callback` |
 | UI | Configuración → `MercadoPagoConnectSection` |
 
-Env: `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_OAUTH_REDIRECT_URI` (local ≠ Railway), `MERCADOPAGO_TOKEN_ENCRYPTION_KEY`. PKCE solo con `MERCADOPAGO_OAUTH_USE_PKCE=true` y el switch habilitado en el panel MP. El `MERCADOPAGO_ACCESS_TOKEN` de plataforma sirve para Checkout Pro cuando el modo sea `mercadopago`.
+Env: `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_OAUTH_REDIRECT_URI` (URL de la **web** `/oauth/mercadopago/callback`, local ≠ Railway), `MERCADOPAGO_TOKEN_ENCRYPTION_KEY`. PKCE solo con `MERCADOPAGO_OAUTH_USE_PKCE=true` y el switch habilitado en el panel MP. El `MERCADOPAGO_ACCESS_TOKEN` de plataforma sirve para Checkout Pro cuando el modo sea `mercadopago`.

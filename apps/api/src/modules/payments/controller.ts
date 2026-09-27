@@ -136,10 +136,26 @@ export class PaymentsController {
 
   mpOAuthStart = async (req: Request, res: Response): Promise<void> => {
     const data = await this.mpOAuth.startOAuth(req.user!.id);
+    try {
+      const host = new URL(data.authorizationUrl).host;
+      logger.info('mercadopago oauth start', {
+        userId: req.user!.id,
+        authHost: host,
+        redirectUri: env.MERCADOPAGO_OAUTH_REDIRECT_URI,
+      });
+    } catch {
+      /* ignore */
+    }
     res.status(200).json(data);
   };
 
   mpOAuthCallback = async (req: Request, res: Response): Promise<void> => {
+    logger.info('mercadopago oauth callback hit', {
+      hasCode: typeof req.query.code === 'string' && Boolean(req.query.code),
+      hasState: typeof req.query.state === 'string' && Boolean(req.query.state),
+      error: typeof req.query.error === 'string' ? req.query.error : undefined,
+      path: req.originalUrl?.slice(0, 200),
+    });
     const { redirectUrl } = await this.mpOAuth.handleCallback({
       code: typeof req.query.code === 'string' ? req.query.code : undefined,
       state: typeof req.query.state === 'string' ? req.query.state : undefined,

@@ -121,6 +121,11 @@ const HelpPage = lazy(() =>
 const DocsHubPage = lazy(() =>
   import('@/pages/DocsHubPage').then((m) => ({ default: m.DocsHubPage })),
 );
+const MercadoPagoOAuthCallbackPage = lazy(() =>
+  import('@/pages/MercadoPagoOAuthCallbackPage').then((m) => ({
+    default: m.MercadoPagoOAuthCallbackPage,
+  })),
+);
 const LegalAccessLayout = lazy(() =>
   import('@/features/legal/ui/LegalAccessLayout').then((m) => ({
     default: m.LegalAccessLayout,
@@ -149,6 +154,11 @@ export function AppRouter() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/recuperar-contrasena" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          {/* Callback OAuth MP (público): MP redirige acá → reenvío al API */}
+          <Route
+            path="/oauth/mercadopago/callback"
+            element={<MercadoPagoOAuthCallbackPage />}
+          />
 
           <Route element={<LegalAccessLayout />}>
             <Route path="terminos" element={<TermsPage />} />
