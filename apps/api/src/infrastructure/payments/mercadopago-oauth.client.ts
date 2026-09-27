@@ -2,7 +2,13 @@ import { env } from '../../shared/config/env';
 import { AppError } from '../../shared/errors/app-error';
 import { logger } from '../../utils/logger';
 
-const MP_AUTH_BASE = 'https://auth.mercadopago.com/authorization';
+/** Auth host: UY usa el dominio local según docs de split/OAuth. */
+function authBaseUrl(): string {
+  return env.MERCADOPAGO_COUNTRY === 'UY'
+    ? 'https://auth.mercadopago.com.uy/authorization'
+    : 'https://auth.mercadopago.com/authorization';
+}
+
 const MP_API_BASE = 'https://api.mercadopago.com';
 
 export interface MpOAuthTokenResponse {
@@ -61,7 +67,7 @@ export class MercadoPagoOAuthClient {
       params.set('code_challenge', input.codeChallenge);
       params.set('code_challenge_method', 'S256');
     }
-    return `${MP_AUTH_BASE}?${params.toString()}`;
+    return `${authBaseUrl()}?${params.toString()}`;
   }
 
   async exchangeCode(input: {
@@ -127,14 +133,17 @@ export class MercadoPagoOAuthClient {
       client_id: env.MERCADOPAGO_CLIENT_ID,
       client_secret: env.MERCADOPAGO_CLIENT_SECRET,
     };
+
+    // Docs UY (split/OAuth): application/x-www-form-urlencoded
     const res = await fetch(`${MP_API_BASE}/oauth/token`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         Accept: 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: new URLSearchParams(payload).toString(),
     });
+
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       logger.warn('mercadopago oauth/token failed', {
@@ -142,11 +151,12 @@ export class MercadoPagoOAuthClient {
         body: text.slice(0, 400),
         redirectUri: env.MERCADOPAGO_OAUTH_REDIRECT_URI,
         usedPkce: Boolean(body.code_verifier),
+        contentType: 'application/x-www-form-urlencoded',
       });
       throw new AppError(
         502,
         'No se pudo intercambiar el código OAuth de Mercado Pago',
-        { status: res.status, body: text.slice(0, 200) },
+        { status: res.status, body: text.slice(0, 300) },
         'MP_OAUTH_TOKEN_FAILED',
       );
     }

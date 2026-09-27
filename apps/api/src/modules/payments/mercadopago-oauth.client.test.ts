@@ -6,6 +6,7 @@ vi.mock('../../shared/config/env', () => ({
     MERCADOPAGO_CLIENT_SECRET: 'secret-xyz',
     MERCADOPAGO_OAUTH_REDIRECT_URI:
       'http://localhost:3000/payments/mercadopago/oauth/callback',
+    MERCADOPAGO_COUNTRY: 'UY',
   },
 }));
 
@@ -23,7 +24,9 @@ describe('MercadoPagoOAuthClient', () => {
         state: 'abc',
       }),
     );
-    expect(url.origin + url.pathname).toBe('https://auth.mercadopago.com/authorization');
+    expect(url.origin + url.pathname).toBe(
+      'https://auth.mercadopago.com.uy/authorization',
+    );
     expect(url.searchParams.get('client_id')).toBe('app-123');
     expect(url.searchParams.get('response_type')).toBe('code');
     expect(url.searchParams.get('state')).toBe('abc');
@@ -61,10 +64,12 @@ describe('MercadoPagoOAuthClient', () => {
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toContain('/oauth/token');
-    const body = JSON.parse(String(init?.body));
-    expect(body.grant_type).toBe('authorization_code');
-    expect(body.code_verifier).toBeUndefined();
-    expect(body.client_secret).toBe('secret-xyz');
+    const headers = init?.headers as Record<string, string> | undefined;
+    expect(headers?.['Content-Type']).toBe('application/x-www-form-urlencoded');
+    const body = new URLSearchParams(String(init?.body));
+    expect(body.get('grant_type')).toBe('authorization_code');
+    expect(body.get('code_verifier')).toBeNull();
+    expect(body.get('client_secret')).toBe('secret-xyz');
   });
 
   it('exchangeCode incluye code_verifier cuando hay PKCE', async () => {
@@ -80,7 +85,7 @@ describe('MercadoPagoOAuthClient', () => {
 
     const client = new MercadoPagoOAuthClient();
     await client.exchangeCode({ code: 'c', codeVerifier: 'v' });
-    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body));
-    expect(body.code_verifier).toBe('v');
+    const body = new URLSearchParams(String(fetchMock.mock.calls[0]![1]?.body));
+    expect(body.get('code_verifier')).toBe('v');
   });
 });

@@ -248,12 +248,19 @@ export class MercadoPagoOAuthService {
         message: err instanceof Error ? err.message : 'unknown',
         details: err instanceof AppError ? err.details : undefined,
       });
+      const detailBody =
+        err instanceof AppError &&
+        err.details &&
+        typeof err.details === 'object' &&
+        'body' in err.details
+          ? String((err.details as { body?: unknown }).body ?? '').slice(0, 180)
+          : '';
       await MercadoPagoSellerAccountModel.updateOne(
         { user: userId, deletedAt: null },
         {
           $set: {
             status: MercadoPagoConnectionStatus.ERROR,
-            lastError: reason,
+            lastError: detailBody ? `${reason}: ${detailBody}` : reason,
           },
         },
       ).catch(() => undefined);
