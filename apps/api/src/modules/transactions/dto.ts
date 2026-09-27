@@ -200,7 +200,7 @@ export interface TransactionDto {
     expiresAt?: string;
     isExpired: boolean;
   };
-  /** Límite operativo (21 días desde el join). */
+  /** Marca de recordatorio operativo (21 días desde el join). No cierra la operación. */
   operationDeadlineAt?: string;
   /** Cambios pendientes de reconfirmación del comprador. */
   pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;

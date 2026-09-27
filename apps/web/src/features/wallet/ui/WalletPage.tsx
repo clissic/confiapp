@@ -641,10 +641,12 @@ export function WalletPage() {
                       }
                     />
                   </Form.Group>
-                  <div className="ca-wallet-filters__actions">
+                  <div className="ca-wallet-filters__action">
                     <Button type="submit" size="sm" className="ca-btn-cta">
                       Aplicar
                     </Button>
+                  </div>
+                  <div className="ca-wallet-filters__action">
                     <Button
                       type="button"
                       size="sm"
@@ -831,10 +833,12 @@ export function WalletPage() {
                     }
                   />
                 </Form.Group>
-                <div className="ca-wallet-filters__actions">
+                <div className="ca-wallet-filters__action">
                   <Button type="submit" size="sm" className="ca-btn-cta">
                     Aplicar
                   </Button>
+                </div>
+                <div className="ca-wallet-filters__action">
                   <Button
                     type="button"
                     size="sm"

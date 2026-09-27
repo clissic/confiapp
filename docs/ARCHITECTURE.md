@@ -16,7 +16,7 @@ confiapp/
 │   ├── database/            # Modelos/seed/utilidades de persistencia compartidas
 │   ├── config/              # ESLint / TS / Prettier compartidos
 │   └── ui/                  # Design system / componentes reutilizables (prep)
-├── docs/                    # Arquitectura, design system, producto web
+├── docs/                    # Arquitectura, flujos de operación, design system, producto web
 ├── .cursor/                 # Rules + skills para agentes
 ├── docker-compose.yml
 ├── package.json
@@ -52,10 +52,10 @@ infrastructure ───────┘
 
 | Módulo | Rol |
 |--------|-----|
-| `auth` | Registro, login, verify email, reset password. **Previsto:** step-up ID Digital Abitab solo para Agentes en cada login ([`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md); aún no implementado) |
+| `auth` | Registro, login, verify email, reset password. **ID Digital Abitab** para Agentes (onboarding + accept job): [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md) |
 | `users` | Perfil, KYC (review admin), preferencias, payout methods |
-| `transactions` | Ciclo de vida escrow + invites + checklist |
-| `payments` | Cobro MVP Prex (`manual-transfer`) + Checkout / hold / webhooks MP (standby) |
+| `transactions` | Ciclo de vida escrow + invites + checklist + plazos 21d/72h — ver [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) |
+| `payments` | Cobro Prex / Checkout MP, hold, webhooks, sync return, OAuth agentes |
 | `wallet` | Saldos, retiros, comisiones, export |
 | `notifications` | Inbox + `NotificationsService.notify` + gating prefs |
 | `chats` | Mensajería + realtime |
@@ -114,7 +114,8 @@ apps/web/src/
 └── shared/              # api client, toast, form helpers, preferences
 ```
 
-Detalle de rutas y patrones UI: [`WEB_APP.md`](./WEB_APP.md).
+Detalle de rutas y patrones UI: [`WEB_APP.md`](./WEB_APP.md).  
+Flujos de operación por rol: [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).
 
 ---
 
@@ -135,6 +136,7 @@ Modelo de datos: [`packages/database/ARCHITECTURE.md`](../packages/database/ARCH
 
 | Doc | Contenido |
 |-----|-----------|
+| [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) | Flujos compra / venta / intermediación (diagramas por rol) |
 | [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md) | Spec financiera MVP (UYU, 14 días hold comisión, payouts manuales) |
 | [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | Diseño SaaS a escala |
 | [`WEB_APP.md`](./WEB_APP.md) | Estado del producto web / UI |

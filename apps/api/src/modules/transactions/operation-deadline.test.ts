@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { ValidationError } from '../../shared/errors/app-error';
 import {
   assertNotPastDeadline,
   computeOperationDeadline,
@@ -10,24 +9,22 @@ import {
 
 describe('operation-deadline', () => {
   it('computa 21 días desde ahora', () => {
-    const from = new Date('2026-01-01T00:00:00.000Z');
+    const from = new Date('2026-01-01T12:00:00.000Z');
     const deadline = computeOperationDeadline(from);
     const expected = new Date(from.getTime() + OPERATION_DEADLINE_DAYS * 24 * 60 * 60 * 1000);
     expect(deadline.toISOString()).toBe(expected.toISOString());
   });
 
-  it('isPastOperationDeadline respeta la fecha', () => {
-    const past = new Date(Date.now() - 1000);
-    const future = new Date(Date.now() + 60_000);
-    expect(isPastOperationDeadline(past)).toBe(true);
-    expect(isPastOperationDeadline(future)).toBe(false);
+  it('isPastOperationDeadline detecta vencimiento', () => {
+    expect(isPastOperationDeadline(new Date(Date.now() - 1))).toBe(true);
+    expect(isPastOperationDeadline(new Date(Date.now() + 60_000))).toBe(false);
     expect(isPastOperationDeadline(null)).toBe(false);
   });
 
-  it('assertNotPastDeadline lanza ValidationError si venció', () => {
+  it('assertNotPastDeadline no bloquea (la op sigue abierta tras el plazo)', () => {
     expect(() =>
       assertNotPastDeadline({ operationDeadlineAt: new Date(Date.now() - 1) }),
-    ).toThrow(ValidationError);
+    ).not.toThrow();
     expect(() =>
       assertNotPastDeadline({ operationDeadlineAt: new Date(Date.now() + 60_000) }),
     ).not.toThrow();

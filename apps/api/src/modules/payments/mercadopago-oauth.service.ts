@@ -95,18 +95,23 @@ export class MercadoPagoOAuthService {
     }
     requireEncryptionKey();
 
-    const { codeVerifier, codeChallenge } = generatePkcePair();
+    const usePkce = env.MERCADOPAGO_OAUTH_USE_PKCE;
+    const pkce = usePkce ? generatePkcePair() : null;
     const state = generateOAuthState();
     const expiresAt = new Date(Date.now() + OAUTH_STATE_TTL_MS);
 
     await MercadoPagoOAuthStateModel.create({
       state,
       user: userId,
-      codeVerifier,
+      // Schema require string; sentinel si PKCE off
+      codeVerifier: pkce?.codeVerifier ?? '-',
       expiresAt,
     });
 
-    const authorizationUrl = this.oauth.createAuthorizationUrl({ state, codeChallenge });
+    const authorizationUrl = this.oauth.createAuthorizationUrl({
+      state,
+      codeChallenge: pkce?.codeChallenge,
+    });
     return { authorizationUrl };
   }
 
@@ -145,9 +150,13 @@ export class MercadoPagoOAuthService {
     const encKey = requireEncryptionKey();
 
     try {
+      const codeVerifier =
+        oauthState.codeVerifier && oauthState.codeVerifier !== '-'
+          ? oauthState.codeVerifier
+          : undefined;
       const tokens = await this.oauth.exchangeCode({
         code,
-        codeVerifier: oauthState.codeVerifier,
+        codeVerifier,
       });
       const me = await this.oauth.getUserMe(tokens.access_token);
       const mpUserId = String(me.id ?? tokens.user_id);
@@ -225,20 +234,30 @@ export class MercadoPagoOAuthService {
 
       return { redirectUrl: frontRedirect('ok') };
     } catch (err) {
+      const appCode = err instanceof AppError ? err.code : undefined;
+      const reason =
+        appCode === 'MP_OAUTH_TOKEN_FAILED'
+          ? 'token_failed'
+          : appCode === 'MP_USER_ME_FAILED'
+            ? 'profile_failed'
+            : 'exchange_failed';
       logger.warn('mercadopago oauth callback failed', {
         userId,
+        reason,
+        appCode,
         message: err instanceof Error ? err.message : 'unknown',
+        details: err instanceof AppError ? err.details : undefined,
       });
       await MercadoPagoSellerAccountModel.updateOne(
         { user: userId, deletedAt: null },
         {
           $set: {
             status: MercadoPagoConnectionStatus.ERROR,
-            lastError: 'oauth_exchange_failed',
+            lastError: reason,
           },
         },
       ).catch(() => undefined);
-      return { redirectUrl: frontRedirect('error', 'exchange_failed') };
+      return { redirectUrl: frontRedirect('error', reason) };
     }
   }
 

@@ -17,6 +17,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_state: 'La sesión de vinculación no es válida. Probá de nuevo.',
   expired_state: 'La vinculación expiró. Probá de nuevo.',
   mp_account_in_use: 'Esa cuenta de Mercado Pago ya está vinculada a otro usuario.',
+  token_failed:
+    'Mercado Pago rechazó el canje del código. Revisá Client Secret, Redirect URI del panel y que coincida con la API local/prod.',
+  profile_failed: 'Se autorizó, pero no se pudo leer el perfil de Mercado Pago.',
   exchange_failed: 'No se pudo completar la vinculación. Probá de nuevo.',
 };
 
@@ -83,10 +86,12 @@ export function MercadoPagoConnectSection() {
         Mercado Pago
       </h3>
       <p className="ca-section-lead">
-        Vinculá tu cuenta de Mercado Pago para que ConfiApp pueda gestionar tus cobros como Agente.
-        Podés seguir tomando trabajos sin vincularla: las comisiones se acreditan en tu wallet y el
-        pago queda pendiente hasta que la tengas conectada. No compartimos tu contraseña: usás el
-        inicio de sesión oficial de Mercado Pago.
+        La vinculación de Mercado Pago permitirá en un futuro realizar los pagos automáticamente
+        cuando finalicen las operaciones, directamente a la billetera de Mercado Pago del Agente,
+        sin esperar a la liquidación mensual. Si no vinculás tu cuenta, deberás agregar un método
+        de cobro alternativo. Podés seguir tomando trabajos sin vincularla: las comisiones se
+        acreditan en tu wallet y el pago queda pendiente hasta que la tengas conectada. No
+        compartimos tu contraseña: usás el inicio de sesión oficial de Mercado Pago.
       </p>
 
       {loading ? (

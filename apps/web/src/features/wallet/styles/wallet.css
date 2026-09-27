@@ -432,7 +432,7 @@
 
 .ca-wallet-filters__form {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
   gap: 0.75rem;
   align-items: end;
 }
@@ -443,28 +443,34 @@
   margin-bottom: 0.25rem;
 }
 
-.ca-wallet-filters__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  align-items: center;
+.ca-wallet-filters__form .form-control,
+.ca-wallet-filters__form .form-select {
+  width: 100%;
+  min-height: 2.25rem;
 }
 
-.ca-wallet-filters__actions .btn {
+.ca-wallet-filters__action {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.ca-wallet-filters__action .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  width: 100%;
   min-height: 2.25rem;
-  min-width: 6.5rem;
-  padding: 0.4rem 0.95rem;
+  padding: 0.4rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 650;
   line-height: 1.2;
   border-radius: var(--radius-md, 0.5rem) !important;
 }
 
-.ca-wallet-filters__actions .ca-btn-cta {
+.ca-wallet-filters__action .ca-btn-cta {
   min-height: 2.25rem;
 }
 

@@ -253,6 +253,7 @@ export const transactionSchema = new Schema<ITransaction>(
     },
     inviteExpiresAt: { type: Date },
     operationDeadlineAt: { type: Date, index: true },
+    operationDeadlineReminderSentAt: { type: Date },
     pendingBuyerChanges: {
       type: [
         {

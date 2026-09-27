@@ -148,10 +148,12 @@ export interface ITransaction {
   inviteTokenHash?: string;
   inviteExpiresAt?: Date;
   /**
-   * Límite operativo (21 días desde confirm-sale / accept-purchase)
-   * hasta liberación del pago o cancelación.
+   * Marca de recordatorio operativo (21 días). No cancela la operación.
+   * Tras el plazo se avisa a comprador y agente por email/notificación una vez.
    */
   operationDeadlineAt?: Date;
+  /** Cuando se envió el recordatorio de plazo operativo (idempotencia del job). */
+  operationDeadlineReminderSentAt?: Date;
   /** Diff de propuesta pendiente de reconfirmación del comprador. */
   pendingBuyerChanges?: Array<{ field: string; from: string; to: string }>;
   startsAt?: Date;

@@ -722,14 +722,16 @@
 
 .ca-tx-product-decision__actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.65rem;
 }
 
 .ca-tx-product-decision__actions .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
+  width: 100%;
   min-height: 2.65rem;
 }
 
@@ -779,8 +781,8 @@
 }
 
 .ca-tx-product-decision__actions--split {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 0.55rem;
   align-items: stretch;
 }
@@ -793,12 +795,6 @@
 
 .ca-tx-product-decision__report-btn {
   font-size: 0.86rem;
-}
-
-@media (max-width: 479.98px) {
-  .ca-tx-product-decision__actions--split {
-    grid-template-columns: 1fr;
-  }
 }
 
 .ca-tx-agent-delivery-notice {
@@ -1117,13 +1113,6 @@
 [data-theme='dark'] .ca-tx-buyer-view__changes li {
   background: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
   border-color: rgba(255, 255, 255, 0.1);
-}
-
-@media (max-width: 575.98px) {
-  .ca-tx-product-decision__actions .btn {
-    width: 100%;
-    justify-content: center;
-  }
 }
 
 .ca-tx-pay-cta {

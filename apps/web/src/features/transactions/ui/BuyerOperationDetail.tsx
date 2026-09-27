@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { ReviewFormPanel } from '@/features/reputation';
-import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
+import { formatOperationMoney } from '@/shared/lib/money';
 import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 import {
   CATEGORY_LABELS,
@@ -152,11 +152,6 @@ export function BuyerOperationDetail({
           <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
           <strong>{formatOperationMoney(tx.amountCents, tx.currency)}</strong>
         </div>
-        {tx.operationDeadlineAt ? (
-          <p className="ca-tx-buyer-view__deadline mb-0">
-            Plazo hasta {formatDateTime(tx.operationDeadlineAt)}
-          </p>
-        ) : null}
       </header>
 
       {error ? <Alert variant="danger">{error}</Alert> : null}

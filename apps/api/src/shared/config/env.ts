@@ -50,8 +50,18 @@ const envSchema = z.object({
   /**
    * Redirect URI estática registrada en el panel MP.
    * Debe coincidir exactamente (sin query extra).
+   * Local: http://localhost:3000/payments/mercadopago/oauth/callback
+   * Prod: la URL pública del API (p. ej. Railway).
    */
   MERCADOPAGO_OAUTH_REDIRECT_URI: z.string().optional().default(''),
+  /**
+   * PKCE en OAuth vendedores. Solo `true` si en el panel MP → aplicación
+   * habilitaste "Authorization code flow with PKCE". Si no, el canje falla.
+   */
+  MERCADOPAGO_OAUTH_USE_PKCE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   /**
    * Clave AES-256 para cifrar access/refresh tokens de sellers.
    * Preferible: 64 hex chars (32 bytes). Si no, se deriva con SHA-256.

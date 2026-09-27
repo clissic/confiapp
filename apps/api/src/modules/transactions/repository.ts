@@ -471,11 +471,13 @@ export class TransactionsRepository {
     return count > 0;
   }
 
-  async findExpiredOperational(limit = 50): Promise<TransactionDocument[]> {
+  /** Operaciones con plazo operativo vencido que aún no recibieron el recordatorio. */
+  async findDueOperationalReminders(limit = 50): Promise<TransactionDocument[]> {
     const now = new Date();
     return TransactionModel.find({
       deletedAt: null,
       operationDeadlineAt: { $lte: now },
+      operationDeadlineReminderSentAt: null,
       status: {
         $in: [
           TransactionStatus.PENDING_BUYER_CONFIRM,
@@ -487,6 +489,11 @@ export class TransactionsRepository {
     })
       .limit(limit)
       .exec();
+  }
+
+  /** @deprecated Usar findDueOperationalReminders (ya no se cancelan por plazo). */
+  async findExpiredOperational(limit = 50): Promise<TransactionDocument[]> {
+    return this.findDueOperationalReminders(limit);
   }
 
   /** Operaciones con una sola confirmación de entrega y plazo de auto-liberación vencido. */

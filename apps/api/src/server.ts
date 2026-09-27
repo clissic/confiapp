@@ -48,7 +48,7 @@ async function bootstrap(): Promise<void> {
   const transactionsService = new TransactionsService();
   const deadlineTimer = setInterval(() => {
     void transactionsService.expireOperationalDeadlines().catch((error) => {
-      logger.error('expire operation deadlines failed', error);
+      logger.error('operation deadline reminders failed', error);
     });
   }, 60 * 60_000);
   deadlineTimer.unref();

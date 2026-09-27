@@ -118,6 +118,9 @@ const PrivacyPage = lazy(() =>
 const HelpPage = lazy(() =>
   import('@/pages/HelpPage').then((m) => ({ default: m.HelpPage })),
 );
+const DocsHubPage = lazy(() =>
+  import('@/pages/DocsHubPage').then((m) => ({ default: m.DocsHubPage })),
+);
 const LegalAccessLayout = lazy(() =>
   import('@/features/legal/ui/LegalAccessLayout').then((m) => ({
     default: m.LegalAccessLayout,
@@ -178,6 +181,9 @@ export function AppRouter() {
               <Route path="wallet" element={<WalletPage />} />
               <Route path="reputacion" element={<ReputationPage />} />
               <Route path="notificaciones" element={<NotificationsPage />} />
+              {/* Ruta interna oculta del menú — documentación indexada del monorepo */}
+              <Route path="documentacion" element={<DocsHubPage />} />
+              <Route path="documentacion/:docId" element={<DocsHubPage />} />
               <Route element={<RequireAdmin />}>
                 <Route path="auditoria" element={<AuditPage />}>
                   <Route path=":sectionId" element={<AuditSectionRouter />} />

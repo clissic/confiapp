@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 
 import { env } from '../../shared/config/env';
+import { logger } from '../../utils/logger';
 import { MercadoPagoOAuthService } from './mercadopago-oauth.service';
 import { PaymentsService } from './service';
 
@@ -74,15 +75,28 @@ export class PaymentsController {
   };
 
   webhook = async (req: Request, res: Response): Promise<void> => {
-    const data = await this.service.handleMercadoPagoWebhook({
-      query: req.query as Record<string, unknown>,
-      body: (req.body ?? {}) as Record<string, unknown>,
-      headers: {
-        xSignature: req.header('x-signature') ?? undefined,
-        xRequestId: req.header('x-request-id') ?? undefined,
-      },
-    });
-    res.status(200).json({ ok: true, ...data });
+    try {
+      const data = await this.service.handleMercadoPagoWebhook({
+        query: req.query as Record<string, unknown>,
+        body: (req.body ?? {}) as Record<string, unknown>,
+        headers: {
+          xSignature: req.header('x-signature') ?? undefined,
+          xRequestId: req.header('x-request-id') ?? undefined,
+        },
+      });
+      res.status(200).json({ ok: true, ...data });
+    } catch (error) {
+      // Nunca 5xx al webhook: MP reintenta y el simulador marca falla.
+      // Errores se loguean; no se confirma el pago si falló el flujo.
+      logger.error('mercadopago webhook handler error', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      res.status(200).json({
+        ok: false,
+        handled: false,
+        reason: 'internal_error',
+      });
+    }
   };
 
   listLogs = async (req: Request, res: Response): Promise<void> => {

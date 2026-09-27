@@ -16,6 +16,7 @@ import { AGENT_COMMISSION_HOLD_DAYS, isWithinAgentPayoutWindow } from '@confiapp
 import { apiClient, getApiErrorMessage } from '@/shared/api/client';
 import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
 import { useAppToast } from '@/shared/ui';
+import { MaskedAccountNumber } from '@/features/profile/ui/MaskedAccountNumber';
 import '../styles/admin-finance.css';
 
 const PAGE_SIZE = 10;
@@ -159,12 +160,6 @@ function agentLabel(agent?: AgentInfo, fallbackId?: string): string {
   if (agent?.email) return agent.email;
   const id = agent?.id ?? fallbackId ?? '';
   return id ? `Agente · …${id.slice(-8)}` : 'Agente';
-}
-
-function maskAccount(number: string): string {
-  const digits = number.replace(/\D/g, '');
-  if (digits.length <= 4) return digits || number;
-  return `•••• ${digits.slice(-4)}`;
 }
 
 function toStartIso(date: string): string | undefined {
@@ -506,10 +501,12 @@ export function AdminFinancePage() {
                     }
                   />
                 </Form.Group>
-                <div className="ca-admin-fin-filters__actions">
+                <div className="ca-admin-fin-filters__action">
                   <Button type="submit" size="sm" className="ca-btn-cta">
                     Aplicar
                   </Button>
+                </div>
+                <div className="ca-admin-fin-filters__action">
                   <Button
                     type="button"
                     size="sm"
@@ -766,9 +763,11 @@ export function AdminFinancePage() {
                               <li key={m.id || `${m.bank}-${m.number}`}>
                                 <strong>{m.bank || 'Banco'}</strong>
                                 <span>
-                                  {[m.type, m.currency].filter(Boolean).join(' · ')}
-                                  {m.number ? ` · ${maskAccount(m.number)}` : ''}
+                                  {[m.type, m.currency].filter(Boolean).join(' · ') || '—'}
                                 </span>
+                                {m.number ? (
+                                  <MaskedAccountNumber number={m.number} label="" />
+                                ) : null}
                               </li>
                             ))}
                           </ul>

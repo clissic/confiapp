@@ -1,22 +1,23 @@
 # Finanzas MVP — notas de implementación
 
-Spec: [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md).
+Spec: [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md).  
+Flujos de operación (roles, pagos, plazos): [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).
 
 ## Cobro al comprador (modo actual)
 
 | Modo | Env | Comportamiento |
 |---|---|---|
-| **`manual_prex`** (default MVP) | `PAYMENTS_CHECKOUT_MODE=manual_prex` | UI en `/operaciones/:code/pagar`: QR + datos Prex + upload de comprobante → `POST /payments/transactions/:code/manual-transfer` → hold `REQUIRES_ACTION` (pendiente admin). Admin confirma en `/admin/pagos` → `FUNDED` + visible para agentes. |
-| **`mercadopago`** (standby) | `PAYMENTS_CHECKOUT_MODE=mercadopago` | Checkout Pro / MOCK intacto (`POST .../checkout`, webhooks, página simular). Sin credenciales → MOCK. |
+| **`mercadopago`** | `PAYMENTS_CHECKOUT_MODE=mercadopago` | Checkout Pro / MOCK. En `AGENT_FEE_ONLY` el monto es **UYU $400** (contratación del Agente). Webhook + `sync-checkout` al volver. |
+| **`manual_prex`** | `PAYMENTS_CHECKOUT_MODE=manual_prex` | UI Prex + upload → hold `REQUIRES_ACTION` → admin en `/admin/pagos` → `FUNDED`. |
 
 Cuenta Prex plataforma (configurable):
 
 - `PAYMENTS_PREX_ACCOUNT_NAME` (default `Ignacio La Cava`)
 - `PAYMENTS_PREX_ACCOUNT_NUMBER` (default `1065233`)
 
-El monto a transferir es el **total del comprador** (`buyerPaysCents` + tip ConfiAnza si el creador es comprador y misma moneda).
+En **fee-only**, el comprador paga solo la contratación fija; no el precio del producto.
 
-Al subir comprobante:
+Al subir comprobante (Prex):
 
 - Operación queda pendiente de confirmación admin (no `FUNDED` todavía)
 - Email a `PLATFORM_NOTIFY_EMAIL` (o `MAIL_FROM` / `SMTP_USER`) con adjunto y link a `/admin/pagos`
@@ -30,26 +31,26 @@ Al subir comprobante:
 | Pieza | Ubicación |
 |---|---|
 | Franjas UYU + 80/20 | `packages/shared` (`agent-fee-tiers`, `intermediation-fees`) |
-| Hold 14 días / ventana 1–10 | `packages/shared/finance-constants.ts` |
+| Hold **14 días** / ventana 1–10 | `packages/shared/finance-constants.ts` |
 | Modelos | `AgentCommission`, `PayoutBatch`, `AgentPayout`, `FinancialAuditEvent` |
 | Módulo API | `apps/api/src/modules/finance` |
 | PaymentProvider | `apps/api/src/infrastructure/payments/payment-provider.ts` |
-| Manual Prex (MVP) | `PaymentsService.submitManualPrexTransfer` + UI `PrexTransferPanel` |
+| Manual Prex | `PaymentsService.submitManualPrexTransfer` + UI `PrexTransferPanel` |
 | ManualPayoutProvider | `apps/api/src/infrastructure/payments/payout-provider.ts` |
 | Job AVAILABLE | timer en `server.ts` + `POST /finance/jobs/release-commissions` |
 | Admin UI | `/admin/finanzas` |
 
 ## Flujo dinero al COMPLETED
 
-`releaseEscrow` → seller neto + platform fee + `AgentCommission` **PENDING** (`availableAt = completedAt + 21d`). No acredita `availableCents` de agente al instante.
+`releaseEscrow` → (fee-only: comisión agente) · (escrow full: neto vendedor + fees) + `AgentCommission` **PENDING** (`availableAt = completedAt + **14d**`). No acredita `availableCents` de agente al instante.
 
 ## Liquidación
 
-Admin crea `PayoutBatch` de comisiones AVAILABLE → reserva → confirma transferencia → `PAID`.
+Admin crea `PayoutBatch` de comisiones AVAILABLE → reserva → confirma transferencia → `PAID` (ventana días **1–10**).
 
-## OAuth Mercado Pago (vendedores)
+## OAuth Mercado Pago (agentes / vendedores)
 
-Vinculación por usuario (sin split aún) — **sigue disponible**; el checkout comprador está en standby mientras `PAYMENTS_CHECKOUT_MODE=manual_prex`.
+Vinculación por usuario (sin split 1:N aún).
 
 | Pieza | Ubicación |
 |---|---|
@@ -58,4 +59,4 @@ Vinculación por usuario (sin split aún) — **sigue disponible**; el checkout 
 | API | `GET/DELETE /payments/mercadopago/connection`, `GET .../oauth/start`, `GET .../oauth/callback` |
 | UI | Configuración → `MercadoPagoConnectSection` |
 
-Env: `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_OAUTH_REDIRECT_URI`, `MERCADOPAGO_TOKEN_ENCRYPTION_KEY`. El `MERCADOPAGO_ACCESS_TOKEN` de plataforma sigue para Checkout Pro cuando el modo sea `mercadopago`.
+Env: `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_OAUTH_REDIRECT_URI` (local ≠ Railway), `MERCADOPAGO_TOKEN_ENCRYPTION_KEY`. PKCE solo con `MERCADOPAGO_OAUTH_USE_PKCE=true` y el switch habilitado en el panel MP. El `MERCADOPAGO_ACCESS_TOKEN` de plataforma sirve para Checkout Pro cuando el modo sea `mercadopago`.

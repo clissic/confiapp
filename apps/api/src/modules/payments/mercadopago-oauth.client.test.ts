@@ -16,7 +16,22 @@ describe('MercadoPagoOAuthClient', () => {
     vi.restoreAllMocks();
   });
 
-  it('createAuthorizationUrl incluye PKCE S256 y redirect_uri', () => {
+  it('createAuthorizationUrl sin PKCE no envía challenge', () => {
+    const client = new MercadoPagoOAuthClient();
+    const url = new URL(
+      client.createAuthorizationUrl({
+        state: 'abc',
+      }),
+    );
+    expect(url.origin + url.pathname).toBe('https://auth.mercadopago.com/authorization');
+    expect(url.searchParams.get('client_id')).toBe('app-123');
+    expect(url.searchParams.get('response_type')).toBe('code');
+    expect(url.searchParams.get('state')).toBe('abc');
+    expect(url.searchParams.get('code_challenge')).toBeNull();
+    expect(url.searchParams.get('redirect_uri')).toContain('/oauth/callback');
+  });
+
+  it('createAuthorizationUrl con PKCE S256 incluye challenge', () => {
     const client = new MercadoPagoOAuthClient();
     const url = new URL(
       client.createAuthorizationUrl({
@@ -24,16 +39,11 @@ describe('MercadoPagoOAuthClient', () => {
         codeChallenge: 'challenge-value',
       }),
     );
-    expect(url.origin + url.pathname).toBe('https://auth.mercadopago.com/authorization');
-    expect(url.searchParams.get('client_id')).toBe('app-123');
-    expect(url.searchParams.get('response_type')).toBe('code');
-    expect(url.searchParams.get('state')).toBe('abc');
     expect(url.searchParams.get('code_challenge')).toBe('challenge-value');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
-    expect(url.searchParams.get('redirect_uri')).toContain('/oauth/callback');
   });
 
-  it('exchangeCode POST /oauth/token', async () => {
+  it('exchangeCode POST /oauth/token sin code_verifier si no hay PKCE', async () => {
     const fetchMock = vi.fn(async () =>
       Response.json({
         access_token: 'AT',
@@ -46,14 +56,31 @@ describe('MercadoPagoOAuthClient', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const client = new MercadoPagoOAuthClient();
-    const tokens = await client.exchangeCode({ code: 'c', codeVerifier: 'v' });
+    const tokens = await client.exchangeCode({ code: 'c' });
     expect(tokens.access_token).toBe('AT');
     expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0];
+    const [url, init] = fetchMock.mock.calls[0]!;
     expect(String(url)).toContain('/oauth/token');
     const body = JSON.parse(String(init?.body));
     expect(body.grant_type).toBe('authorization_code');
-    expect(body.code_verifier).toBe('v');
+    expect(body.code_verifier).toBeUndefined();
     expect(body.client_secret).toBe('secret-xyz');
+  });
+
+  it('exchangeCode incluye code_verifier cuando hay PKCE', async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        access_token: 'AT',
+        token_type: 'bearer',
+        expires_in: 100,
+        user_id: 1,
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const client = new MercadoPagoOAuthClient();
+    await client.exchangeCode({ code: 'c', codeVerifier: 'v' });
+    const body = JSON.parse(String(fetchMock.mock.calls[0]![1]?.body));
+    expect(body.code_verifier).toBe('v');
   });
 });

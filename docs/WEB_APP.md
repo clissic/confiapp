@@ -3,7 +3,10 @@
 Documento orientado a **desarrolladores y producto**.  
 La UI de cara al usuario debe usar copy claro; los estados internos de dominio (p. ej. `WAITING_PARTICIPANT`) viven **aquí** y en la API, no en pantallas de uso cotidiano.
 
-Última actualización: **2026-08-11**.
+Última actualización: **2026-09-27**.
+
+> **Flujos de operación (compra / venta / agente)** con diagramas de colores, pagos y plazos:  
+> [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).
 
 ---
 
@@ -32,15 +35,15 @@ Reglas Cursor: `.cursor/rules/frontend-bootstrap.mdc`, `.cursor/rules/web-aesthe
 | `/agente/buscar` | Búsqueda de agentes | |
 | `/agente/trabajos` | Open jobs + mapa | Guard `RequireAgent` |
 
-> **Previsto (no implementado):** en cada login, los Agentes deberán completar un step-up con Identidad Digital Abitab además de email/password. Ver [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md).
+> **ID Digital Abitab:** implementado en API/web para onboarding de Agente y cada aceptación de trabajo. Ver [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md).
 
-| `/operaciones` | Listado | |
+| `/operaciones` | Listado | Tabs comprador / vendedor (ops en las que participás) |
 | `/operaciones/nueva` | Hub rol comprador/vendedor | |
 | `/operaciones/nueva/comprador` | Crear como comprador | Hero con `/landing/Shopping.png` |
 | `/operaciones/nueva/vendedor` | Crear como vendedor | Hero con `/landing/Sale.png` |
 | `/operaciones/unirse/:token` | Join por invite | |
-| `/operaciones/:code` | Detalle | Checklist agente; CTA salida/reasignación; badge “Buscando nuevo agente” |
-| `/operaciones/:code/pagar` | Pago protegido (MVP Prex / MP standby) | |
+| `/operaciones/:code` | Detalle | Vista por rol (buyer/seller/agent); checklist; disputa; salida agente |
+| `/operaciones/:code/pagar` | Pago (contratación Agente / Prex o MP) | |
 | `/operaciones/:code/pagar/simular` | Mock de pago MP | Solo con `PAYMENTS_CHECKOUT_MODE=mercadopago` + MOCK |
 | `/mensajes` | Chat | Composer **excluido** de reglas de botones full-width |
 | `/pagos` | Checkout / pagos | |
@@ -85,12 +88,15 @@ Estados internos de onboarding: `NONE` → `DRAFT` → `ACTIVE` / `INACTIVE` (y 
 Al crear una operación (comprador o vendedor), la API persiste el agregado y deja la operación en:
 
 ```text
-CREATED → WAITING_PARTICIPANT → ACCEPTED → FUNDED → IN_PROGRESS → COMPLETED
+CREATED → WAITING_PARTICIPANT → [PENDING_BUYER_CONFIRM] → ACCEPTED → FUNDED → IN_PROGRESS → COMPLETED
 ```
 
 - **`WAITING_PARTICIPANT`**: la operación existe y hay (o habrá) un enlace de invitación; se espera que la contraparte se una.
+- **`PENDING_BUYER_CONFIRM`**: el vendedor confirmó la venta con cambios; el comprador debe aceptar o rechazar.
+- **`ACCEPTED`**: se setea `operationDeadlineAt` (+21 días). El job de plazos **no cancela**: avisa a comprador y agente por email si sigue abierta.
 - Ese nombre de estado es **interno**. En pantallas de usuario se habla de “enlace para compartir”, “esperando a la otra parte”, etc.
 
+Diagramas completos por rol: [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).  
 Detalle de diseño a escala: [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md).
 
 ---

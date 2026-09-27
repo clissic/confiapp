@@ -13,14 +13,16 @@ Plataforma de **escrow físico** con control digital de participantes, condicion
 
 ## Qué hace el producto hoy
 
-- **Operaciones** con invite, checklist de entrega y flujo de estados hasta fondeo / progreso.
-- **Pagos**: MVP con transferencia Prex + comprobante; Mercado Pago / mock queda en standby (`PAYMENTS_CHECKOUT_MODE`). Wallet de saldos y retiros.
-- **Agentes intermediarios**: onboarding, búsqueda, trabajos abiertos, ofertas de asignación; **suspender / cerrar agencia** y **solicitar salida** de una operación (escrow intacto).
+- **Operaciones** con invite, checklist de entrega y flujo de estados hasta fondeo / progreso / cierre.
+- **Tres roles en cada op:** Comprador, Vendedor y Agente — flujos detallados con diagramas en [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md).
+- **Pagos:** contratación del Agente (UYU $400, `AGENT_FEE_ONLY`) vía Mercado Pago o Prex (`PAYMENTS_CHECKOUT_MODE`). Wallet de saldos y retiros.
+- **Agentes intermediarios:** onboarding, búsqueda, trabajos abiertos, ofertas de asignación; **suspender / cerrar agencia** y **solicitar salida** de una operación (escrow intacto).
 - **Chat** y **notificaciones** in-app en tiempo real.
 - **KYC** (review admin por fotos), **reputación** y **auditoría** (admin).
 - **Identidad Digital Abitab** para **Agentes**: onboarding + cada aceptación de trabajo (`acr=pin`; roadmap `liveness`). KYC fotos se mantiene sin bloquear el wizard. Detalle: [`docs/ID_DIGITAL_AGENTS.md`](./docs/ID_DIGITAL_AGENTS.md).
 
 Detalle de pantallas: [`docs/WEB_APP.md`](./docs/WEB_APP.md).  
+**Flujos de compra / venta / intermediación:** [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md).  
 Finanzas / cobro MVP: [`docs/FINANCE_MVP_NOTES.md`](./docs/FINANCE_MVP_NOTES.md).  
 Visión a escala: [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md).
 
@@ -75,9 +77,11 @@ Alternativa: `pnpm demo:tunnel` — ver [`docs/DEMO_PUBLICO.md`](./docs/DEMO_PUB
 
 | Doc | Contenido |
 |-----|-----------|
+| [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md) | **Flujos compra / venta / intermediación** (diagramas por rol, pagos, plazos) |
 | [`docs/WEB_APP.md`](./docs/WEB_APP.md) | Estado del producto web (rutas, UI, estados internos) |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Estructura del monorepo y módulos |
 | [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md) | Diseño SaaS (pagos, realtime, escala) |
+| [`docs/FINANCE_MVP_NOTES.md`](./docs/FINANCE_MVP_NOTES.md) | Cobro Prex/MP, comisiones, OAuth agentes |
 | [`docs/ID_DIGITAL_AGENTS.md`](./docs/ID_DIGITAL_AGENTS.md) | ID Digital Abitab — onboarding agente + aceptar trabajo |
 | [`docs/BACKEND_BOOTSTRAP.md`](./docs/BACKEND_BOOTSTRAP.md) | Snapshot histórico del bootstrap Express |
 | [`docs/DEMO_PUBLICO.md`](./docs/DEMO_PUBLICO.md) | Demo público con túnel Cloudflare |

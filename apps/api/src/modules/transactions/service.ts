@@ -57,6 +57,7 @@ import {
   assertNotPastDeadline,
   computeOperationDeadline,
 } from './operation-deadline';
+import { sendOperationDeadlineReminderEmail } from './operation-deadline-email';
 import { TransactionsRepository, type TransactionDocument } from './repository';
 import { assertTransition } from './state-machine';
 import type {
@@ -2159,55 +2160,78 @@ export class TransactionsService {
     return { autoReleased: codes.length, reminded, codes };
   }
 
-  /** Job: cancela operaciones cuyo operationDeadlineAt ya venció. */
-  async expireOperationalDeadlines(limit = 50): Promise<{ expired: number; codes: string[] }> {
-    const list = await this.repository.findExpiredOperational(limit);
+  /**
+   * Job: operaciones con plazo operativo vencido (21d).
+   * No cancela: envía recordatorio (email + in-app) a comprador y agente una sola vez.
+   */
+  async expireOperationalDeadlines(
+    limit = 50,
+  ): Promise<{ reminded: number; expired: number; codes: string[] }> {
+    const list = await this.repository.findDueOperationalReminders(limit);
     const codes: string[] = [];
 
     for (const tx of list) {
       try {
-        const updated = await this.repository.transitionStatus(tx, TransactionStatus.CANCELLED, {
-          userId: String(tx.createdBy),
-          note: 'Cancelada automáticamente: venció el plazo operativo de 21 días',
-          clearPendingChanges: true,
-        });
-        codes.push(updated.code);
+        const parties = resolveTransactionPartyIds(tx);
+        const href = `/operaciones/${tx.code}`;
+        const title = tx.title?.trim() || tx.code;
 
-        await this.resolvePendingBuyerConfirmNotifications(
-          updated,
-          NotificationActionStatus.EXPIRED,
-        );
+        const targets: Array<{ userId: string; role: 'buyer' | 'agent' }> = [];
+        if (parties.buyerId) targets.push({ userId: parties.buyerId, role: 'buyer' });
+        if (parties.agentId) targets.push({ userId: parties.agentId, role: 'agent' });
 
-        const recipientIds = new Set<string>([String(updated.createdBy)]);
-        for (const p of updated.participants) {
-          if (p.status === ParticipantStatus.ACCEPTED) {
-            recipientIds.add(String(p.user));
+        for (const target of targets) {
+          const user = await UserModel.findById(target.userId)
+            .select('email fullName displayName')
+            .lean()
+            .exec();
+          const displayName =
+            (user as { fullName?: string; displayName?: string } | null)?.fullName ||
+            (user as { displayName?: string } | null)?.displayName;
+
+          await notificationsService.notify({
+            userId: target.userId,
+            type: NotificationType.DISPUTE,
+            title: 'Operación pendiente sin terminar',
+            body:
+              target.role === 'buyer'
+                ? `La operación ${tx.code} lleva más de 20 días sin completarse. Si hay un problema, podés abrir una disputa desde la app.`
+                : `La operación ${tx.code} lleva más de 20 días sin completarse. Revisá el estado y coordiná con las partes; el comprador puede abrir una disputa si hace falta.`,
+            data: {
+              href,
+              code: tx.code,
+              reason: 'OPERATION_DEADLINE_REMINDER',
+              role: target.role,
+            },
+            entityType: 'Transaction',
+            entityId: String(tx._id),
+            channels: [
+              NotificationChannel.IN_APP,
+              NotificationChannel.EMAIL,
+              NotificationChannel.PUSH,
+            ],
+          });
+
+          if (user?.email) {
+            await sendOperationDeadlineReminderEmail({
+              to: user.email,
+              recipientName: displayName,
+              role: target.role,
+              transactionCode: tx.code,
+              transactionTitle: title,
+            });
           }
         }
 
-        for (const recipientId of recipientIds) {
-          await notificationsService.notify({
-            userId: recipientId,
-            type: NotificationType.TRANSACTION_UPDATE,
-            title: 'Operación cancelada por plazo',
-            body: `La operación ${updated.code} se canceló al vencer el plazo de 21 días.`,
-            data: {
-              href: `/operaciones/${updated.code}`,
-              code: updated.code,
-              status: updated.status,
-              reason: 'OPERATION_DEADLINE_EXPIRED',
-            },
-            entityType: 'Transaction',
-            entityId: String(updated._id),
-            channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
-          });
-        }
+        tx.operationDeadlineReminderSentAt = new Date();
+        await tx.save();
+        codes.push(tx.code);
       } catch {
-        // Continuar con las demás; transición inválida o race.
+        // Continuar con las demás.
       }
     }
 
-    return { expired: codes.length, codes };
+    return { reminded: codes.length, expired: 0, codes };
   }
 
   private async resolvePendingBuyerConfirmNotifications(

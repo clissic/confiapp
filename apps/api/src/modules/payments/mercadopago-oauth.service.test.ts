@@ -35,6 +35,7 @@ vi.mock('../../shared/config/env', () => ({
       'http://localhost:3000/payments/mercadopago/oauth/callback',
     MERCADOPAGO_TOKEN_ENCRYPTION_KEY:
       '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    MERCADOPAGO_OAUTH_USE_PKCE: false,
   },
 }));
 
@@ -67,14 +68,18 @@ describe('MercadoPagoOAuthService', () => {
     mocks.updateOneAccount.mockReturnValue({ catch: () => undefined });
   });
 
-  it('startOAuth guarda state+PKCE y devuelve authorizationUrl', async () => {
+  it('startOAuth guarda state y devuelve authorizationUrl (sin PKCE por defecto)', async () => {
     const result = await service.startOAuth(userId);
     expect(mocks.createState).toHaveBeenCalledOnce();
     const created = mocks.createState.mock.calls[0][0];
     expect(created.user).toBe(userId);
-    expect(created.codeVerifier).toBeTruthy();
+    expect(created.codeVerifier).toBe('-');
     expect(created.state).toBeTruthy();
     expect(result.authorizationUrl).toContain(created.state);
+    expect(oauth.createAuthorizationUrl).toHaveBeenCalledWith({
+      state: created.state,
+      codeChallenge: undefined,
+    });
   });
 
   it('callback cancelado (access_denied) redirige con reason=cancelled', async () => {
@@ -90,7 +95,7 @@ describe('MercadoPagoOAuthService', () => {
     const stateDoc = {
       state: 'state-1',
       user: userId,
-      codeVerifier: 'verifier-1',
+      codeVerifier: '-',
       expiresAt: new Date(Date.now() + 60_000),
     };
     mocks.findOneAndDeleteState.mockReturnValue(lean(stateDoc));
@@ -123,7 +128,7 @@ describe('MercadoPagoOAuthService', () => {
 
     expect(oauth.exchangeCode).toHaveBeenCalledWith({
       code: 'auth-code',
-      codeVerifier: 'verifier-1',
+      codeVerifier: undefined,
     });
     expect(mocks.createAccount).toHaveBeenCalledOnce();
     const created = mocks.createAccount.mock.calls[0][0];

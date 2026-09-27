@@ -3,7 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@repo/*": ["../../*"]
     },
     "types": ["vite/client"],
     "noEmit": true,

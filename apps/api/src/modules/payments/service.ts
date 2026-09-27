@@ -1424,7 +1424,9 @@ export class PaymentsService {
         message: 'Firma de webhook inválida',
         externalId: dataId,
       });
-      throw new ForbiddenError('Webhook signature inválida');
+      // 200: MP (y el simulador) no deben reintentar. La fuente de verdad sigue siendo
+      // getPayment con el Access Token; sin firma no confirmamos más abajo si falla.
+      return { handled: false, reason: 'signature_invalid' };
     }
 
     if (!dataId) {

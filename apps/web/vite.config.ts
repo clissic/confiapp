@@ -35,6 +35,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@repo': path.resolve(__dirname, '../..'),
     },
   },
   build: {
@@ -61,6 +62,10 @@ export default defineConfig({
     port: 3001,
     // Túneles demo + Railway (Host header público)
     allowedHosts: ['.trycloudflare.com', '.up.railway.app'],
+    // Importar markdown del monorepo (`@repo/...md?raw`)
+    fs: {
+      allow: [path.resolve(__dirname, '../..')],
+    },
     proxy: {
       ...Object.fromEntries(API_PROXY_PATHS.map((p) => [p, apiProxy])),
       // Prefijo `/audit` también matchea `/auditoria` (SPA): bypassear esa ruta.

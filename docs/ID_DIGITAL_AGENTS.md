@@ -1,7 +1,7 @@
 # Identidad Digital Abitab — Agentes ConfiApp
 
-> **Estado:** documentado / **no implementado** (decisiones actualizadas 2026-09-26).  
-> Diseño acordado para cuando existan credenciales (`client_id` / `client_secret`) y `redirect_uri` registradas. No hay código de integración aún.
+> **Estado:** **implementado** en API/web (2026-09). Requiere `ID_DIGITAL_CLIENT_ID` / `CLIENT_SECRET` / `REDIRECT_URI` en el entorno.  
+> Flujos de operación donde interviene: [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) §6.
 
 ## 1. Objetivo
 
@@ -13,7 +13,7 @@ Confirmar la identidad de los **Agentes** mediante **Identidad Digital Abitab (I
   2. En **cada aceptación de un trabajo** (misma autenticación ID Digital que en el alta).
 - **Quién no:** compradores, vendedores y admin para estos gates (siguen sin ID Digital obligatorio).
 
-No reemplaza ni elimina el flujo KYC por fotos + review admin: ese canal **sigue existiendo** como verificación de menor valor para la app. Solo se **quita el bloqueo** del wizard de agente que hoy exige “identidad verificada (DNI/pasaporte con fotos)” (`BecomeAgentPage`).
+No reemplaza ni elimina el flujo KYC por fotos + review admin: ese canal **sigue existiendo** como verificación de menor valor para la app. Solo se **quita el bloqueo** del wizard de agente que exige “identidad verificada (DNI/pasaporte con fotos)” (`BecomeAgentPage`).
 
 ## 2. Documentación externa
 

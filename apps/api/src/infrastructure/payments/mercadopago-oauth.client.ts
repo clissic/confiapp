@@ -39,7 +39,8 @@ export class MercadoPagoOAuthClient {
 
   createAuthorizationUrl(input: {
     state: string;
-    codeChallenge: string;
+    /** Solo si PKCE está habilitado en la app MP. */
+    codeChallenge?: string;
   }): string {
     if (!this.isConfigured()) {
       throw new AppError(
@@ -55,22 +56,28 @@ export class MercadoPagoOAuthClient {
       platform_id: 'mp',
       state: input.state,
       redirect_uri: env.MERCADOPAGO_OAUTH_REDIRECT_URI,
-      code_challenge: input.codeChallenge,
-      code_challenge_method: 'S256',
     });
+    if (input.codeChallenge) {
+      params.set('code_challenge', input.codeChallenge);
+      params.set('code_challenge_method', 'S256');
+    }
     return `${MP_AUTH_BASE}?${params.toString()}`;
   }
 
   async exchangeCode(input: {
     code: string;
-    codeVerifier: string;
+    /** Solo si el authorize usó PKCE. */
+    codeVerifier?: string;
   }): Promise<MpOAuthTokenResponse> {
-    return this.postToken({
+    const body: Record<string, string> = {
       grant_type: 'authorization_code',
       code: input.code,
       redirect_uri: env.MERCADOPAGO_OAUTH_REDIRECT_URI,
-      code_verifier: input.codeVerifier,
-    });
+    };
+    if (input.codeVerifier) {
+      body.code_verifier = input.codeVerifier;
+    }
+    return this.postToken(body);
   }
 
   async refreshAccessToken(refreshToken: string): Promise<MpOAuthTokenResponse> {
@@ -90,7 +97,10 @@ export class MercadoPagoOAuthClient {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      logger.warn('mercadopago users/me failed', { status: res.status });
+      logger.warn('mercadopago users/me failed', {
+        status: res.status,
+        body: body.slice(0, 300),
+      });
       throw new AppError(
         502,
         'No se pudo obtener el perfil de Mercado Pago',
@@ -127,7 +137,12 @@ export class MercadoPagoOAuthClient {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      logger.warn('mercadopago oauth/token failed', { status: res.status });
+      logger.warn('mercadopago oauth/token failed', {
+        status: res.status,
+        body: text.slice(0, 400),
+        redirectUri: env.MERCADOPAGO_OAUTH_REDIRECT_URI,
+        usedPkce: Boolean(body.code_verifier),
+      });
       throw new AppError(
         502,
         'No se pudo intercambiar el código OAuth de Mercado Pago',
