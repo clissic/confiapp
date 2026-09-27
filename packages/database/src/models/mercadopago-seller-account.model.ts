@@ -23,7 +23,7 @@ const mercadoPagoSellerAccountSchema = new Schema<IMercadoPagoSellerAccount>(
     accessTokenEnc: { type: String, required: true, maxlength: 4000 },
     refreshTokenEnc: { type: String, maxlength: 4000 },
     tokenExpiresAt: { type: Date },
-    scope: { type: String, trim: true, maxlength: 500 },
+    scope: { type: String, trim: true, maxlength: 2000 },
     status: {
       type: String,
       enum: Object.values(MercadoPagoConnectionStatus),

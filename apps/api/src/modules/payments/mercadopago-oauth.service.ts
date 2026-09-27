@@ -207,6 +207,7 @@ export class MercadoPagoOAuthService {
         typeof tokens.expires_in === 'number'
           ? new Date(Date.now() + tokens.expires_in * 1000)
           : undefined;
+      const scope = tokens.scope?.trim().slice(0, 2000) || undefined;
 
       const existing = await MercadoPagoSellerAccountModel.findOne({
         user: userId,
@@ -220,7 +221,7 @@ export class MercadoPagoOAuthService {
         existing.accessTokenEnc = accessTokenEnc;
         existing.refreshTokenEnc = refreshTokenEnc;
         existing.tokenExpiresAt = tokenExpiresAt;
-        existing.scope = tokens.scope;
+        existing.scope = scope;
         existing.status = MercadoPagoConnectionStatus.CONNECTED;
         existing.connectedAt = existing.connectedAt ?? new Date();
         existing.lastError = undefined;
@@ -240,7 +241,7 @@ export class MercadoPagoOAuthService {
           softDeleted.accessTokenEnc = accessTokenEnc;
           softDeleted.refreshTokenEnc = refreshTokenEnc;
           softDeleted.tokenExpiresAt = tokenExpiresAt;
-          softDeleted.scope = tokens.scope;
+          softDeleted.scope = scope;
           softDeleted.status = MercadoPagoConnectionStatus.CONNECTED;
           softDeleted.connectedAt = new Date();
           softDeleted.lastError = undefined;
@@ -254,7 +255,7 @@ export class MercadoPagoOAuthService {
             accessTokenEnc,
             refreshTokenEnc,
             tokenExpiresAt,
-            scope: tokens.scope,
+            scope,
             status: MercadoPagoConnectionStatus.CONNECTED,
             connectedAt: new Date(),
           });
