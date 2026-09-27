@@ -19,8 +19,15 @@ export function MercadoPagoOAuthCallbackPage() {
   }, [params]);
 
   useEffect(() => {
+    // Ayuda a depurar en Network/console: confirma que MP llegó a la web.
+    console.info('[mp-oauth] web callback', {
+      hasCode: params.has('code'),
+      hasState: params.has('state'),
+      error: params.get('error'),
+      target,
+    });
     window.location.replace(target);
-  }, [target]);
+  }, [params, target]);
 
   return (
     <div className="d-flex justify-content-center align-items-center min-vh-100">

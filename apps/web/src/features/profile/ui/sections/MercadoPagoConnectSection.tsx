@@ -1,5 +1,5 @@
 import { Alert, Button, Spinner } from 'react-bootstrap';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Link2, Unlink } from 'lucide-react';
 
@@ -18,9 +18,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   expired_state: 'La vinculación expiró. Probá de nuevo.',
   mp_account_in_use: 'Esa cuenta de Mercado Pago ya está vinculada a otro usuario.',
   token_failed:
-    'Mercado Pago rechazó el canje del código. Revisá Client Secret, Redirect URI del panel y que coincida con la API local/prod.',
+    'Mercado Pago rechazó el canje del código (Client Secret / Redirect URI / PKCE).',
   profile_failed: 'Se autorizó, pero no se pudo leer el perfil de Mercado Pago.',
-  exchange_failed: 'No se pudo completar la vinculación. Probá de nuevo.',
+  exchange_failed: 'No se pudo completar la vinculación.',
 };
 
 function maskMpUserId(id: string): string {
@@ -28,10 +28,17 @@ function maskMpUserId(id: string): string {
   return `••••${id.slice(-4)}`;
 }
 
+function formatLinkError(reason: string, detail: string): string {
+  const base = ERROR_MESSAGES[reason] ?? 'No se pudo vincular Mercado Pago.';
+  if (!detail) return `${base} (${reason || 'sin_motivo'})`;
+  return `${base} [${reason || 'error'}] ${detail}`;
+}
+
 export function MercadoPagoConnectSection() {
   const toast = useAppToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const toastHandled = useRef(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   const connectionQuery = useMercadoPagoConnection();
   const startOAuth = useStartMercadoPagoOAuth();
@@ -43,15 +50,20 @@ export function MercadoPagoConnectSection() {
     if (!mp) return;
     toastHandled.current = true;
     if (mp === 'ok') {
+      setLinkError(null);
       toast.success('Mercado Pago conectado correctamente.');
       void connectionQuery.refetch();
     } else if (mp === 'error') {
       const reason = searchParams.get('reason') ?? '';
-      toast.error(ERROR_MESSAGES[reason] ?? 'No se pudo vincular Mercado Pago.');
+      const detail = searchParams.get('detail') ?? '';
+      const message = formatLinkError(reason, detail);
+      setLinkError(message);
+      toast.error(message);
     }
     const next = new URLSearchParams(searchParams);
     next.delete('mp');
     next.delete('reason');
+    next.delete('detail');
     if (!next.get('tab')) next.set('tab', 'settings');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, toast, connectionQuery]);
@@ -63,10 +75,16 @@ export function MercadoPagoConnectSection() {
 
   const onConnect = async () => {
     try {
+      setLinkError(null);
       const { authorizationUrl } = await startOAuth.mutateAsync();
       window.location.assign(authorizationUrl);
-    } catch {
-      toast.error('No se pudo iniciar la vinculación con Mercado Pago.');
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? `No se pudo iniciar la vinculación: ${err.message}`
+          : 'No se pudo iniciar la vinculación con Mercado Pago.';
+      setLinkError(message);
+      toast.error(message);
     }
   };
 
@@ -94,6 +112,15 @@ export function MercadoPagoConnectSection() {
         compartimos tu contraseña: usás el inicio de sesión oficial de Mercado Pago.
       </p>
 
+      {linkError ? (
+        <Alert variant="danger" className="mb-3" dismissible onClose={() => setLinkError(null)}>
+          <strong>Error de vinculación</strong>
+          <div className="small mt-1" style={{ wordBreak: 'break-word' }}>
+            {linkError}
+          </div>
+        </Alert>
+      ) : null}
+
       {loading ? (
         <div className="d-flex align-items-center gap-2 text-muted">
           <Spinner animation="border" size="sm" />
@@ -118,10 +145,10 @@ export function MercadoPagoConnectSection() {
         </Alert>
       ) : null}
 
-      {!loading && connection?.status === 'ERROR' ? (
+      {!loading && connection?.status === 'ERROR' && !linkError ? (
         <Alert variant="danger" className="mb-3">
           Hubo un problema con la vinculación
-          {connection.lastError ? ` (${connection.lastError})` : ''}. Probá reconectar.
+          {connection.lastError ? `: ${connection.lastError}` : ''}. Probá reconectar.
         </Alert>
       ) : null}
 

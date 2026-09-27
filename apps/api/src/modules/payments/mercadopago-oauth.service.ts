@@ -33,12 +33,41 @@ export interface MercadoPagoConnectionView {
   lastError?: string;
 }
 
-function frontRedirect(mp: 'ok' | 'error', reason?: string): string {
+function frontRedirect(
+  mp: 'ok' | 'error',
+  reason?: string,
+  detail?: string,
+): string {
   const url = new URL('/perfil', env.APP_URL);
   url.searchParams.set('tab', 'settings');
   url.searchParams.set('mp', mp);
   if (reason) url.searchParams.set('reason', reason);
+  if (detail) {
+    // Recorte seguro para querystring (sin tokens).
+    const clean = detail.replace(/[\r\n\t]+/g, ' ').trim().slice(0, 240);
+    if (clean) url.searchParams.set('detail', clean);
+  }
   return url.toString();
+}
+
+function errorDetailFromUnknown(err: unknown): string | undefined {
+  if (!(err instanceof AppError) || !err.details || typeof err.details !== 'object') {
+    return err instanceof Error ? err.message.slice(0, 240) : undefined;
+  }
+  const details = err.details as { body?: unknown; status?: unknown; message?: unknown };
+  const parts: string[] = [];
+  if (details.status != null) parts.push(`HTTP ${String(details.status)}`);
+  if (typeof details.body === 'string' && details.body.trim()) {
+    parts.push(details.body.trim());
+  } else if (details.body != null) {
+    try {
+      parts.push(JSON.stringify(details.body));
+    } catch {
+      parts.push(String(details.body));
+    }
+  }
+  if (err.code) parts.push(`code=${err.code}`);
+  return parts.join(' · ').slice(0, 240) || undefined;
 }
 
 function requireEncryptionKey(): string {
@@ -241,6 +270,7 @@ export class MercadoPagoOAuthService {
           : appCode === 'MP_USER_ME_FAILED'
             ? 'profile_failed'
             : 'exchange_failed';
+      const detail = errorDetailFromUnknown(err);
       logger.warn('mercadopago oauth callback failed', {
         userId,
         reason,
@@ -248,23 +278,16 @@ export class MercadoPagoOAuthService {
         message: err instanceof Error ? err.message : 'unknown',
         details: err instanceof AppError ? err.details : undefined,
       });
-      const detailBody =
-        err instanceof AppError &&
-        err.details &&
-        typeof err.details === 'object' &&
-        'body' in err.details
-          ? String((err.details as { body?: unknown }).body ?? '').slice(0, 180)
-          : '';
       await MercadoPagoSellerAccountModel.updateOne(
         { user: userId, deletedAt: null },
         {
           $set: {
             status: MercadoPagoConnectionStatus.ERROR,
-            lastError: detailBody ? `${reason}: ${detailBody}` : reason,
+            lastError: detail ? `${reason}: ${detail}` : reason,
           },
         },
       ).catch(() => undefined);
-      return { redirectUrl: frontRedirect('error', reason) };
+      return { redirectUrl: frontRedirect('error', reason, detail) };
     }
   }
 
