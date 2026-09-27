@@ -46,12 +46,27 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
+
+          // React + react-bootstrap juntos: un chunk "bootstrap" aparte rompe
+          // createContext (React queda undefined al evaluar el chunk).
+          if (
+            id.includes('react-dom') ||
+            id.includes('react-bootstrap') ||
+            id.includes('scheduler') ||
+            /(?:^|[/\\])react(?:[/\\]|$)/.test(id) ||
+            id.includes('/react@') ||
+            id.includes('\\react@')
+          ) {
+            return 'react-vendor';
+          }
+
           if (id.includes('leaflet') || id.includes('react-leaflet')) return 'leaflet';
-          if (id.includes('socket.io-client') || id.includes('engine.io-client')) return 'socket';
+          if (id.includes('socket.io-client') || id.includes('engine.io-client')) {
+            return 'socket';
+          }
           if (id.includes('framer-motion')) return 'motion';
-          if (id.includes('react-bootstrap') || id.includes('/bootstrap/')) return 'bootstrap';
           if (id.includes('@tanstack')) return 'query';
-          if (id.includes('react-dom') || id.includes('/react/')) return 'react-vendor';
+          if (id.includes('bootstrap')) return 'bootstrap';
           if (id.includes('axios') || id.includes('zod')) return 'http-utils';
         },
       },
