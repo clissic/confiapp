@@ -32,7 +32,7 @@
 
 [data-theme='dark'] .leaflet-container .leaflet-control-attribution {
   background: color-mix(in srgb, var(--surface-elevated, #152033) 88%, transparent);
-  color: color-mix(in srgb, var(--text-muted, #9aa6b8) 85%, transparent);
+  color: var(--text-secondary, #cbd5e1);
 }
 
 [data-theme='dark'] .leaflet-container .leaflet-control-attribution a {

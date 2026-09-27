@@ -983,6 +983,19 @@
   color: var(--text-muted);
 }
 
+[data-theme='dark'] .ca-user-menu__legal-link {
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .ca-user-menu__legal-link:hover,
+[data-theme='dark'] .ca-user-menu__legal-link:focus-visible {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .ca-user-menu__legal-sep {
+  color: color-mix(in srgb, var(--text-muted) 70%, transparent);
+}
+
 [data-theme='dark'] .ca-bottom-nav {
   background: var(--surface-raised);
   border-top-color: var(--border-default);

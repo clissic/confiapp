@@ -1835,3 +1835,17 @@
 .ca-verify-phone__footer a:hover {
   text-decoration: underline;
 }
+
+[data-theme='dark'] .ca-verify-phone__icon {
+  color: #9ee6d8;
+  background: color-mix(in srgb, #134039 78%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9ee6d8 30%, transparent);
+}
+
+[data-theme='dark'] .ca-verify-phone__kicker {
+  color: var(--text-secondary);
+}
+
+[data-theme='dark'] .ca-verify-phone__footer a {
+  color: var(--text-link, #9bb8d9);
+}

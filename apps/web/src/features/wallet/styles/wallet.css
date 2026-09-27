@@ -528,3 +528,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+[data-theme='dark'] .ca-wallet-withdraw-empty__icon {
+  color: #9ee6d8;
+  background: color-mix(in srgb, #134039 78%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9ee6d8 30%, transparent);
+}

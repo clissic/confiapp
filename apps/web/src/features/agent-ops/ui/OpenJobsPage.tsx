@@ -126,6 +126,8 @@ export function OpenJobsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filterError, setFilterError] = useState<string | null>(null);
   const [startingId, setStartingId] = useState(false);
+  /** Trabajo pendiente de aceptar sin ID Digital (bypass cuando el servicio no arranca). */
+  const [devAcceptJob, setDevAcceptJob] = useState<OpenJob | null>(null);
 
   const { data, isFetching, isError } = useOpenJobs(applied);
   const accept = useAcceptOpenJob();
@@ -211,6 +213,7 @@ export function OpenJobsPage() {
     }
     setFilterError(null);
     setError(null);
+    setDevAcceptJob(null);
     setApplied({
       lng: pinLng,
       lat: pinLat,
@@ -223,8 +226,21 @@ export function OpenJobsPage() {
     });
   };
 
+  const acceptJobWithoutIdDigital = async (job: OpenJob) => {
+    try {
+      await accept.mutateAsync({ code: job.code });
+      setDevAcceptJob(null);
+      setError(null);
+      toast.success(`Aceptaste el trabajo ${job.code}. Ya figurás como intermediario.`);
+      navigate(`/operaciones/${job.code}`, { state: { agentAccepted: true } });
+    } catch {
+      setError('No se pudo aceptar el trabajo. Probá de nuevo o contactá a soporte.');
+    }
+  };
+
   const onAccept = async (job: OpenJob) => {
     setError(null);
+    setDevAcceptJob(null);
     setStartingId(true);
     try {
       const { authorizationUrl } = await startIdDigital({
@@ -234,10 +250,16 @@ export function OpenJobsPage() {
       window.location.assign(authorizationUrl);
     } catch {
       setStartingId(false);
+      setDevAcceptJob(job);
       setError(
         'No se pudo iniciar Identidad Digital. Si el servicio no está configurado, contactá a soporte.',
       );
     }
+  };
+
+  const onDevAccept = () => {
+    if (!devAcceptJob) return;
+    void acceptJobWithoutIdDigital(devAcceptJob);
   };
 
   const useMyLocation = () => {
@@ -412,7 +434,29 @@ export function OpenJobsPage() {
       </section>
 
       {error || isError ? (
-        <Alert variant="danger">{error || 'No se pudieron cargar los trabajos.'}</Alert>
+        <Alert variant="danger" className="mb-3">
+          <div>{error || 'No se pudieron cargar los trabajos.'}</div>
+          {devAcceptJob ? (
+            <div className="d-flex flex-wrap align-items-center gap-2 mt-2">
+              <Button
+                type="button"
+                variant="outline-secondary"
+                size="sm"
+                disabled={accept.isPending}
+                onClick={onDevAccept}
+              >
+                {accept.isPending ? (
+                  <Spinner size="sm" animation="border" />
+                ) : (
+                  'Modo DEV'
+                )}
+              </Button>
+              <span className="small">
+                Saltea Identidad Digital y acepta el trabajo (entornos sin ID Digital).
+              </span>
+            </div>
+          ) : null}
+        </Alert>
       ) : null}
 
       <div className="ca-open-jobs__layout">

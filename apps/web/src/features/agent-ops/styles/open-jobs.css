@@ -168,6 +168,22 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+[data-theme='dark'] .ca-open-jobs__route-icon {
+  color: #9ee6d8;
+  background: color-mix(in srgb, #134039 78%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9ee6d8 35%, transparent);
+}
+
+[data-theme='dark'] .ca-open-jobs__route-icon--delivery {
+  color: #b6f0e4;
+  background: color-mix(in srgb, #1a4f46 80%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #b6f0e4 40%, transparent);
+}
+
+[data-theme='dark'] .ca-open-jobs__route-label {
+  color: var(--text-secondary);
+}
+
 [data-theme='dark'] .ca-open-jobs__help-btn {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--color-secondary-400, #55c5b5) 22%, transparent);
