@@ -22,6 +22,7 @@ import { Types, type HydratedDocument } from 'mongoose';
 import { PaymentEventLogModel } from '../../database/models/payment-event-log.model';
 import { PaymentModel, TransactionModel, UserModel } from '../../database/models';
 import { paymentProvider } from '../../infrastructure/payments/mercadopago.payment-provider';
+import { mercadoPagoClient } from '../../infrastructure/payments/mercadopago.client';
 import { agentCommissionService } from '../finance/commission.service';
 import { financialAudit } from '../finance/financial-audit.service';
 import { env } from '../../shared/config/env';
@@ -1275,6 +1276,111 @@ export class PaymentsService {
     };
   }
 
+  /**
+   * Confirma el hold al volver de Checkout Pro (back_url).
+   * Complementa el webhook: en local MP no alcanza localhost; en prod es idempotente.
+   */
+  async syncCheckoutReturn(
+    userId: string,
+    code: string,
+    input: {
+      mpPaymentId?: string;
+      externalReference?: string;
+      status?: string;
+    },
+  ) {
+    const tx = await this.loadTxForParticipant(userId, code);
+    const parties = resolveParties(tx);
+    if (parties.buyerId !== userId) {
+      throw new ForbiddenError('Solo el comprador puede sincronizar el pago');
+    }
+
+    const hold = await PaymentModel.findOne({
+      transaction: tx._id,
+      type: PaymentType.ESCROW_HOLD,
+      deletedAt: null,
+    })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (!hold) {
+      return { confirmed: false, reason: 'no_hold' as const };
+    }
+
+    if (
+      hold.status === PaymentStatus.CAPTURED ||
+      hold.status === PaymentStatus.RELEASED
+    ) {
+      return {
+        confirmed: true,
+        alreadyConfirmed: true,
+        payment: toPaymentDto(hold.toObject()),
+      };
+    }
+
+    const mpPaymentId = input.mpPaymentId?.trim();
+    const hasPaymentId =
+      Boolean(mpPaymentId) && mpPaymentId !== 'null' && mpPaymentId !== 'undefined';
+
+    if (paymentProvider.isMock()) {
+      return { confirmed: false, reason: 'mock_mode' as const };
+    }
+
+    let mpPayment = hasPaymentId
+      ? await paymentProvider.getPayment(mpPaymentId!)
+      : null;
+
+    if (!mpPayment || mpPayment.status !== 'approved') {
+      const found = await mercadoPagoClient.findApprovedPaymentByExternalReference(
+        String(hold._id),
+      );
+      if (found) {
+        mpPayment = found;
+      }
+    }
+
+    if (!mpPayment) {
+      return { confirmed: false, reason: 'missing_payment_id' as const };
+    }
+
+    const externalRef =
+      mpPayment.externalReference?.trim() ||
+      input.externalReference?.trim() ||
+      '';
+
+    if (!externalRef || externalRef !== String(hold._id)) {
+      await persistLog({
+        source: 'confirm',
+        event: 'checkout.sync_mismatch',
+        level: 'warn',
+        message: 'Return MP no coincide con el hold de la operación',
+        transactionId: String(tx._id),
+        paymentId: String(hold._id),
+        externalId: mpPayment.id,
+        payload: { externalRef, holdId: String(hold._id), status: mpPayment.status },
+      });
+      return { confirmed: false, reason: 'reference_mismatch' as const };
+    }
+
+    if (mpPayment.status !== 'approved') {
+      return {
+        confirmed: false,
+        reason: 'not_approved' as const,
+        mpStatus: mpPayment.status,
+      };
+    }
+
+    const result = await this.confirmHold(String(hold._id), {
+      source: 'confirm',
+      externalPaymentId: mpPayment.id,
+    });
+    return {
+      confirmed: true,
+      alreadyConfirmed: result.alreadyConfirmed,
+      payment: result.payment,
+    };
+  }
+
   /** Webhook Mercado Pago: confirma retención cuando payment=approved. */
   async handleMercadoPagoWebhook(input: {
     query: Record<string, unknown>;
@@ -1331,7 +1437,25 @@ export class PaymentsService {
       return { handled: false, reason: 'ignored_topic', topic };
     }
 
-    const mpPayment = await paymentProvider.getPayment(dataId);
+    let mpPayment;
+    try {
+      mpPayment = await paymentProvider.getPayment(dataId);
+    } catch (error) {
+      // El simulador de MP manda id ficticio (p. ej. 123456). No reventar con 500:
+      // MP reintenta ante 5xx; 200 = "recibido, no aplicable".
+      await persistLog({
+        source: 'webhook',
+        event: 'webhook.payment_lookup_failed',
+        level: 'warn',
+        message: 'No se pudo obtener el pago MP (id inválido o simulador)',
+        externalId: dataId,
+        payload: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
+      return { handled: false, reason: 'payment_lookup_failed', dataId };
+    }
+
     const externalRef = mpPayment.externalReference;
     if (!externalRef || !Types.ObjectId.isValid(externalRef)) {
       await persistLog({

@@ -17,6 +17,7 @@ import {
   manualPrexTransferBodySchema,
   adminManualTransfersQuerySchema,
   manualPrexAdminConfirmationBodySchema,
+  syncCheckoutReturnBodySchema,
 } from './validation';
 
 const controller = new PaymentsController();
@@ -72,6 +73,16 @@ paymentsRoutes.post(
   authenticate,
   validateRequest({ params: paymentTransactionCodeParamsSchema }),
   asyncHandler(controller.checkout),
+);
+
+paymentsRoutes.post(
+  '/transactions/:code/sync-checkout',
+  authenticate,
+  validateRequest({
+    params: paymentTransactionCodeParamsSchema,
+    body: syncCheckoutReturnBodySchema,
+  }),
+  asyncHandler(controller.syncCheckoutReturn),
 );
 
 paymentsRoutes.post(

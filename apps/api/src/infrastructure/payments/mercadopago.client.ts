@@ -204,6 +204,58 @@ export class MercadoPagoClient {
     };
   }
 
+  /** Busca un pago aprobado por external_reference (p. ej. id del hold). */
+  async findApprovedPaymentByExternalReference(
+    externalReference: string,
+  ): Promise<MpPaymentStatus | null> {
+    if (this.isMock()) return null;
+
+    const params = new URLSearchParams({
+      external_reference: externalReference,
+      sort: 'date_created',
+      criteria: 'desc',
+    });
+    const response = await fetch(`${this.baseUrl}/v1/payments/search?${params}`, {
+      headers: {
+        Authorization: `Bearer ${env.MERCADOPAGO_ACCESS_TOKEN}`,
+      },
+    });
+    const raw = (await response.json()) as {
+      results?: Array<Record<string, unknown>>;
+    };
+    if (!response.ok) {
+      logger.error('mercadopago payment search failed', {
+        externalReference,
+        status: response.status,
+        raw,
+      });
+      return null;
+    }
+
+    const approved = (raw.results ?? []).find(
+      (item) => String(item.status ?? '') === 'approved',
+    );
+    if (!approved) return null;
+
+    return {
+      id: String(approved.id),
+      status: String(approved.status ?? ''),
+      statusDetail:
+        typeof approved.status_detail === 'string' ? approved.status_detail : undefined,
+      externalReference:
+        typeof approved.external_reference === 'string'
+          ? approved.external_reference
+          : externalReference,
+      transactionAmount:
+        typeof approved.transaction_amount === 'number'
+          ? approved.transaction_amount
+          : undefined,
+      currencyId:
+        typeof approved.currency_id === 'string' ? approved.currency_id : undefined,
+      raw: approved,
+    };
+  }
+
   /**
    * Valida x-signature de webhooks MP cuando hay secret configurado.
    * En MOCK / sin secret, acepta (dev) pero lo registra en logs.

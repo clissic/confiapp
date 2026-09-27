@@ -102,6 +102,26 @@ export async function startCheckout(code: string): Promise<{
   return data;
 }
 
+/** Confirma el pago al volver de Mercado Pago (si el webhook no alcanzó la API). */
+export async function syncCheckoutReturn(
+  code: string,
+  input: {
+    mpPaymentId?: string;
+    externalReference?: string;
+    status?: string;
+  },
+): Promise<{ confirmed: boolean; alreadyConfirmed?: boolean; reason?: string }> {
+  if (!hasApiAuth()) {
+    return { confirmed: false, reason: 'no_auth' };
+  }
+  const { data } = await apiClient.post<{
+    confirmed: boolean;
+    alreadyConfirmed?: boolean;
+    reason?: string;
+  }>(`/payments/transactions/${encodeURIComponent(code)}/sync-checkout`, input);
+  return data;
+}
+
 export async function submitManualPrexTransfer(
   code: string,
   payload: { receiptDataUrl: string; receiptFileName?: string },

@@ -11,7 +11,7 @@ import {
   DEFAULT_UYU_PER_USD,
   type FeePayer as SharedFeePayer,
 } from '@confiapp/shared';
-import { useEscrow } from '@/features/payments/hooks/usePayments';
+import { useEscrow, useSyncCheckoutReturn } from '@/features/payments/hooks/usePayments';
 import {
   useRefreshInvite,
   useTransaction,
@@ -42,6 +42,7 @@ export function TransactionDetailPage() {
   } | null;
   const { data, isLoading, isError, refetch } = useTransaction(code);
   const { data: escrowData, refetch: refetchEscrow } = useEscrow(code ?? null);
+  const syncCheckout = useSyncCheckoutReturn(code ?? null);
   const refresh = useRefreshInvite();
   const buyerConfirm = useBuyerConfirmChanges(code);
   const buyerReject = useBuyerRejectChanges(code);
@@ -54,27 +55,64 @@ export function TransactionDetailPage() {
 
   useEffect(() => {
     const pago = searchParams.get('pago') ?? searchParams.get('status');
-    if (!pago) return;
-    if (!pagoToastShownRef.current) {
-      pagoToastShownRef.current = true;
-      if (pago === 'ok' || pago === 'success') {
-        const agentFeeOnly =
-          (data?.data?.fundingMode ?? 'AGENT_FEE_ONLY') === 'AGENT_FEE_ONLY';
-        toast.success(
-          agentFeeOnly
-            ? 'Pago confirmado. La contratación quedó retenida en ConfiApp.'
-            : 'Pago confirmado. El monto quedó en resguardo.',
-        );
-        void refetch();
-      } else if (pago === 'failure') {
-        setError('El pago falló o fue cancelado en Mercado Pago.');
-      }
-    }
+    if (!pago || !code) return;
+    if (pagoToastShownRef.current) return;
+    pagoToastShownRef.current = true;
+
+    const mpPaymentId =
+      searchParams.get('payment_id') ??
+      searchParams.get('collection_id') ??
+      undefined;
+    const externalReference = searchParams.get('external_reference') ?? undefined;
+    const mpStatus = searchParams.get('collection_status') ?? searchParams.get('status') ?? undefined;
+
     const next = new URLSearchParams(searchParams);
     next.delete('pago');
     next.delete('status');
+    next.delete('payment_id');
+    next.delete('collection_id');
+    next.delete('collection_status');
+    next.delete('external_reference');
+    next.delete('preference_id');
+    next.delete('merchant_order_id');
+    next.delete('site_id');
+    next.delete('processing_mode');
+    next.delete('merchant_account_id');
     setSearchParams(next, { replace: true });
-  }, [searchParams, setSearchParams, toast, refetch, data?.data?.fundingMode]);
+
+    if (pago === 'ok' || pago === 'success' || mpStatus === 'approved') {
+      void (async () => {
+        try {
+          const sync = await syncCheckout.mutateAsync({
+            mpPaymentId: mpPaymentId && mpPaymentId !== 'null' ? mpPaymentId : undefined,
+            externalReference: externalReference ?? undefined,
+            status: mpStatus ?? undefined,
+          });
+          const agentFeeOnly =
+            (data?.data?.fundingMode ?? 'AGENT_FEE_ONLY') === 'AGENT_FEE_ONLY';
+          if (sync.confirmed) {
+            toast.success(
+              agentFeeOnly
+                ? 'Pago confirmado. La contratación quedó retenida en ConfiApp.'
+                : 'Pago confirmado. El monto quedó en resguardo.',
+            );
+          } else {
+            toast.success(
+              'Volviste de Mercado Pago. Si el pago figura aprobado allí, puede demorar unos segundos en reflejarse (webhook).',
+            );
+          }
+        } catch {
+          toast.success(
+            'Volviste de Mercado Pago. Estamos sincronizando el estado del pago…',
+          );
+        }
+        await Promise.all([refetch(), refetchEscrow()]);
+      })();
+    } else if (pago === 'failure') {
+      setError('El pago falló o fue cancelado en Mercado Pago.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una sola vez al volver de MP
+  }, [searchParams, code]);
 
   useEffect(() => {
     if (navToastShownRef.current) return;

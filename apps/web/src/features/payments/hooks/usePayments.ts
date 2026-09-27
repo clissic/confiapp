@@ -13,6 +13,7 @@ import {
   startCheckout,
   startMercadoPagoOAuth,
   submitManualPrexTransfer,
+  syncCheckoutReturn,
 } from '../api/payments.api';
 
 export const paymentsQueryKey = ['payments'] as const;
@@ -122,6 +123,24 @@ export function useStartCheckout(code: string | null) {
       void queryClient.invalidateQueries({ queryKey: escrowQueryKey(code) });
       void queryClient.invalidateQueries({ queryKey: paymentsQueryKey });
       void queryClient.invalidateQueries({ queryKey: paymentLogsQueryKey });
+    },
+  });
+}
+
+export function useSyncCheckoutReturn(code: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      mpPaymentId?: string;
+      externalReference?: string;
+      status?: string;
+    }) => syncCheckoutReturn(code!, input),
+    onSuccess: (result) => {
+      if (!code || !result.confirmed) return;
+      void queryClient.invalidateQueries({ queryKey: escrowQueryKey(code) });
+      void queryClient.invalidateQueries({ queryKey: paymentsQueryKey });
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      void queryClient.invalidateQueries({ queryKey: ['transactions', code] });
     },
   });
 }

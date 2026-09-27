@@ -40,8 +40,16 @@ export const manualPrexAdminConfirmationBodySchema = z.object({
   confirmed: z.boolean(),
 });
 
+/** Params que MP agrega al volver de Checkout Pro (back_urls). */
+export const syncCheckoutReturnBodySchema = z.object({
+  mpPaymentId: z.string().trim().min(1).max(64).optional(),
+  externalReference: z.string().trim().min(1).max(64).optional(),
+  status: z.string().trim().min(1).max(32).optional(),
+});
+
 export type PaymentTransactionCodeParams = z.infer<
   typeof paymentTransactionCodeParamsSchema
 >;
 export type PaymentIdParams = z.infer<typeof paymentIdParamsSchema>;
 export type ManualPrexTransferBody = z.infer<typeof manualPrexTransferBodySchema>;
+export type SyncCheckoutReturnBody = z.infer<typeof syncCheckoutReturnBodySchema>;

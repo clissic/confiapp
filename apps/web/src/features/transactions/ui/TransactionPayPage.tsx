@@ -18,6 +18,7 @@ import {
   useEscrow,
   useStartCheckout,
   useSubmitManualPrexTransfer,
+  useSyncCheckoutReturn,
 } from '@/features/payments/hooks/usePayments';
 
 import { useTransaction } from '../hooks/useTransactions';
@@ -36,6 +37,7 @@ export function TransactionPayPage() {
   const { data, isLoading, isError } = useTransaction(code);
   const { data: escrowData } = useEscrow(code);
   const checkout = useStartCheckout(code);
+  const syncCheckout = useSyncCheckoutReturn(code);
   const manualTransfer = useSubmitManualPrexTransfer(code);
   const tx = data?.data;
   const escrow = escrowData?.data;
@@ -179,6 +181,29 @@ export function TransactionPayPage() {
           err,
           'No se pudo iniciar el checkout. Revisá que la operación siga aceptada.',
         ),
+      );
+    }
+  };
+
+  const onVerifyExistingPayment = async () => {
+    setError(null);
+    try {
+      const sync = await syncCheckout.mutateAsync({});
+      if (sync.confirmed) {
+        toast.success(
+          isAgentFeeOnly
+            ? 'Pago encontrado en Mercado Pago. La contratación quedó retenida.'
+            : 'Pago encontrado en Mercado Pago. El monto quedó en resguardo.',
+        );
+        navigate(`/operaciones/${code}`, { replace: true });
+        return;
+      }
+      setError(
+        'No encontramos un pago aprobado en Mercado Pago para esta operación. Si acabás de pagar, esperá un momento y volvé a verificar.',
+      );
+    } catch (err) {
+      setError(
+        getApiErrorMessage(err, 'No se pudo verificar el pago en Mercado Pago.'),
       );
     }
   };
@@ -373,7 +398,7 @@ export function TransactionPayPage() {
           <div className="ca-tx-pay-cta__actions">
             <Button
               className="ca-btn-cta"
-              disabled={checkout.isPending}
+              disabled={checkout.isPending || syncCheckout.isPending}
               onClick={() => void onContinueToCheckout()}
             >
               {checkout.isPending ? (
@@ -383,6 +408,21 @@ export function TransactionPayPage() {
                 </>
               ) : (
                 'Continuar a Mercado Pago'
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="outline-secondary"
+              disabled={checkout.isPending || syncCheckout.isPending}
+              onClick={() => void onVerifyExistingPayment()}
+            >
+              {syncCheckout.isPending ? (
+                <>
+                  <Spinner size="sm" animation="border" className="me-2" />
+                  Verificando…
+                </>
+              ) : (
+                'Ya pagué — verificar'
               )}
             </Button>
             <Link to={`/operaciones/${tx.code}`} className="btn btn-link px-0">

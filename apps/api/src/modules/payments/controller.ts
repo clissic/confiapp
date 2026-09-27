@@ -27,6 +27,20 @@ export class PaymentsController {
     res.status(201).json(data);
   };
 
+  syncCheckoutReturn = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.syncCheckoutReturn(req.user!.id, code, {
+      mpPaymentId:
+        typeof req.body.mpPaymentId === 'string' ? req.body.mpPaymentId : undefined,
+      externalReference:
+        typeof req.body.externalReference === 'string'
+          ? req.body.externalReference
+          : undefined,
+      status: typeof req.body.status === 'string' ? req.body.status : undefined,
+    });
+    res.status(200).json(data);
+  };
+
   manualTransfer = async (req: Request, res: Response): Promise<void> => {
     const code = String(req.params.code);
     const data = await this.service.submitManualPrexTransfer(req.user!.id, code, {
