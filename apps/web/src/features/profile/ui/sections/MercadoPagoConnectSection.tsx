@@ -8,7 +8,10 @@ import {
   useMercadoPagoConnection,
   useStartMercadoPagoOAuth,
 } from '@/features/payments/hooks/usePayments';
+import { MercadoPagoLogo } from '@/shared/branding/MercadoPagoLogo';
 import { useAppToast } from '@/shared/ui';
+
+import '../../styles/mercadopago-connect.css';
 
 const ERROR_MESSAGES: Record<string, string> = {
   cancelled: 'Cancelaste la vinculación con Mercado Pago.',
@@ -98,19 +101,22 @@ export function MercadoPagoConnectSection() {
   };
 
   return (
-    <section id="mercadopago-conexion" className="ca-payout">
-      <h3 className="ca-section-title">
-        <Link2 size={22} strokeWidth={1.75} aria-hidden />
-        Mercado Pago
-      </h3>
-      <p className="ca-section-lead">
-        La vinculación de Mercado Pago permitirá en un futuro realizar los pagos automáticamente
-        cuando finalicen las operaciones, directamente a la billetera de Mercado Pago del Agente,
-        sin esperar a la liquidación mensual. Si no vinculás tu cuenta, deberás agregar un método
-        de cobro alternativo. Podés seguir tomando trabajos sin vincularla: las comisiones se
-        acreditan en tu wallet y el pago queda pendiente hasta que la tengas conectada. No
-        compartimos tu contraseña: usás el inicio de sesión oficial de Mercado Pago.
-      </p>
+    <section id="mercadopago-conexion" className="ca-mp-connect">
+      <header className="ca-mp-connect__head">
+        <div className="ca-mp-connect__brand-plate" title="Logo oficial — uso sobre fondo claro">
+          <MercadoPagoLogo height={26} />
+        </div>
+        <div className="ca-mp-connect__head-copy">
+          <h3 className="ca-mp-connect__title">Cobros con Mercado Pago</h3>
+          <p className="ca-mp-connect__lead">
+            En un futuro, al cerrar una operación podremos acreditar automáticamente en tu billetera
+            de Mercado Pago, sin esperar la liquidación mensual. Si no vinculás, usá un método de
+            cobro alternativo. Podés seguir tomando trabajos: las comisiones van a tu wallet y el
+            pago queda pendiente hasta conectar. No pedimos tu contraseña: usás el login oficial de
+            Mercado Pago.
+          </p>
+        </div>
+      </header>
 
       {linkError ? (
         <Alert variant="danger" className="mb-3" dismissible onClose={() => setLinkError(null)}>
@@ -153,44 +159,58 @@ export function MercadoPagoConnectSection() {
       ) : null}
 
       {!loading && connected ? (
-        <div className="ca-fieldset p-3 mb-2">
-          <p className="mb-1 fw-semibold" style={{ color: 'var(--text-primary)' }}>
-            Cuenta conectada
-          </p>
-          <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <div className="ca-mp-connect__card ca-mp-connect__card--ok">
+          <div className="ca-mp-connect__card-top">
+            <div className="ca-mp-connect__brand-plate ca-mp-connect__brand-plate--sm">
+              <MercadoPagoLogo height={22} />
+            </div>
+            <span className="ca-mp-connect__status">Conectada</span>
+          </div>
+          <p className="ca-mp-connect__card-title">Cuenta vinculada</p>
+          <div className="ca-mp-connect__chips">
             {connection?.publicNickname ? (
-              <span className="badge text-bg-light border">{connection.publicNickname}</span>
+              <span className="ca-mp-connect__chip">{connection.publicNickname}</span>
             ) : null}
             {connection?.email ? (
-              <span className="badge text-bg-light border">{connection.email}</span>
+              <span className="ca-mp-connect__chip">{connection.email}</span>
             ) : null}
             {connection?.mpUserId ? (
-              <span className="badge text-bg-secondary">
+              <span className="ca-mp-connect__chip ca-mp-connect__chip--muted">
                 ID {maskMpUserId(connection.mpUserId)}
               </span>
             ) : null}
           </div>
           <Button
             variant="outline-danger"
-            className="d-inline-flex align-items-center gap-2"
+            size="sm"
+            className="ca-mp-connect__disconnect d-inline-flex align-items-center gap-2"
             disabled={disconnect.isPending}
             onClick={() => void onDisconnect()}
           >
-            <Unlink size={16} strokeWidth={1.75} aria-hidden />
+            <Unlink size={15} strokeWidth={1.75} aria-hidden />
             {disconnect.isPending ? 'Desconectando…' : 'Desconectar'}
           </Button>
         </div>
       ) : null}
 
       {!loading && !connected ? (
-        <Button
-          className="ca-btn-cta d-inline-flex align-items-center gap-2"
-          disabled={!oauthReady || startOAuth.isPending}
-          onClick={() => void onConnect()}
-        >
-          <Link2 size={16} strokeWidth={1.75} aria-hidden />
-          {startOAuth.isPending ? 'Redirigiendo…' : 'Conectar Mercado Pago'}
-        </Button>
+        <div className="ca-mp-connect__card ca-mp-connect__card--idle">
+          <div className="ca-mp-connect__brand-plate ca-mp-connect__brand-plate--sm">
+            <MercadoPagoLogo height={22} />
+          </div>
+          <p className="ca-mp-connect__card-title">Todavía no vinculaste tu cuenta</p>
+          <p className="ca-mp-connect__card-hint">
+            El inicio de sesión es el oficial de Mercado Pago. ConfiApp no guarda tu contraseña.
+          </p>
+          <Button
+            className="ca-btn-cta ca-mp-connect__cta d-inline-flex align-items-center gap-2"
+            disabled={!oauthReady || startOAuth.isPending}
+            onClick={() => void onConnect()}
+          >
+            <Link2 size={16} strokeWidth={1.75} aria-hidden />
+            {startOAuth.isPending ? 'Redirigiendo…' : 'Conectar Mercado Pago'}
+          </Button>
+        </div>
       ) : null}
     </section>
   );

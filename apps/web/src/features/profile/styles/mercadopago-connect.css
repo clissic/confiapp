@@ -1,0 +1,176 @@
+/* Sección vinculación Mercado Pago — logo oficial sobre placa clara (light/dark) */
+
+.ca-mp-connect {
+  --mp-brand: #009ee3;
+  --mp-brand-soft: color-mix(in srgb, #009ee3 14%, transparent);
+  display: grid;
+  gap: 1rem;
+}
+
+.ca-mp-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  line-height: 1;
+}
+
+.ca-mp-logo__mark {
+  flex: 0 0 auto;
+  display: block;
+  border-radius: 0.35rem;
+}
+
+.ca-mp-logo__word {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #009ee3;
+  white-space: nowrap;
+}
+
+.ca-mp-connect__brand-plate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.75rem;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--mp-brand) 22%, #e5e7eb);
+  box-shadow: 0 1px 0 color-mix(in srgb, #000 4%, transparent);
+}
+
+.ca-mp-connect__brand-plate--sm {
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.65rem;
+}
+
+.ca-mp-connect__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.85rem 1.1rem;
+}
+
+.ca-mp-connect__head-copy {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.ca-mp-connect__title {
+  margin: 0 0 0.35rem;
+  font-size: var(--text-h4-size, 1.15rem);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-mp-connect__lead {
+  margin: 0;
+  max-width: 42rem;
+  font-size: var(--text-small-size, 0.875rem);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.ca-mp-connect__card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem 1.1rem;
+  border-radius: var(--radius-lg, 1rem);
+  border: 1px solid var(--border-subtle, var(--border-default));
+  background:
+    radial-gradient(ellipse 80% 70% at 0% 0%, var(--mp-brand-soft), transparent 55%),
+    var(--surface-raised, var(--surface-base));
+}
+
+.ca-mp-connect__card--ok {
+  border-color: color-mix(in srgb, var(--mp-brand) 35%, var(--border-default));
+}
+
+.ca-mp-connect__card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ca-mp-connect__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, #22c55e 18%, var(--surface-base));
+  color: #166534;
+}
+
+.ca-mp-connect__card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ca-mp-connect__card-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.ca-mp-connect__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ca-mp-connect__chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--surface-sunken, var(--color-gray-100));
+  border: 1px solid var(--border-subtle, var(--border-default));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ca-mp-connect__chip--muted {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 550;
+  color: var(--text-muted);
+}
+
+.ca-mp-connect__disconnect {
+  justify-self: start;
+  margin-top: 0.15rem;
+}
+
+.ca-mp-connect__cta {
+  justify-self: start;
+  margin-top: 0.15rem;
+}
+
+[data-theme='dark'] .ca-mp-connect__status {
+  background: color-mix(in srgb, #22c55e 22%, transparent);
+  color: #86efac;
+}
+
+[data-theme='dark'] .ca-mp-connect__brand-plate {
+  background: #fff;
+  border-color: color-mix(in srgb, var(--mp-brand) 35%, #334155);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #000 25%, transparent);
+}
+
+[data-theme='dark'] .ca-mp-connect__card {
+  background:
+    radial-gradient(ellipse 80% 70% at 0% 0%, color-mix(in srgb, #009ee3 18%, transparent), transparent 55%),
+    var(--surface-raised, var(--surface-base));
+}
