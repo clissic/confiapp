@@ -47,6 +47,10 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
 
+          // Sentry en su propio chunk (antes de la regla de React: `@sentry/react`
+          // matchea `/react/` y partirlo entre chunks genera un ciclo de inicialización).
+          if (id.includes('@sentry') || id.includes('@sentry-internal')) return 'sentry';
+
           // React + react-bootstrap juntos: un chunk "bootstrap" aparte rompe
           // createContext (React queda undefined al evaluar el chunk).
           if (

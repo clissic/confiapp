@@ -10,6 +10,9 @@ interface ImportMetaEnv {
   readonly VITE_APP_NAME: string;
   readonly VITE_APP_ENV: 'development' | 'test' | 'production';
   readonly VITE_CARTO_API_KEY: string;
+  readonly VITE_SENTRY_DSN?: string;
+  readonly VITE_SENTRY_ENVIRONMENT?: string;
+  readonly VITE_SENTRY_TRACES_SAMPLE_RATE?: string;
 }
 
 interface ImportMeta {
