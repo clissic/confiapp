@@ -1,3 +1,6 @@
+// Sentry debe inicializarse antes que Express y el resto de los módulos.
+import './instrument';
+
 import type { Server } from 'node:http';
 
 import { createApp } from './app';

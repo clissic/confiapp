@@ -22,6 +22,7 @@
     "@confiapp/shared": "workspace:*",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-slot": "^1.1.2",
+    "@sentry/react": "^11.12.0",
     "@tanstack/react-query": "^5.66.0",
     "@tanstack/react-query-devtools": "^5.66.0",
     "axios": "^1.7.9",

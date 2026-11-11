@@ -73,6 +73,17 @@ pnpm --filter @confiapp/web dev
 
 Alternativa: `pnpm demo:tunnel` — ver [`docs/DEMO_PUBLICO.md`](./docs/DEMO_PUBLICO.md).
 
+### Monitoreo de errores (Sentry)
+
+Opcional. Sin DSN no se inicializa nada y la app funciona igual.
+
+| Servicio | Variables |
+|----------|-----------|
+| API (`apps/api`) | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` (default `NODE_ENV`), `SENTRY_TRACES_SAMPLE_RATE` (default `0`) |
+| Web (`apps/web`, en build) | `VITE_SENTRY_DSN`, `VITE_SENTRY_ENVIRONMENT` (default modo de Vite), `VITE_SENTRY_TRACES_SAMPLE_RATE` (default `0`) |
+
+No se envían datos de usuario, cookies ni bodies, y `beforeSend` filtra headers `Authorization`/`Cookie` y campos sensibles (contraseñas, tokens, secretos, cédula/documento). Ver `apps/api/src/instrument.ts` y `apps/web/src/instrument.ts`.
+
 ## Documentación
 
 | Doc | Contenido |
