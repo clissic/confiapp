@@ -124,7 +124,11 @@ export async function syncCheckoutReturn(
 
 export async function submitManualPrexTransfer(
   code: string,
-  payload: { receiptDataUrl: string; receiptFileName?: string },
+  payload: {
+    receiptDataUrl?: string;
+    receiptStorageKey?: string;
+    receiptFileName?: string;
+  },
 ): Promise<{
   transactionCode?: string;
   providerMode: string;

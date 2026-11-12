@@ -1,6 +1,11 @@
 import { Router } from 'express';
 
-import { asyncHandler, authenticate, validateRequest } from '../../middleware';
+import {
+  asyncHandler,
+  authenticate,
+  geoRateLimiter,
+  validateRequest,
+} from '../../middleware';
 import { AgentsController } from './controller';
 import {
   agentSearchQuerySchema,
@@ -43,6 +48,7 @@ agentsRoutes.post('/onboarding/close', authenticate, asyncHandler(controller.clo
 agentsRoutes.get(
   '/search',
   authenticate,
+  geoRateLimiter,
   validateRequest({ query: agentSearchQuerySchema }),
   asyncHandler(controller.search),
 );
@@ -50,6 +56,7 @@ agentsRoutes.get(
 agentsRoutes.get(
   '/jobs/open',
   authenticate,
+  geoRateLimiter,
   validateRequest({ query: openJobsQuerySchema }),
   asyncHandler(controller.listOpenJobs),
 );

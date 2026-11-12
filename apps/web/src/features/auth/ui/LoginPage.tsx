@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { loginRequest } from '../api/auth.api';
 import { ApiClientError } from '@/shared/api/client';
+import { isTurnstileEnabled, TurnstileField } from '@/shared/security/TurnstileField';
 import { AuthBrand } from './AuthBrand';
 import { useAuth } from './AuthProvider';
 import { PasswordInput } from './PasswordInput';
@@ -23,6 +24,7 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,9 +33,13 @@ export function LoginPage() {
     event.preventDefault();
     setError(null);
     setNeedsVerification(false);
+    if (isTurnstileEnabled() && !turnstileToken) {
+      setError('Completá la verificación anti-bots.');
+      return;
+    }
     setLoading(true);
     try {
-      const session = await loginRequest(email.trim(), password);
+      const session = await loginRequest(email.trim(), password, turnstileToken);
       setSession(session);
       navigate(next, { replace: true });
     } catch (err) {
@@ -94,6 +100,8 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
+
+          <TurnstileField onToken={setTurnstileToken} className="mb-2" />
 
           <p className="ca-auth__hint">
             <Link

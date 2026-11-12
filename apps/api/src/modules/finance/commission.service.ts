@@ -457,7 +457,11 @@ export class AgentCommissionService {
     if (agentIds?.length) {
       query.agent = { $in: agentIds.map((id) => new Types.ObjectId(id)) };
     }
-    return AgentCommissionModel.find(query).sort({ availableAt: 1 }).lean().exec();
+    return AgentCommissionModel.find(query)
+      .sort({ availableAt: 1 })
+      .limit(5_000)
+      .lean()
+      .exec();
   }
 }
 

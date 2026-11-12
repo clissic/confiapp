@@ -38,7 +38,8 @@ export class SocketRealtimeServer implements RealtimeServerPort, RealtimePublish
       path: '/socket.io',
       pingInterval: 25_000,
       pingTimeout: 20_000,
-      maxHttpBufferSize: 5e6,
+      // Media va por object storage (presign); el socket solo transporta metadata.
+      maxHttpBufferSize: 1e6,
     });
 
     bindRealtimePublisher((room, event, payload) => {

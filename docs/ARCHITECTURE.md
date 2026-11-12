@@ -63,8 +63,11 @@ infrastructure ───────┘
 | `reviews` | Calificaciones / reputación |
 | `audit` | Append-only log de actividad |
 | `health` | Healthcheck |
+| `media` | Presign/confirm/signed-url hacia Railway Bucket (`AWS_*`); cuotas anti-abuso |
 | `evidence` | Stub (`/status`) — dominio preparado, UX pendiente |
 | `disputes` | Stub (`/status`) — dominio preparado, UX pendiente |
+
+Infra relevante: `infrastructure/redis` (rate limits opc.), `infrastructure/storage` (S3), Turnstile en auth. Detalle ops: [`SECURITY_COST_HARDENING.md`](./SECURITY_COST_HARDENING.md).
 
 Estructura típica por feature: `{controller,service,repository,routes,dto,validation}.ts`.
 

@@ -207,6 +207,7 @@ export function KycDocumentsSection({ profile }: { profile: UserProfile }) {
             processOptions={KYC_IMAGE_OPTIONS}
             maxHintLabel={slot.maxHintLabel ?? 'máx. 2 MB'}
             allowPdf={slot.allowPdf}
+            uploadPurpose="kyc"
             onChange={(url) => {
               setImages((prev) => ({ ...prev, [slot.kind]: url }));
               setFormError(null);

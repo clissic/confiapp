@@ -43,6 +43,8 @@ const paymentEventLogSchema = new Schema<IPaymentEventLog>(
 );
 
 paymentEventLogSchema.index({ createdAt: -1 });
+/** Retención 90 días — evita crecimiento ilimitado por flood de webhooks/logs. */
+paymentEventLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 
 export const PaymentEventLogModel: Model<IPaymentEventLog> =
   (models.PaymentEventLog as Model<IPaymentEventLog> | undefined) ??

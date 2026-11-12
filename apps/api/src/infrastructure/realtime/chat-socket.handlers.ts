@@ -3,6 +3,7 @@ import type { Socket } from 'socket.io';
 import { ChatsService } from '../../modules/chats/service';
 import { logger } from '../../utils/logger';
 import { chatRoom } from './rooms';
+import { allowSocketEvent } from './socket-throttle';
 
 const chatsService = new ChatsService();
 
@@ -17,6 +18,10 @@ export function registerChatSocketHandlers(socket: Socket): void {
     try {
       if (typeof chatId !== 'string' || !chatId) {
         ack?.({ ok: false, error: 'chatId inválido' });
+        return;
+      }
+      if (!allowSocketEvent(`${userId}:join`, 30, 60_000)) {
+        ack?.({ ok: false, error: 'Demasiadas uniones a chats' });
         return;
       }
       await chatsService.getChatForUser(userId, chatId);
@@ -38,11 +43,16 @@ export function registerChatSocketHandlers(socket: Socket): void {
     'message:send',
     async (payload: unknown, ack?: (result: unknown) => void) => {
       try {
+        if (!allowSocketEvent(`${userId}:message`, 40, 60_000)) {
+          ack?.({ ok: false, error: 'Demasiados mensajes, esperá un momento' });
+          return;
+        }
         const data = payload as {
           chatId?: string;
           body?: string;
           attachments?: Array<{
-            url: string;
+            url?: string;
+            storageKey?: string;
             mimeType?: string;
             fileName?: string;
             sizeBytes?: number;
@@ -54,7 +64,9 @@ export function registerChatSocketHandlers(socket: Socket): void {
         }
         const message = await chatsService.sendMessage(userId, data.chatId, {
           body: data.body,
-          attachments: data.attachments,
+          attachments: data.attachments as
+            | Array<{ url: string; mimeType?: string; fileName?: string; sizeBytes?: number }>
+            | undefined,
         });
         ack?.({ ok: true, message });
       } catch (error) {
@@ -66,6 +78,7 @@ export function registerChatSocketHandlers(socket: Socket): void {
 
   socket.on('typing:start', async (chatId: unknown) => {
     if (typeof chatId !== 'string' || !chatId) return;
+    if (!allowSocketEvent(`${userId}:typing`, 60, 60_000)) return;
     try {
       await chatsService.getChatForUser(userId, chatId);
       chatsService.emitTyping(userId, chatId, true);
@@ -88,6 +101,10 @@ export function registerChatSocketHandlers(socket: Socket): void {
     'message:read',
     async (payload: unknown, ack?: (result: unknown) => void) => {
       try {
+        if (!allowSocketEvent(`${userId}:read`, 60, 60_000)) {
+          ack?.({ ok: false, error: 'Demasiadas lecturas' });
+          return;
+        }
         const data = payload as { chatId?: string; messageIds?: string[] };
         if (!data?.chatId) {
           ack?.({ ok: false, error: 'chatId requerido' });

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { forgotPasswordRequest } from '../api/auth.api';
 import { isRequestTimeoutError } from '@/shared/api/client';
+import { isTurnstileEnabled, TurnstileField } from '@/shared/security/TurnstileField';
 import { AuthBrand } from './AuthBrand';
 import '../styles/auth.css';
 
@@ -10,6 +11,7 @@ import '../styles/auth.css';
 export function ForgotPasswordPage() {
   const [params] = useSearchParams();
   const [email, setEmail] = useState(params.get('email')?.trim() ?? '');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,9 +25,13 @@ export function ForgotPasswordPage() {
       setError('Ingresá el email de tu cuenta.');
       return;
     }
+    if (isTurnstileEnabled() && !turnstileToken) {
+      setError('Completá la verificación anti-bots.');
+      return;
+    }
     setLoading(true);
     try {
-      const result = await forgotPasswordRequest(mail);
+      const result = await forgotPasswordRequest(mail, turnstileToken);
       setInfo(result.message);
     } catch (err) {
       if (isRequestTimeoutError(err)) {
@@ -65,6 +71,8 @@ export function ForgotPasswordPage() {
               disabled={loading}
             />
           </label>
+
+          <TurnstileField onToken={setTurnstileToken} className="mb-2" />
 
           <button className="ca-auth__submit" type="submit" disabled={loading}>
             {loading ? 'Enviando…' : 'Enviar enlace'}

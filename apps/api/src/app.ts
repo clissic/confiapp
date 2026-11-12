@@ -19,6 +19,7 @@ import {
   disputesRoutes,
   evidenceRoutes,
   healthRoutes,
+  mediaRoutes,
   notificationsRoutes,
   paymentsRoutes,
   transactionsRoutes,
@@ -28,6 +29,7 @@ import {
 } from './modules';
 import { financeRoutes } from './modules/finance';
 import { env } from './shared/config/env';
+import { logRateLimitBackend } from './middleware/rate-limit-store';
 import { logger, morganStream } from './utils/logger';
 import { openApiDocument } from './utils/openapi';
 
@@ -120,12 +122,12 @@ export function createApp(): Express {
   );
 
   app.use(compression());
-  // Límite estricto global; chat permite base64 más grande solo en esa ruta.
+  // Con object keys obligatorios, no hace falta body de 8mb (media va al bucket).
   app.use((req, res, next) => {
-    const limit =
-      isChatMessageWrite(req) || isUserProfileWrite(req) || isTransactionMediaWrite(req)
-        ? '8mb'
-        : '256kb';
+    const allowLargeMedia =
+      !env.STORAGE_REQUIRE_OBJECT_KEYS &&
+      (isChatMessageWrite(req) || isUserProfileWrite(req) || isTransactionMediaWrite(req));
+    const limit = allowLargeMedia ? '8mb' : '256kb';
     express.json({ limit })(req, res, next);
   });
   app.use(express.urlencoded({ extended: true, limit: '256kb' }));
@@ -161,10 +163,12 @@ export function createApp(): Express {
   app.use('/evidence', evidenceRoutes);
   app.use('/disputes', disputesRoutes);
   app.use('/notifications', notificationsRoutes);
+  app.use('/media', mediaRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
 
+  logRateLimitBackend();
   logger.debug('Express app configured');
 
   return app;

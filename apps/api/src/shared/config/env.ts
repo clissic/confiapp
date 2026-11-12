@@ -32,7 +32,56 @@ const envSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(100),
   AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60_000),
-  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  WEBHOOK_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
+  CHECKOUT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  CHECKOUT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
+  GEO_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  GEO_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+  CHAT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  CHAT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(40),
+  MEDIA_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  MEDIA_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  OAUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+  OAUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  /** Redis para rate limits compartidos entre réplicas. Vacío = memoria local. */
+  REDIS_URL: z.string().optional().default(''),
+  /**
+   * Timers in-process. En multi-réplica: true solo en una.
+   * Default true para no romper local; en prod extra réplicas → false.
+   * Los locks Mongo evitan doble ejecución si varias quedan en true.
+   */
+  RUN_CRONS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
+  /** Cloudflare Turnstile — vacío = no verificar (solo local). */
+  TURNSTILE_SECRET_KEY: z.string().optional().default(''),
+  /** Cooldown forgot/resend por email (ms). */
+  EMAIL_COOLDOWN_MS: z.coerce.number().int().positive().default(5 * 60_000),
+  /**
+   * Railway Bucket (referencia S3). Preferir estas vars (las inyecta Railway):
+   * AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_ENDPOINT_URL,
+   * AWS_S3_BUCKET_NAME, AWS_DEFAULT_REGION
+   * STORAGE_* queda como alias local/opcional.
+   */
+  AWS_ACCESS_KEY_ID: z.string().optional().default(''),
+  AWS_SECRET_ACCESS_KEY: z.string().optional().default(''),
+  AWS_ENDPOINT_URL: z.string().optional().default(''),
+  AWS_S3_BUCKET_NAME: z.string().optional().default(''),
+  AWS_DEFAULT_REGION: z.string().optional().default(''),
+  STORAGE_ENDPOINT: z.string().optional().default(''),
+  STORAGE_REGION: z.string().optional().default(''),
+  STORAGE_BUCKET: z.string().optional().default(''),
+  STORAGE_ACCESS_KEY_ID: z.string().optional().default(''),
+  STORAGE_SECRET_ACCESS_KEY: z.string().optional().default(''),
+  STORAGE_PUBLIC_BASE_URL: z.string().optional().default(''),
+  /** Si true, rechaza data URLs grandes y exige storageKey. */
+  STORAGE_REQUIRE_OBJECT_KEYS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   MAX_FAILED_LOGIN_ATTEMPTS: z.coerce.number().int().positive().default(5),
   ACCOUNT_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
   COOKIE_SECURE: z
@@ -171,3 +220,13 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+/** Credenciales S3: Railway `AWS_*` primero, luego `STORAGE_*` local. */
+export const storageEnv = {
+  endpoint: (env.AWS_ENDPOINT_URL || env.STORAGE_ENDPOINT).trim(),
+  region: (env.AWS_DEFAULT_REGION || env.STORAGE_REGION || 'auto').trim() || 'auto',
+  bucket: (env.AWS_S3_BUCKET_NAME || env.STORAGE_BUCKET).trim(),
+  accessKeyId: (env.AWS_ACCESS_KEY_ID || env.STORAGE_ACCESS_KEY_ID).trim(),
+  secretAccessKey: (env.AWS_SECRET_ACCESS_KEY || env.STORAGE_SECRET_ACCESS_KEY).trim(),
+  publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL.trim(),
+};

@@ -444,8 +444,9 @@ Tracing distribuido en HTTP → use case → Mongo/Redis/PSP.
 |------|---------|
 | **MVP** *(gran parte hecho)* | Auth, users, transactions (+ `WAITING_PARTICIPANT`), web app, health, monorepo |
 | **Trust** *(en curso)* | Pagos + ledger, KYC, notificaciones in-app, Socket (chat/notif), wallet, audit UI, agentes (open jobs, salida/cierre) |
-| **Scale** | Redis adapter, workers/outbox, S3 uploads, geofence, rate limits distribuidos, phone verify real, evidence/disputes UI |
-| **Hardening** | Sharding, multi-región lectura, admin forense, warehouse analytics |
+| **Cost / anti-bots** *(en master)* | Rate limits por ruta, Turnstile auth, webhook/checkout endurecidos, crons con lock, media presign S3 (`AWS_*`), Redis opcional — ver [`SECURITY_COST_HARDENING.md`](./SECURITY_COST_HARDENING.md) |
+| **Scale** *(parcial)* | ~~S3 uploads~~ (presign listo), ~~rate limits distribuidos~~ (Redis opcional). Pendiente ops/código: Redis prod multi-réplica, `STORAGE_REQUIRE_OBJECT_KEYS` + backfill, Socket.io Redis adapter, workers/BullMQ, WAF edge, antivirus uploads, geofence, phone verify real, evidence/disputes UI |
+| **Hardening** | Sharding, multi-región lectura, admin forense, warehouse analytics, WAF edge |
 
 ---
 

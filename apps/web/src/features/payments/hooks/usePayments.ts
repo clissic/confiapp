@@ -148,8 +148,11 @@ export function useSyncCheckoutReturn(code: string | null) {
 export function useSubmitManualPrexTransfer(code: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { receiptDataUrl: string; receiptFileName?: string }) =>
-      submitManualPrexTransfer(code!, payload),
+    mutationFn: (payload: {
+      receiptDataUrl?: string;
+      receiptStorageKey?: string;
+      receiptFileName?: string;
+    }) => submitManualPrexTransfer(code!, payload),
     onSuccess: () => {
       if (!code) return;
       void queryClient.invalidateQueries({ queryKey: escrowQueryKey(code) });
