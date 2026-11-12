@@ -1,9 +1,9 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
-import { connectDatabase, disconnectDatabase } from '../src/database';
+import { connectDatabase, disconnectDatabase } from '../../src/database';
 
-const URI_FILE = path.join(__dirname, '.mongo-uri');
+const URI_FILE = path.join(__dirname, '..', '.mongo-uri');
 
 export function getTestMongoUri(): string {
   if (existsSync(URI_FILE)) {
