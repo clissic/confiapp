@@ -33,8 +33,11 @@ Visión a escala: [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md)
 - **Redirect URI (local):** `http://localhost:3000/auth/id-digital/callback` (o túnel HTTPS si Abitab no acepta HTTP).
 - **Método actual:** **PIN** (`ID_DIGITAL_ACR_VALUES=pin`). **Roadmap:** `liveness` (reconocimiento facial).
 - **Cuándo:** inicio del onboarding de Agente + cada aceptación de trabajo (solo web).
-- **Authorize (primaria):** `https://login.identidaddigital.com.uy/v2/authorize`.
-- **Token / issuer:** `auth.identificaciondigital.com.uy` (defaults en `.env.example`). Si authorize falla de forma reiterada, confirmar hosts con soporte Abitab.
+- **Authorize:** `https://login.identificaciondigital.com.uy/v2/authorize` (confirmado con credenciales STG, 2026-11).
+- **Token:** `https://auth.identificaciondigital.com.uy/api/v2/openid/token` · **Issuer:** `https://auth.identificaciondigital.com.uy/api/v2/openid`.
+- **JWKS:** `…/api/v2/openid/jwks` (`ID_DIGITAL_JWKS_URL`): la API verifica la firma **RS256** del `id_token` por `kid` (rechaza `none`/HS*).
+- **Userinfo:** `…/api/v2/openid/userinfo` (`ID_DIGITAL_USERINFO_URL`): de ahí sale la **CI** (`document.document_number`), `registration_level` y `validation_methods`. Si falla, el login no se rompe (queda auditado).
+- **Nonce:** ID Digital **no** devuelve `nonce` en el `id_token`; se acepta su ausencia (protege el `state` de un solo uso) y se rechaza si viene distinto. `amr` llega `null`: el método efectivo es `acr` (`pin`).
 - **Endpoints:** `GET /auth/id-digital/start|status|callback`.
 - Web Railway: `https://confiappweb-production.up.railway.app` · API: `https://confiappapi-production.up.railway.app`.
 

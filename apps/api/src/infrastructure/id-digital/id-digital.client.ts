@@ -10,6 +10,63 @@ export interface IdDigitalTokenResponse {
   id_token?: string;
 }
 
+/** Documento devuelto por el userinfo de ID Digital (la CI está en document_number). */
+export interface IdDigitalUserInfoDocument {
+  document_country?: string;
+  document_number?: string;
+  document_type?: string;
+}
+
+export interface IdDigitalValidationMethod {
+  name?: string;
+  last_validation_date?: string;
+}
+
+/**
+ * Respuesta de GET userinfo (Bearer access_token). Campos confirmados en STG (2026-11).
+ */
+export interface IdDigitalUserInfo {
+  sub: string;
+  acr?: string;
+  amr?: string[] | null;
+  birth_date?: string;
+  document?: IdDigitalUserInfoDocument;
+  email?: string;
+  first_name?: string;
+  middle_name?: string;
+  last_name?: string;
+  phone?: string;
+  registration_level?: number | string;
+  registration_level_description?: string;
+  validation_methods?: IdDigitalValidationMethod[];
+}
+
+export class IdDigitalUserInfoError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'IdDigitalUserInfoError';
+  }
+}
+
+function trimSlash(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
+/** URL del JWKS: ID_DIGITAL_JWKS_URL o `${ID_DIGITAL_ISSUER}/jwks`. */
+export function idDigitalJwksUrl(): string {
+  return env.ID_DIGITAL_JWKS_URL?.trim() || `${trimSlash(env.ID_DIGITAL_ISSUER)}/jwks`;
+}
+
+/** URL del userinfo: ID_DIGITAL_USERINFO_URL o `${ID_DIGITAL_ISSUER}/userinfo`. */
+export function idDigitalUserInfoUrl(): string {
+  return (
+    env.ID_DIGITAL_USERINFO_URL?.trim() || `${trimSlash(env.ID_DIGITAL_ISSUER)}/userinfo`
+  );
+}
+
 function idDigitalConfigured(): boolean {
   return Boolean(
     env.ID_DIGITAL_CLIENT_ID?.trim() &&
@@ -89,6 +146,38 @@ export class IdDigitalClient {
     }
 
     return (await res.json()) as IdDigitalTokenResponse;
+  }
+
+  /** GET userinfo con el access_token. Lanza IdDigitalUserInfoError si falla. */
+  async fetchUserInfo(accessToken: string): Promise<IdDigitalUserInfo> {
+    let res: Response;
+    try {
+      res = await fetch(idDigitalUserInfoUrl(), {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      throw new IdDigitalUserInfoError(
+        `userinfo no respondió: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (!res.ok) {
+      throw new IdDigitalUserInfoError(`userinfo respondió HTTP ${res.status}`, res.status);
+    }
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      throw new IdDigitalUserInfoError('userinfo no devolvió JSON válido', res.status);
+    }
+    if (!body || typeof body !== 'object' || typeof (body as { sub?: unknown }).sub !== 'string') {
+      throw new IdDigitalUserInfoError('userinfo sin sub', res.status);
+    }
+    return body as IdDigitalUserInfo;
   }
 }
 

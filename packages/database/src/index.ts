@@ -7,6 +7,8 @@ export type {
   IUser,
   UserKyc,
   UserIdDigital,
+  UserIdDigitalDocument,
+  UserIdDigitalValidationMethod,
   UserReputation,
   UserWallet,
   UserRating,

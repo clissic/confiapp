@@ -253,9 +253,37 @@ export interface UserIdDigital {
   linkedAt?: Date;
   lastVerifiedAt?: Date;
   lastAcr?: string;
+  /** `amr` tal como lo devuelve el proveedor (ID Digital hoy lo manda null → undefined). */
   lastAmr?: string[];
+  /** Método efectivo de la última verificación: `amr` si viene, si no `[acr]` (p. ej. ['pin']). */
+  lastMethods?: string[];
   /** Completó verificación ID Digital para el alta de agente. */
   onboardingVerifiedAt?: Date;
+  /** Documento verificado por ID Digital (userinfo `document`). La CI está en `number`. */
+  document?: UserIdDigitalDocument;
+  /** Nivel de registro ID Digital (userinfo `registration_level`, p. ej. 2 = presencial). */
+  registrationLevel?: number;
+  registrationLevelDescription?: string;
+  /** Métodos de validación informados por el userinfo. */
+  validationMethods?: UserIdDigitalValidationMethod[];
+  /** Última vez que se leyó userinfo con éxito. */
+  userInfoFetchedAt?: Date;
+  /**
+   * true si el documento de ID Digital no coincide con `User.documentNumber` cargado
+   * por el usuario (D11). No bloquea; queda auditado como advertencia.
+   */
+  documentMismatch?: boolean;
+}
+
+export interface UserIdDigitalDocument {
+  number?: string;
+  type?: string;
+  country?: string;
+}
+
+export interface UserIdDigitalValidationMethod {
+  name?: string;
+  lastValidationDate?: Date;
 }
 
 /**

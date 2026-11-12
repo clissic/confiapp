@@ -1,6 +1,7 @@
 # Identidad Digital Abitab — Agentes ConfiApp
 
 > **Estado:** **implementado** en API/web (2026-09). Requiere `ID_DIGITAL_CLIENT_ID` / `CLIENT_SECRET` / `REDIRECT_URI` en el entorno.  
+> **Validado contra ID Digital STG (2026-11-11)** con credenciales de testing de Abitab: hosts, firma RS256/JWKS, claims reales del `id_token` y userinfo (ver §5, §6 y §6.1).  
 > Flujos de operación donde interviene: [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) §6.
 
 ## 1. Objetivo
@@ -46,7 +47,7 @@ Resumen del proveedor:
 | D8 | Flujo OAuth | **Authorization code** en producción (secreto en API). Claims de usuario según lo documentado para el `id_token` (tabla del [flujo implícito](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/implicit)): `sub`, nombres, `email`, `acr`, `amr`, etc. |
 | D9 | Credenciales | Aún **no** hay `client_id` / `client_secret`; primero definir y registrar `redirect_uri`(s). |
 | D10 | Plataforma | Solo **web** por ahora. Flujo móvil/nativo cuando existan apps nativas. |
-| D11 | Matching | Validar identidad contra la cuenta ConfiApp con los claims disponibles del proveedor (p. ej. `sub` vinculado a la cuenta agente; documento si el proveedor lo expone en userinfo/`id_token` según paquete comercial). |
+| D11 | Matching | Validar identidad contra la cuenta ConfiApp con los claims disponibles del proveedor (p. ej. `sub` vinculado a la cuenta agente; documento si el proveedor lo expone en userinfo/`id_token` según paquete comercial). **Implementación (2026-11):** ver §6.2. |
 
 ### Relación con el KYC actual
 
@@ -97,39 +98,71 @@ La API puede recibir el callback y luego redirigir al front, o el front recibe y
 
 ## 5. URLs del proveedor
 
-| Uso | URL primaria | Alternativa |
-|-----|--------------|-------------|
-| Authorize | `https://login.identidaddigital.com.uy/v2/authorize` | Si falla de forma sistemática, evaluar hosts del paquete / `auth.identificaciondigital.com.uy` (ver README) |
-| Token (ejemplo doc) | Host en ejemplos: `auth.identificaciondigital.com.uy` — `POST /api/v2/openid/token` | Confirmar con credenciales oficiales |
-| Issuer (`iss` en id_token) | `https://auth.identificaciondigital.com.uy/api/v2/openid` | Según [flujo implícito](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/implicit) |
+Confirmadas con el discovery (`/.well-known/openid-configuration`) y una prueba real con credenciales STG (2026-11-11):
 
-Hay **dos ortografías de dominio** en la documentación del proveedor (`identidaddigital` vs `identificaciondigital`). Asumir authorize en `login.identidaddigital.com.uy` y no descartar el host `auth.identificaciondigital.com.uy` para token/`iss`. Documentado también en el README raíz.
+| Uso | URL | Env |
+|-----|-----|-----|
+| Authorize | `https://login.identificaciondigital.com.uy/v2/authorize` | `ID_DIGITAL_AUTH_URL` |
+| Token | `https://auth.identificaciondigital.com.uy/api/v2/openid/token` (`POST`, Basic auth `client_id:client_secret`) | `ID_DIGITAL_TOKEN_URL` |
+| Issuer (`iss`) | `https://auth.identificaciondigital.com.uy/api/v2/openid` | `ID_DIGITAL_ISSUER` |
+| JWKS | `https://auth.identificaciondigital.com.uy/api/v2/openid/jwks` | `ID_DIGITAL_JWKS_URL` (vacío = `${ISSUER}/jwks`) |
+| Userinfo | `https://auth.identificaciondigital.com.uy/api/v2/openid/userinfo` (`GET`, `Bearer access_token`) | `ID_DIGITAL_USERINFO_URL` (vacío = `${ISSUER}/userinfo`) |
 
-## 6. Claims del `id_token` (referencia)
+**Corrección:** versiones anteriores de este doc indicaban authorize en `login.identidaddigital.com.uy`; el host correcto es **`login.identificaciondigital.com.uy`** (el `identidaddigital` solo aparece en el sitio de documentación `integracion-id-digital-2-0.identidaddigital.com.uy`).
 
-Según la documentación del [flujo implícito](https://integracion-id-digital-2-0.identidaddigital.com.uy/docs/authorization-flows/implicit) (misma forma de JWT / claims a usar como referencia de identidad):
+Respuesta del token endpoint: `access_token`, `expires_in`, `id_token`, `refresh_token`, `token_type`.
 
-| Claim | Uso |
-|-------|-----|
+## 6. Claims del `id_token` (confirmados)
+
+El `id_token` está firmado con **RS256** y trae `kid` en el header. La API verifica la firma contra el JWKS (cache de claves en memoria por `kid`, refetch ante `kid` desconocido) y **rechaza `alg: none` y HS\***.
+
+Claims que devuelve ID Digital en el authorization code flow:
+
+| Claim | Valor / uso |
+|-------|-------------|
 | `iss` | Verificar emisor esperado |
 | `aud` | Debe ser nuestro `client_id` |
-| `nonce` | Obligatorio en implícito; recomendable también en code si se usa |
-| `iat` / `exp` | Ventana de validez |
-| `sub` | Identificador único del usuario en ID Digital (vincular a User) |
+| `iat` / `exp` / `auth_time` | Ventana de validez (`exp` con 60 s de tolerancia) |
+| `sub` | Identificador único del usuario en ID Digital (vincular a `User.idDigital.sub`); coincide con el `sub` del userinfo |
 | `first_name`, `second_name`, `last_name`, `second_last_name` | Perfil |
 | `email` | Correo en ID Digital |
-| `acr` | Nivel (`loa2` / `loa3`) |
-| `amr` | Métodos usados (p. ej. pin) |
+| `acr` | Método/nivel usado: **`pin`** con `acr_values=pin` |
+| `amr` | **Llega `null`**. El método efectivo que guardamos (`idDigital.lastMethods`) es `amr` si trae valores; si no, `[acr]` |
+| `at_hash` | Hash del access_token (no se usa) |
 
-**Nota:** el flujo de implementación será **authorization code** (más seguro). El implícito se usa como **fuente de verdad de claims**; el exchange del `code` ocurre solo en el backend.
+**`nonce`:** ID Digital **no devuelve `nonce`** en el `id_token`, aunque se envíe en authorize. La API lo sigue enviando y:
 
-## 7. Diseño técnico previsto (sin código aún)
+- si el token **no trae** `nonce` → se acepta: el `state` aleatorio de un solo uso (persistido con TTL de 10 min y borrado al usarse) protege contra CSRF/replay, y el `code` solo lo puede canjear nuestro backend con `client_secret`;
+- si el token **trae** un `nonce` distinto al generado → se rechaza (`reason=token_nonce`).
+
+**La CI no viene en el `id_token`**: hay que leerla del userinfo.
+
+### 6.1 Userinfo (confirmado)
+
+`GET userinfo` con `Authorization: Bearer <access_token>` devuelve: `sub`, `acr`, `amr`, `birth_date`, `document { document_country, document_number, document_type }`, `email`, `first_name`, `middle_name`, `last_name`, `phone`, `registration_level`, `registration_level_description`, `validation_methods [{ name, last_validation_date }]`.
+
+- La **CI** está en `document.document_number`.
+- En el callback se llama al userinfo después de validar el `id_token`; se exige que su `sub` coincida (si no, se descarta y se audita).
+- Se persiste en `User.idDigital`: `document { number, type, country }`, `registrationLevel`, `registrationLevelDescription`, `validationMethods`, `userInfoFetchedAt`. **No** se guardan teléfono ni fecha de nacimiento.
+- Si el userinfo falla (HTTP, red, JSON, sin `sub`), **el login no se rompe**: se audita `ID_DIGITAL_FAILED` con `severity: warning`, `blocking: false`, `reason: userinfo_failed | userinfo_sub_mismatch | userinfo_missing_access_token` y se sigue.
+
+### 6.2 Matching de documento (D11)
+
+Comparación normalizada (mayúsculas, sin puntos/guiones/espacios). Para CI uruguaya se acepta también que el usuario haya cargado la cédula sin dígito verificador.
+
+| Situación | Acción |
+|-----------|--------|
+| `User.documentNumber` vacío | Se completa con la CI de ID Digital (fuente verificada). `idDigital.documentMismatch = false` |
+| Coincide | Sin cambios en el perfil. `documentMismatch = false` |
+| No coincide | **No se pisa** el documento del perfil y **no se bloquea** la verificación. `documentMismatch = true` + auditoría `ID_DIGITAL_FAILED` con `reason: document_mismatch`, `severity: warning`, `blocking: false` y los documentos **enmascarados** (últimos 3 caracteres) para revisión admin |
+
+## 7. Diseño técnico
 
 ### Backend
 
-- Env: `ID_DIGITAL_CLIENT_ID`, `ID_DIGITAL_CLIENT_SECRET`, `ID_DIGITAL_AUTH_URL`, `ID_DIGITAL_TOKEN_URL`, `ID_DIGITAL_REDIRECT_URI`, `ID_DIGITAL_ACR_VALUES=pin`, `ID_DIGITAL_SCOPE=openid profile`, `ID_DIGITAL_ISSUER`.
+- Env: `ID_DIGITAL_CLIENT_ID`, `ID_DIGITAL_CLIENT_SECRET`, `ID_DIGITAL_AUTH_URL`, `ID_DIGITAL_TOKEN_URL`, `ID_DIGITAL_REDIRECT_URI`, `ID_DIGITAL_ACR_VALUES=pin`, `ID_DIGITAL_SCOPE=openid profile`, `ID_DIGITAL_ISSUER`, `ID_DIGITAL_JWKS_URL` (opcional), `ID_DIGITAL_USERINFO_URL` (opcional).
 - `GET /auth/id-digital/start` — `purpose`: `agent_onboarding` | `accept_job`; genera `state` (+ `nonce`); exige sesión.
-- `GET` o `POST /auth/id-digital/callback` — valida `state`, intercambia `code`, valida `id_token`, audita.
+- `GET /auth/id-digital/callback` — valida `state`, intercambia `code`, verifica firma RS256 (JWKS) y claims del `id_token`, lee userinfo (CI), audita.
 - Persistencia: vínculo `User` ↔ `sub` ID Digital; timestamp de última verificación por propósito; para `accept_job`, prueba de vida reciente atada al job/oferta.
 - Guardas: onboarding agente y `acceptOffer` requieren verificación ID Digital válida para ese acto.
 
@@ -145,18 +178,22 @@ Según la documentación del [flujo implícito](https://integracion-id-digital-2
 - Mantener `/perfil` → Verificar identidad, emails admin, endpoints KYC.
 - Quitar (solo) el `if (!identityVerified)` que bloquea términos / Continuar en onboarding agente.
 
-## 8. Checklist previo a implementar
+## 8. Checklist
 
-- [ ] Definir y registrar `redirect_uri` (local + prod) con Abitab
-- [ ] Obtener `client_id` / `client_secret`
-- [ ] Confirmar URL exacta de token y JWKS (si aplica) con el paquete comercial
-- [ ] Cerrar si el documento/CI viene en userinfo o solo `sub`+nombre
-- [ ] Env + cliente HTTP en API
-- [ ] `start` + `callback` + `state` persistido (TTL corto)
-- [ ] Quitar gate fotos en `BecomeAgentPage` (no borrar módulo KYC)
-- [ ] Gate en aceptar trabajo
-- [ ] UI errores (`error` / `error_description` del redirect)
-- [ ] Tests happy path + cancelación + state inválido
+- [x] Definir y registrar `redirect_uri` con Abitab — registrada: `https://confiappapi-production.up.railway.app/auth/id-digital/callback` (única)
+- [x] Obtener `client_id` / `client_secret` — credenciales STG/testing recibidas (2026-11)
+- [x] Confirmar URL exacta de authorize, token, JWKS y userinfo (§5) — vía discovery + prueba real
+- [x] Cerrar si el documento/CI viene en userinfo o solo `sub`+nombre — **viene en userinfo** (`document.document_number`), no en el `id_token`
+- [x] Confirmar claims reales del `id_token` (§6) — sin `nonce`, `amr: null`, `acr: pin`
+- [x] Verificar firma RS256 del `id_token` contra JWKS
+- [x] Env + cliente HTTP en API
+- [x] `start` + `callback` + `state` persistido (TTL corto)
+- [x] Quitar gate fotos en `BecomeAgentPage` (no borrar módulo KYC)
+- [x] Gate en aceptar trabajo
+- [x] UI errores (`error` / `error_description` del redirect)
+- [x] Tests unitarios: nonce ausente/distinto, firma/alg, JWKS, userinfo OK/falla, matching de documento
+- [ ] Prueba E2E completa en un entorno desplegado (staging/prod) con la app STG
+- [ ] Credenciales y `redirect_uri` de **producción** (las actuales son de testing)
 - [ ] Solo web; mobile documented as later
 
 ## 9. Referencias internas
