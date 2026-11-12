@@ -209,7 +209,8 @@ export function TransactionPayPage() {
   };
 
   const onSubmitPrexReceipt = async (payload: {
-    receiptDataUrl: string;
+    receiptDataUrl?: string;
+    receiptStorageKey?: string;
     receiptFileName: string;
   }) => {
     setError(null);

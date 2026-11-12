@@ -24,6 +24,15 @@ export function isManualPrexAdminConfirmed(
   return Boolean(metadata?.adminConfirmedAt);
 }
 
+function hasReceiptMeta(meta: Record<string, unknown>): boolean {
+  return Boolean(
+    meta.receiptStorageKey ||
+      meta.receiptFileName ||
+      meta.receiptUploadedAt ||
+      (typeof meta.receiptDataUrl === 'string' && meta.receiptDataUrl.length > 0),
+  );
+}
+
 /** Agentes solo ven trabajos con transferencia Prex ya verificada por admin. */
 export function isEscrowVisibleToAgents(gate: ManualPrexEscrowGate | null | undefined): boolean {
   if (!gate) return true;
@@ -31,6 +40,10 @@ export function isEscrowVisibleToAgents(gate: ManualPrexEscrowGate | null | unde
   // Sin confirmación admin el hold queda REQUIRES_ACTION (u otro estado intermedio).
   return gate.status === PaymentStatus.CAPTURED || gate.status === PaymentStatus.RELEASED;
 }
+
+/** No trae receiptDataUrl (blob) — solo flags livianos. */
+const GATE_SELECT =
+  'provider status metadata.adminConfirmedAt metadata.receiptFileName metadata.receiptUploadedAt metadata.receiptStorageKey';
 
 export async function loadManualPrexEscrowGate(
   transactionId: string,
@@ -42,17 +55,15 @@ export async function loadManualPrexEscrowGate(
     provider: PaymentProvider.MANUAL_PREX,
     deletedAt: null,
   })
-    .select('provider status metadata')
+    .select(GATE_SELECT)
     .lean()
     .exec();
   if (!hold) return null;
   const meta = (hold.metadata ?? {}) as Record<string, unknown>;
-  const receiptDataUrl =
-    typeof meta.receiptDataUrl === 'string' ? meta.receiptDataUrl : undefined;
   return {
     provider: hold.provider,
     status: hold.status,
-    hasReceipt: Boolean(receiptDataUrl),
+    hasReceipt: hasReceiptMeta(meta),
     adminConfirmedAt:
       typeof meta.adminConfirmedAt === 'string' ? meta.adminConfirmedAt : undefined,
   };
@@ -70,19 +81,17 @@ export async function loadManualPrexEscrowGates(
     provider: PaymentProvider.MANUAL_PREX,
     deletedAt: null,
   })
-    .select('transaction provider status metadata')
+    .select(`transaction ${GATE_SELECT}`)
     .lean()
     .exec();
 
   const map = new Map<string, ManualPrexEscrowGate>();
   for (const hold of holds) {
     const meta = (hold.metadata ?? {}) as Record<string, unknown>;
-    const receiptDataUrl =
-      typeof meta.receiptDataUrl === 'string' ? meta.receiptDataUrl : undefined;
     map.set(String(hold.transaction), {
       provider: hold.provider,
       status: hold.status,
-      hasReceipt: Boolean(receiptDataUrl),
+      hasReceipt: hasReceiptMeta(meta),
       adminConfirmedAt:
         typeof meta.adminConfirmedAt === 'string' ? meta.adminConfirmedAt : undefined,
     });

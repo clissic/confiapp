@@ -8,6 +8,7 @@ import { DatabaseModule } from './database';
 import { realtimeServer } from './infrastructure/realtime/socket-realtime.server';
 import { AgentAssignmentService } from './modules/agents/assignment.service';
 import { env } from './shared/config/env';
+import { withJobLock } from './shared/jobs/with-job-lock';
 import { logger } from './utils/logger';
 
 async function bootstrap(): Promise<void> {
@@ -39,44 +40,60 @@ async function bootstrap(): Promise<void> {
 
   await realtimeServer.start(server);
 
-  const assignmentService = new AgentAssignmentService();
-  const expireTimer = setInterval(() => {
-    void assignmentService.expireDueOffers().catch((error) => {
-      logger.error('expire agent offers failed', error);
-    });
-  }, 15_000);
-  expireTimer.unref();
+  const timers: NodeJS.Timeout[] = [];
 
-  const { TransactionsService } = await import('./modules/transactions/service');
-  const transactionsService = new TransactionsService();
-  const deadlineTimer = setInterval(() => {
-    void transactionsService.expireOperationalDeadlines().catch((error) => {
-      logger.error('operation deadline reminders failed', error);
-    });
-  }, 60 * 60_000);
-  deadlineTimer.unref();
+  if (env.RUN_CRONS) {
+    logger.info('RUN_CRONS=true — starting in-process job timers');
+    const assignmentService = new AgentAssignmentService();
+    const expireTimer = setInterval(() => {
+      void withJobLock('cron:expire-offers', 14_000, () =>
+        assignmentService.expireDueOffers(),
+      ).catch((error) => {
+        logger.error('expire agent offers failed', error);
+      });
+    }, 15_000);
+    expireTimer.unref();
+    timers.push(expireTimer);
 
-  const autoDeliveryTimer = setInterval(() => {
-    void transactionsService.autoCompleteStaleDeliveries().catch((error) => {
-      logger.error('auto complete stale deliveries failed', error);
-    });
-  }, 15 * 60_000);
-  autoDeliveryTimer.unref();
+    const { TransactionsService } = await import('./modules/transactions/service');
+    const transactionsService = new TransactionsService();
+    const deadlineTimer = setInterval(() => {
+      void withJobLock('cron:expire-deadlines', 10 * 60_000, () =>
+        transactionsService.expireOperationalDeadlines(),
+      ).catch((error) => {
+        logger.error('operation deadline reminders failed', error);
+      });
+    }, 60 * 60_000);
+    deadlineTimer.unref();
+    timers.push(deadlineTimer);
 
-  const { agentCommissionService } = await import('./modules/finance/commission.service');
-  const commissionTimer = setInterval(() => {
-    void agentCommissionService.releaseDue().catch((error) => {
-      logger.error('release agent commissions failed', error);
-    });
-  }, 15 * 60_000);
-  commissionTimer.unref();
+    const autoDeliveryTimer = setInterval(() => {
+      void withJobLock('cron:auto-delivery', 10 * 60_000, () =>
+        transactionsService.autoCompleteStaleDeliveries(50),
+      ).catch((error) => {
+        logger.error('auto complete stale deliveries failed', error);
+      });
+    }, 15 * 60_000);
+    autoDeliveryTimer.unref();
+    timers.push(autoDeliveryTimer);
+
+    const { agentCommissionService } = await import('./modules/finance/commission.service');
+    const commissionTimer = setInterval(() => {
+      void withJobLock('cron:release-commissions', 10 * 60_000, () =>
+        agentCommissionService.releaseDue(),
+      ).catch((error) => {
+        logger.error('release agent commissions failed', error);
+      });
+    }, 15 * 60_000);
+    commissionTimer.unref();
+    timers.push(commissionTimer);
+  } else {
+    logger.info('RUN_CRONS=false — in-process job timers disabled');
+  }
 
   const shutdown = (signal: string) => {
     logger.info(`${signal} received — graceful shutdown`);
-    clearInterval(expireTimer);
-    clearInterval(deadlineTimer);
-    clearInterval(autoDeliveryTimer);
-    clearInterval(commissionTimer);
+    for (const timer of timers) clearInterval(timer);
 
     void (async () => {
       try {

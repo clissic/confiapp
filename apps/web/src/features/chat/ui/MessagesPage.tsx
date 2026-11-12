@@ -216,6 +216,7 @@ export function MessagesPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingImage, setPendingImage] = useState<{
     url: string;
+    storageKey?: string;
     fileName: string;
     mimeType: string;
   } | null>(null);
@@ -311,8 +312,21 @@ export function MessagesPage() {
       return;
     }
     try {
-      const url = await readFileAsDataUrl(file);
-      setPendingImage({ url, fileName: file.name, mimeType: file.type });
+      const { isMediaStorageConfigured, storageRefUrl, uploadMediaFile } = await import(
+        '@/shared/media/uploadMedia'
+      );
+      if (await isMediaStorageConfigured()) {
+        const uploaded = await uploadMediaFile(file, 'chat');
+        setPendingImage({
+          url: uploaded.previewUrl,
+          storageKey: uploaded.storageKey,
+          fileName: file.name,
+          mimeType: file.type,
+        });
+      } else {
+        const url = await readFileAsDataUrl(file);
+        setPendingImage({ url, fileName: file.name, mimeType: file.type });
+      }
       setError(null);
     } catch {
       setError('No se pudo cargar la imagen');
@@ -326,12 +340,16 @@ export function MessagesPage() {
     setError(null);
     emitTyping(selectedId, false);
     try {
+      const { storageRefUrl } = await import('@/shared/media/uploadMedia');
       await send.mutateAsync({
         body: body || undefined,
         attachments: pendingImage
           ? [
               {
-                url: pendingImage.url,
+                url: pendingImage.storageKey
+                  ? storageRefUrl(pendingImage.storageKey)
+                  : pendingImage.url,
+                storageKey: pendingImage.storageKey,
                 fileName: pendingImage.fileName,
                 mimeType: pendingImage.mimeType,
               },
@@ -607,7 +625,12 @@ function ChatRoom({
   loadingMessages: boolean;
   typingUserId: string | null;
   draft: string;
-  pendingImage: { url: string; fileName: string; mimeType: string } | null;
+  pendingImage: {
+    url: string;
+    storageKey?: string;
+    fileName: string;
+    mimeType: string;
+  } | null;
   sendPending: boolean;
   bottomRef: React.RefObject<HTMLDivElement | null>;
   messagesRef: React.RefObject<HTMLDivElement | null>;

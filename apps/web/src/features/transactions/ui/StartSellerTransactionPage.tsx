@@ -199,8 +199,12 @@ export function StartSellerTransactionPage() {
       setError('Pegá una URL de imagen');
       return;
     }
-    if (!isHttpUrl(url) && !url.startsWith('data:image/')) {
-      setError('La foto debe ser una URL http(s) o data:image');
+    if (
+      !isHttpUrl(url) &&
+      !url.startsWith('data:image/') &&
+      !url.startsWith('storage://')
+    ) {
+      setError('La foto debe ser una URL http(s), storage:// o data:image');
       return;
     }
     if (images.some((img) => img.url === url)) {
@@ -217,21 +221,43 @@ export function StartSellerTransactionPage() {
       setError('Solo se permiten imágenes');
       return;
     }
-    if (file.size > 1_200_000) {
-      setError('La imagen local debe pesar menos de 1.2 MB (o usá una URL)');
+    if (file.size > 3_000_000) {
+      setError('La imagen debe pesar menos de 3 MB (o usá una URL)');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      if (!result.startsWith('data:image/')) {
-        setError('No se pudo leer la imagen');
-        return;
+    void (async () => {
+      try {
+        const { isMediaStorageConfigured, storageRefUrl, uploadMediaFile } = await import(
+          '@/shared/media/uploadMedia'
+        );
+        if (await isMediaStorageConfigured()) {
+          const uploaded = await uploadMediaFile(file, 'product');
+          setImages((prev) => [
+            ...prev,
+            { url: storageRefUrl(uploaded.storageKey), alt: file.name },
+          ]);
+          setError(null);
+          return;
+        }
+        if (file.size > 1_200_000) {
+          setError('La imagen local debe pesar menos de 1.2 MB (o usá una URL)');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = typeof reader.result === 'string' ? reader.result : '';
+          if (!result.startsWith('data:image/')) {
+            setError('No se pudo leer la imagen');
+            return;
+          }
+          setImages((prev) => [...prev, { url: result, alt: file.name }]);
+          setError(null);
+        };
+        reader.readAsDataURL(file);
+      } catch {
+        setError('No se pudo subir o leer la imagen');
       }
-      setImages((prev) => [...prev, { url: result, alt: file.name }]);
-      setError(null);
-    };
-    reader.readAsDataURL(file);
+    })();
   };
 
   async function goNext() {

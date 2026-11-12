@@ -133,12 +133,8 @@ export class TransactionsController {
 
   expireDeadlines = async (req: Request, res: Response): Promise<void> => {
     const provided = String(req.headers['x-job-secret'] ?? '');
-    const expected = env.TRANSACTIONS_JOB_SECRET;
-    const allowed =
-      expected.length > 0
-        ? provided === expected
-        : env.NODE_ENV !== 'production';
-    if (!allowed) {
+    const expected = env.TRANSACTIONS_JOB_SECRET?.trim() ?? '';
+    if (!expected || provided !== expected) {
       res.status(401).json({ message: 'Unauthorized job' });
       return;
     }
@@ -148,16 +144,13 @@ export class TransactionsController {
 
   autoCompleteStaleDeliveries = async (req: Request, res: Response): Promise<void> => {
     const provided = String(req.headers['x-job-secret'] ?? '');
-    const expected = env.TRANSACTIONS_JOB_SECRET;
-    const allowed =
-      expected.length > 0
-        ? provided === expected
-        : env.NODE_ENV !== 'production';
-    if (!allowed) {
+    const expected = env.TRANSACTIONS_JOB_SECRET?.trim() ?? '';
+    if (!expected || provided !== expected) {
       res.status(401).json({ message: 'Unauthorized job' });
       return;
     }
-    const limit = Number(req.query.limit) > 0 ? Number(req.query.limit) : 50;
+    const raw = Number(req.query.limit);
+    const limit = Number.isFinite(raw) && raw > 0 ? Math.min(raw, 100) : 50;
     const data = await this.service.autoCompleteStaleDeliveries(limit);
     res.status(200).json(data);
   };

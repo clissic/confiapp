@@ -4,6 +4,7 @@ import {
   asyncHandler,
   authRateLimiter,
   authenticate,
+  requireTurnstile,
   validateRequest,
 } from '../../middleware';
 import { AuthController } from './controller';
@@ -27,6 +28,7 @@ authRoutes.post(
   '/register',
   authRateLimiter,
   validateRequest({ body: registerBodySchema }),
+  asyncHandler(requireTurnstile),
   asyncHandler(controller.register),
 );
 
@@ -34,6 +36,7 @@ authRoutes.post(
   '/login',
   authRateLimiter,
   validateRequest({ body: loginBodySchema }),
+  asyncHandler(requireTurnstile),
   asyncHandler(controller.login),
 );
 
@@ -70,6 +73,7 @@ authRoutes.post(
   '/forgot-password',
   authRateLimiter,
   validateRequest({ body: forgotPasswordBodySchema }),
+  asyncHandler(requireTurnstile),
   asyncHandler(controller.forgotPassword),
 );
 
@@ -91,6 +95,7 @@ authRoutes.post(
   '/resend-verification',
   authRateLimiter,
   validateRequest({ body: resendVerificationBodySchema }),
+  asyncHandler(requireTurnstile),
   asyncHandler(controller.resendVerification),
 );
 

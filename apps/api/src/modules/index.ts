@@ -11,3 +11,4 @@ export { disputesRoutes } from './disputes/routes';
 export { reviewsRoutes } from './reviews/routes';
 export { notificationsRoutes } from './notifications/routes';
 export { healthRoutes } from './health/routes';
+export { mediaRoutes } from './media/routes';

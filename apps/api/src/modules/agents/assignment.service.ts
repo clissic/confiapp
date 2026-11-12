@@ -493,7 +493,10 @@ export class AgentAssignmentService {
       actionStatus: NotificationActionStatus.PENDING,
       expiresAt: { $lte: new Date() },
       deletedAt: null,
-    }).exec();
+    })
+      .sort({ expiresAt: 1 })
+      .limit(100)
+      .exec();
 
     for (const notification of due) {
       notification.actionStatus = NotificationActionStatus.EXPIRED;

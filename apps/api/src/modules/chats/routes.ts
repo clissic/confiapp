@@ -1,6 +1,11 @@
 import { Router } from 'express';
 
-import { asyncHandler, authenticate, validateRequest } from '../../middleware';
+import {
+  asyncHandler,
+  authenticate,
+  chatRateLimiter,
+  validateRequest,
+} from '../../middleware';
 import { ChatsController } from './controller';
 import {
   chatIdParamsSchema,
@@ -25,6 +30,7 @@ chatsRoutes.get(
 chatsRoutes.post(
   '/:id/messages',
   authenticate,
+  chatRateLimiter,
   validateRequest({ params: chatIdParamsSchema, body: sendMessageBodySchema }),
   asyncHandler(controller.sendMessage),
 );

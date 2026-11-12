@@ -147,6 +147,24 @@ function resolveParties(tx: TransactionDocument): {
   };
 }
 
+const PAYMENT_LOG_PAYLOAD_MAX_CHARS = 4_000;
+
+function truncateLogPayload(
+  payload: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!payload) return undefined;
+  try {
+    const raw = JSON.stringify(payload);
+    if (raw.length <= PAYMENT_LOG_PAYLOAD_MAX_CHARS) return payload;
+    return {
+      truncated: true,
+      preview: raw.slice(0, PAYMENT_LOG_PAYLOAD_MAX_CHARS),
+    };
+  } catch {
+    return { truncated: true, error: 'unserializable_payload' };
+  }
+}
+
 async function persistLog(input: {
   source: 'checkout' | 'webhook' | 'confirm' | 'release' | 'system';
   event: string;
@@ -158,13 +176,14 @@ async function persistLog(input: {
   payload?: Record<string, unknown>;
 }): Promise<void> {
   const level = input.level ?? 'info';
+  const payload = truncateLogPayload(input.payload);
   logger[level](input.message, {
     domain: 'payments',
     event: input.event,
     transactionId: input.transactionId,
     paymentId: input.paymentId,
     externalId: input.externalId,
-    payload: input.payload,
+    payload,
   });
   try {
     await PaymentEventLogModel.create({
@@ -175,7 +194,7 @@ async function persistLog(input: {
       transactionId: input.transactionId,
       paymentId: input.paymentId,
       externalId: input.externalId,
-      payload: input.payload,
+      payload,
     });
   } catch (error) {
     logger.error('payment event log persist failed', { error });
@@ -432,6 +451,31 @@ export class PaymentsService {
       hold.amountCents = buyerPays;
     }
 
+    const meta = (hold.metadata ?? {}) as Record<string, unknown>;
+    const reusedPreferenceId =
+      typeof meta.preferenceId === 'string' ? meta.preferenceId : undefined;
+    const reusedInitPoint =
+      typeof meta.sandboxInitPoint === 'string' && meta.sandboxInitPoint
+        ? meta.sandboxInitPoint
+        : typeof meta.initPoint === 'string'
+          ? meta.initPoint
+          : undefined;
+    if (
+      existingHold &&
+      hold.status === PaymentStatus.REQUIRES_ACTION &&
+      reusedPreferenceId &&
+      reusedInitPoint &&
+      hold.amountCents === buyerPays
+    ) {
+      return {
+        payment: toPaymentDto(hold.toObject()),
+        checkoutUrl: reusedInitPoint,
+        preferenceId: reusedPreferenceId,
+        split,
+        providerMode: hold.provider === PaymentProvider.MOCK ? 'MOCK' : 'MERCADOPAGO',
+      };
+    }
+
     const externalReference = String(hold._id);
     const notificationUrl = `${env.API_PUBLIC_URL}/payments/webhooks/mercadopago`;
     const backBase = `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}`;
@@ -593,6 +637,31 @@ export class PaymentsService {
       hold.amountCents = buyerPays;
     }
 
+    const feeMeta = (hold.metadata ?? {}) as Record<string, unknown>;
+    const reusedFeePreferenceId =
+      typeof feeMeta.preferenceId === 'string' ? feeMeta.preferenceId : undefined;
+    const reusedFeeInitPoint =
+      typeof feeMeta.sandboxInitPoint === 'string' && feeMeta.sandboxInitPoint
+        ? feeMeta.sandboxInitPoint
+        : typeof feeMeta.initPoint === 'string'
+          ? feeMeta.initPoint
+          : undefined;
+    if (
+      existingHold &&
+      hold.status === PaymentStatus.REQUIRES_ACTION &&
+      reusedFeePreferenceId &&
+      reusedFeeInitPoint &&
+      hold.amountCents === buyerPays
+    ) {
+      return {
+        payment: toPaymentDto(hold.toObject()),
+        checkoutUrl: reusedFeeInitPoint,
+        preferenceId: reusedFeePreferenceId,
+        split: splitMeta,
+        providerMode: hold.provider === PaymentProvider.MOCK ? 'MOCK' : 'MERCADOPAGO',
+      };
+    }
+
     const externalReference = String(hold._id);
     const notificationUrl = `${env.API_PUBLIC_URL}/payments/webhooks/mercadopago`;
     const backBase = `${env.APP_URL}/operaciones/${encodeURIComponent(tx.code)}`;
@@ -685,7 +754,11 @@ export class PaymentsService {
   async submitManualPrexTransfer(
     userId: string,
     code: string,
-    input: { receiptDataUrl: string; receiptFileName?: string },
+    input: {
+      receiptStorageKey?: string;
+      receiptDataUrl?: string;
+      receiptFileName?: string;
+    },
   ) {
     if (env.PAYMENTS_CHECKOUT_MODE !== 'manual_prex') {
       throw new ValidationError(
@@ -693,15 +766,21 @@ export class PaymentsService {
       );
     }
 
-    const receipt = input.receiptDataUrl.trim();
-    if (!/^data:(image\/(jpeg|jpg|png|webp)|application\/pdf);base64,/i.test(receipt)) {
-      throw new ValidationError(
-        'El comprobante debe ser una imagen (JPEG/PNG/WebP) o PDF en data URL base64',
-      );
-    }
-    // ~4MB en base64 ≈ 5.5MB string
-    if (receipt.length > 5_500_000) {
-      throw new ValidationError('El comprobante es demasiado grande (máx. ~4 MB)');
+    const receiptKey = input.receiptStorageKey?.trim();
+    const receipt = input.receiptDataUrl?.trim() ?? '';
+    if (receiptKey) {
+      if (!receiptKey.startsWith(`receipt/${userId}/`)) {
+        throw new ValidationError('storageKey de comprobante inválido');
+      }
+    } else {
+      if (!/^data:(image\/(jpeg|jpg|png|webp)|application\/pdf);base64,/i.test(receipt)) {
+        throw new ValidationError(
+          'El comprobante debe ser storageKey o data URL (JPEG/PNG/WebP/PDF)',
+        );
+      }
+      if (receipt.length > 5_500_000) {
+        throw new ValidationError('El comprobante es demasiado grande (máx. ~4 MB)');
+      }
     }
 
     const tx = await this.loadTxForParticipant(userId, code);
@@ -796,7 +875,9 @@ export class PaymentsService {
       checkoutMode: 'manual_prex',
       prexAccount: prex,
       receiptFileName: input.receiptFileName?.slice(0, 180),
-      receiptDataUrl: receipt,
+      ...(receiptKey
+        ? { receiptStorageKey: receiptKey, receiptDataUrl: undefined }
+        : { receiptDataUrl: receipt }),
       receiptUploadedAt: new Date().toISOString(),
       amountDueCents: amountDue,
       transactionCode: tx.code,
@@ -1403,26 +1484,20 @@ export class PaymentsService {
         'unknown',
     );
 
-    await persistLog({
-      source: 'webhook',
-      event: 'webhook.received',
-      message: 'Webhook Mercado Pago recibido',
-      externalId: dataId,
-      payload: { topic, query: input.query, body: input.body },
-    });
-
     const signatureOk = paymentProvider.verifyWebhookSignature({
       xSignature: input.headers.xSignature,
       xRequestId: input.headers.xRequestId,
       dataId,
     });
     if (!signatureOk) {
+      // Solo metadata corta — no persistir body (vector de flood → disco Mongo).
       await persistLog({
         source: 'webhook',
         event: 'webhook.signature_invalid',
         level: 'warn',
         message: 'Firma de webhook inválida',
         externalId: dataId,
+        payload: { topic },
       });
       // 200: MP (y el simulador) no deben reintentar. La fuente de verdad sigue siendo
       // getPayment con el Access Token; sin firma no confirmamos más abajo si falla.
@@ -1432,6 +1507,20 @@ export class PaymentsService {
     if (!dataId) {
       return { handled: false, reason: 'missing_data_id' };
     }
+
+    await persistLog({
+      source: 'webhook',
+      event: 'webhook.received',
+      message: 'Webhook Mercado Pago recibido',
+      externalId: dataId,
+      payload: {
+        topic,
+        queryKeys: Object.keys(input.query ?? {}),
+        bodyKeys: Object.keys(input.body ?? {}),
+        action: input.body?.action,
+        type: input.body?.type ?? input.query.type ?? input.query.topic,
+      },
+    });
 
     const isPaymentTopic =
       topic.includes('payment') || input.body?.action === 'payment.updated';
@@ -2264,6 +2353,9 @@ export class PaymentsService {
     const [total, payments] = await Promise.all([
       PaymentModel.countDocuments(filter).exec(),
       PaymentModel.find(filter)
+        .select(
+          'transaction payer status amountCents currency externalId capturedAt createdAt metadata.receiptFileName metadata.receiptUploadedAt metadata.receiptStorageKey metadata.adminConfirmedAt metadata.transactionCode',
+        )
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -2297,8 +2389,12 @@ export class PaymentsService {
         const meta = (p.metadata ?? {}) as Record<string, unknown>;
         const tx = txById.get(String(p.transaction));
         const payer = payerById.get(String(p.payer));
-        const receiptDataUrl =
-          typeof meta.receiptDataUrl === 'string' ? meta.receiptDataUrl : undefined;
+        const hasReceipt = Boolean(
+          meta.receiptStorageKey ||
+            meta.receiptFileName ||
+            meta.receiptUploadedAt ||
+            (typeof meta.receiptDataUrl === 'string' && meta.receiptDataUrl.length > 0),
+        );
         return {
           id: String(p._id),
           transactionId: String(p.transaction),
@@ -2318,7 +2414,7 @@ export class PaymentsService {
             typeof meta.receiptFileName === 'string' ? meta.receiptFileName : undefined,
           receiptUploadedAt:
             typeof meta.receiptUploadedAt === 'string' ? meta.receiptUploadedAt : undefined,
-          hasReceipt: Boolean(receiptDataUrl),
+          hasReceipt,
           adminConfirmed: isManualPrexAdminConfirmed(p.status, meta),
         };
       }),
@@ -2353,8 +2449,22 @@ export class PaymentsService {
     ]);
 
     const meta = (payment.metadata ?? {}) as Record<string, unknown>;
-    const receiptDataUrl =
+    let receiptDataUrl =
       typeof meta.receiptDataUrl === 'string' ? meta.receiptDataUrl : undefined;
+    const receiptStorageKey =
+      typeof meta.receiptStorageKey === 'string' ? meta.receiptStorageKey : undefined;
+    if (!receiptDataUrl && receiptStorageKey) {
+      try {
+        const { createPresignedGet, isObjectStorageConfigured } = await import(
+          '../../infrastructure/storage/object-storage'
+        );
+        if (isObjectStorageConfigured()) {
+          receiptDataUrl = await createPresignedGet(receiptStorageKey, 15 * 60);
+        }
+      } catch {
+        /* leave undefined */
+      }
+    }
 
     return {
       payment: {
@@ -2369,6 +2479,7 @@ export class PaymentsService {
           typeof meta.receiptFileName === 'string' ? meta.receiptFileName : undefined,
         receiptUploadedAt:
           typeof meta.receiptUploadedAt === 'string' ? meta.receiptUploadedAt : undefined,
+        receiptStorageKey,
         receiptDataUrl,
         prexAccount:
           meta.prexAccount && typeof meta.prexAccount === 'object'
