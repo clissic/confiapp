@@ -560,6 +560,54 @@ const userSchema = new Schema<IUser>(
       type: kycSchema,
       default: () => ({ status: IdentityVerificationStatus.UNVERIFIED }),
     },
+    /**
+     * Vínculo con ID Digital (Abitab). Debe existir acá: la API importa este paquete,
+     * que registra el modelo `User` primero, y Mongoose (strict) descarta al guardar
+     * cualquier path que no esté en este schema.
+     */
+    idDigital: {
+      type: new Schema(
+        {
+          sub: { type: String, trim: true, maxlength: 128 },
+          linkedAt: { type: Date },
+          lastVerifiedAt: { type: Date },
+          lastAcr: { type: String, trim: true, maxlength: 32 },
+          lastAmr: { type: [{ type: String, trim: true, maxlength: 64 }], default: undefined },
+          lastMethods: {
+            type: [{ type: String, trim: true, maxlength: 64 }],
+            default: undefined,
+          },
+          onboardingVerifiedAt: { type: Date },
+          document: {
+            type: new Schema(
+              {
+                number: { type: String, trim: true, maxlength: 32 },
+                type: { type: String, trim: true, maxlength: 32 },
+                country: { type: String, trim: true, maxlength: 8 },
+              },
+              { _id: false },
+            ),
+          },
+          registrationLevel: { type: Number, min: 0, max: 99 },
+          registrationLevelDescription: { type: String, trim: true, maxlength: 200 },
+          validationMethods: {
+            type: [
+              new Schema(
+                {
+                  name: { type: String, trim: true, maxlength: 64 },
+                  lastValidationDate: { type: Date },
+                },
+                { _id: false },
+              ),
+            ],
+            default: undefined,
+          },
+          userInfoFetchedAt: { type: Date },
+          documentMismatch: { type: Boolean },
+        },
+        { _id: false },
+      ),
+    },
     preferences: {
       type: preferencesSchema,
       default: () => ({}),
@@ -630,6 +678,10 @@ const userSchema = new Schema<IUser>(
 );
 
 userSchema.index({ roles: 1 });
+userSchema.index(
+  { 'idDigital.sub': 1 },
+  { unique: true, partialFilterExpression: { 'idDigital.sub': { $type: 'string' } } },
+);
 userSchema.index({ 'kyc.status': 1 });
 userSchema.index({ 'verification.identity.status': 1 });
 userSchema.index({ 'verification.email.verified': 1 });

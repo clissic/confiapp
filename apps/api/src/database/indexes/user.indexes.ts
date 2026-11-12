@@ -15,7 +15,7 @@ export function applyUserIndexes(schema: Schema<IUser>): void {
   schema.index({ 'verification.identity.status': 1 });
   schema.index(
     { 'idDigital.sub': 1 },
-    { unique: true, sparse: true, partialFilterExpression: { 'idDigital.sub': { $type: 'string' } } },
+    { unique: true, partialFilterExpression: { 'idDigital.sub': { $type: 'string' } } },
   );
   schema.index({ 'verification.email.verified': 1 });
   schema.index({ 'verification.phone.verified': 1 });
