@@ -117,12 +117,12 @@ export function MercadoPagoConnectSection() {
           trigger={['click', 'focus']}
           placement="bottom-end"
           rootClose
+          popperConfig={{ strategy: 'fixed' }}
           container={typeof document !== 'undefined' ? document.body : undefined}
           overlay={
             <Popover
               id="mp-connect-help"
               className="ca-mp-connect-popover"
-              popperConfig={{ strategy: 'fixed' }}
             >
               <Popover.Header as="h4">{HELP_COPY.title}</Popover.Header>
               <Popover.Body>
