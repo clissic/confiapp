@@ -26,6 +26,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   exchange_failed: 'No se pudo completar la vinculación.',
 };
 
+function formatLinkError(reason: string, detail: string): string {
+  const base = ERROR_MESSAGES[reason] ?? 'No se pudo vincular Mercado Pago.';
+  if (!detail) return `${base} (${reason || 'sin_motivo'})`;
+  return `${base} [${reason || 'error'}] ${detail}`;
+}
+
+function maskMpUserId(id: string): string {
+  if (id.length <= 4) return id;
+  return `••••${id.slice(-4)}`;
+}
+
 const HELP_COPY = {
   title: 'Cobros con Mercado Pago',
   body: [
@@ -34,32 +45,6 @@ const HELP_COPY = {
     'No pedimos tu contraseña: usás el login oficial de Mercado Pago.',
   ],
 };
-
-function maskMpUserId(id: string): string {
-  if (id.length <= 4) return id;
-  return `••••${id.slice(-4)}`;
-}
-
-function formatLinkError(reason: string, detail: string): string {
-  const base = ERROR_MESSAGES[reason] ?? 'No se pudo vincular Mercado Pago.';
-  if (!detail) return `${base} (${reason || 'sin_motivo'})`;
-  return `${base} [${reason || 'error'}] ${detail}`;
-}
-
-function MpHelpPopover() {
-  return (
-    <Popover id="mp-connect-help" className="ca-mp-connect-popover">
-      <Popover.Header as="h4">{HELP_COPY.title}</Popover.Header>
-      <Popover.Body>
-        {HELP_COPY.body.map((p) => (
-          <p key={p.slice(0, 24)} className="ca-mp-connect-popover__p">
-            {p}
-          </p>
-        ))}
-      </Popover.Body>
-    </Popover>
-  );
-}
 
 export function MercadoPagoConnectSection() {
   const toast = useAppToast();
@@ -132,7 +117,23 @@ export function MercadoPagoConnectSection() {
           trigger={['click', 'focus']}
           placement="bottom-end"
           rootClose
-          overlay={<MpHelpPopover />}
+          container={typeof document !== 'undefined' ? document.body : undefined}
+          overlay={
+            <Popover
+              id="mp-connect-help"
+              className="ca-mp-connect-popover"
+              popperConfig={{ strategy: 'fixed' }}
+            >
+              <Popover.Header as="h4">{HELP_COPY.title}</Popover.Header>
+              <Popover.Body>
+                {HELP_COPY.body.map((p) => (
+                  <p key={p.slice(0, 24)} className="ca-mp-connect-popover__p">
+                    {p}
+                  </p>
+                ))}
+              </Popover.Body>
+            </Popover>
+          }
         >
           <button type="button" className="ca-mp-connect__info" aria-label="Información sobre Mercado Pago">
             <Info size={18} strokeWidth={1.75} aria-hidden />
@@ -209,7 +210,7 @@ export function MercadoPagoConnectSection() {
           <Button
             variant="outline-danger"
             size="sm"
-            className="ca-mp-connect__action d-inline-flex align-items-center gap-2"
+            className="ca-mp-connect__action d-flex align-items-center gap-2"
             disabled={disconnect.isPending}
             onClick={() => void onDisconnect()}
           >

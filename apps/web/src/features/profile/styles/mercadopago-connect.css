@@ -67,6 +67,7 @@
 
 .ca-mp-connect-popover {
   max-width: min(22rem, calc(100vw - 2rem));
+  z-index: 1080;
 }
 
 .ca-mp-connect-popover .popover-header {
@@ -193,6 +194,14 @@
 
 .ca-mp-connect__action {
   justify-self: start;
+}
+
+@media (max-width: 575.98px) {
+  .ca-mp-connect__panel--ok .ca-mp-connect__action {
+    width: 100%;
+    justify-self: stretch;
+    justify-content: center;
+  }
 }
 
 [data-theme='dark'] .ca-mp-connect__status {

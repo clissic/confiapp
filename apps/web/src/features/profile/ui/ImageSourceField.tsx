@@ -9,6 +9,12 @@ import {
   IMAGE_ACCEPTED_TYPES,
   type ImageProcessOptions,
 } from '../model/image-source';
+import {
+  isMediaStorageConfigured,
+  storageRefUrl,
+  uploadMediaFile,
+  type MediaPurpose,
+} from '@/shared/media/uploadMedia';
 
 type SourceMode = 'url' | 'file';
 
@@ -23,6 +29,8 @@ type Props = {
   maxHintLabel?: string;
   /** Permite PDF además de imagen (comprobante de domicilio). */
   allowPdf?: boolean;
+  /** Si hay object storage, sube al bucket y guarda storage://key. */
+  uploadPurpose?: MediaPurpose;
 };
 
 export function ImageSourceField({
@@ -35,6 +43,7 @@ export function ImageSourceField({
   processOptions,
   maxHintLabel = 'máx. 1 MB',
   allowPdf = false,
+  uploadPurpose,
 }: Props) {
   const fileInputId = useId();
   const isPdfValue = value.startsWith('data:application/pdf');
@@ -75,6 +84,17 @@ export function ImageSourceField({
     setLocalError(null);
     setReadingFile(true);
     try {
+      if (uploadPurpose && (await isMediaStorageConfigured())) {
+        const uploaded = await uploadMediaFile(file, uploadPurpose);
+        onChange(storageRefUrl(uploaded.storageKey));
+        const pdf = file.type === 'application/pdf';
+        setIsPdf(pdf);
+        setPreview(pdf ? null : uploaded.previewUrl);
+        setFileName(file.name);
+        setSource('file');
+        return;
+      }
+
       const dataUrl = allowPdf
         ? await fileToAddressProofDataUrl(file)
         : await fileToImageDataUrl(file, processOptions);

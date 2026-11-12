@@ -21,6 +21,10 @@ import {
   ForbiddenError,
   UnauthorizedError,
 } from '../../shared/errors/app-error';
+import {
+  isEmailInCooldown,
+  markEmailCooldown,
+} from '../../shared/security/email-cooldown';
 import { generateOpaqueToken, hashToken } from '../../utils/crypto-tokens';
 import { logger } from '../../utils/logger';
 import { hashPassword, verifyPassword } from '../../utils/password';
@@ -407,8 +411,13 @@ export class AuthService {
       message: 'Si existe una cuenta con ese email, enviamos un enlace para restablecer la contraseña.',
     };
 
+    if (await isEmailInCooldown(email)) {
+      return generic;
+    }
+
     const user = await this.repository.findByEmail(email);
     if (!user) {
+      await markEmailCooldown(email);
       return generic;
     }
 
@@ -434,6 +443,7 @@ export class AuthService {
       html: branded.html,
       attachments: branded.attachments,
     });
+    await markEmailCooldown(email);
 
     return generic;
   }
@@ -509,8 +519,13 @@ export class AuthService {
       message: 'Si hay una cuenta sin verificar con ese email, enviamos un nuevo enlace.',
     };
 
+    if (await isEmailInCooldown(email)) {
+      return generic;
+    }
+
     const user = await this.repository.findByEmail(email);
     if (!user || user.emailVerifiedAt) {
+      await markEmailCooldown(email);
       return generic;
     }
 
@@ -518,6 +533,7 @@ export class AuthService {
     user.emailVerificationTokenHash = hashToken(token);
     user.emailVerificationExpires = new Date(Date.now() + VERIFY_TTL_MS);
     await this.repository.saveUser(user);
+    await markEmailCooldown(email);
     setImmediate(() => {
       void this.sendVerificationEmail(user.email, token).catch((error) => {
         logger.error('auth.resend_email_failed', {

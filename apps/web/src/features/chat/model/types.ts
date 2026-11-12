@@ -39,6 +39,7 @@ export interface ChatSummary {
 
 export interface MessageAttachment {
   url: string;
+  storageKey?: string;
   mimeType?: string;
   fileName?: string;
   sizeBytes?: number;

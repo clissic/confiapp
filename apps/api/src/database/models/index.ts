@@ -12,6 +12,11 @@ export { NotificationModel, type NotificationDocument } from './notification.mod
 export { ReviewModel, type ReviewDocument } from './review.model';
 export { PaymentModel, type PaymentDocument } from './payment.model';
 export {
+  PaymentEventLogModel,
+  type PaymentEventLogDocument,
+} from './payment-event-log.model';
+export { JobLockModel, type JobLockDocument } from './job-lock.model';
+export {
   IdDigitalOAuthStateModel,
   type IdDigitalOAuthStateDocument,
   type IdDigitalPurpose,

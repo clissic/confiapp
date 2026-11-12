@@ -4,6 +4,7 @@ import { CheckCircle2, Mail, Sparkles } from 'lucide-react';
 
 import { resendVerificationRequest, verifyEmailRequest } from '../api/auth.api';
 import { isRequestTimeoutError } from '@/shared/api/client';
+import { isTurnstileEnabled, TurnstileField } from '@/shared/security/TurnstileField';
 import { AuthBrand } from './AuthBrand';
 import '../styles/auth.css';
 
@@ -28,6 +29,7 @@ export function VerifyEmailPage() {
   const [phase, setPhase] = useState<Phase>(token ? 'verifying' : 'pending');
   const [message, setMessage] = useState<string | null>(null);
   const [email, setEmail] = useState(emailFromQuery);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [resendInfo, setResendInfo] = useState<string | null>(
     cameFromSlowRegister
@@ -65,9 +67,13 @@ export function VerifyEmailPage() {
       setResendInfo('Ingresá el email de tu cuenta.');
       return;
     }
+    if (isTurnstileEnabled() && !turnstileToken) {
+      setResendInfo('Completá la verificación anti-bots.');
+      return;
+    }
     setResending(true);
     try {
-      const result = await resendVerificationRequest(mail);
+      const result = await resendVerificationRequest(mail, turnstileToken);
       setResendInfo(result.message);
     } catch (err) {
       if (isRequestTimeoutError(err)) {
@@ -160,6 +166,7 @@ export function VerifyEmailPage() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </label>
+              <TurnstileField onToken={setTurnstileToken} className="mb-2" />
               <button className="ca-auth__submit ca-auth__submit--block" type="submit" disabled={resending}>
                 {resending ? 'Reenviando…' : 'Reenviar email de confirmación'}
               </button>

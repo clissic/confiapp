@@ -24,7 +24,8 @@ Plataforma de **escrow físico** con control digital de participantes, condicion
 Detalle de pantallas: [`docs/WEB_APP.md`](./docs/WEB_APP.md).  
 **Flujos de compra / venta / intermediación:** [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md).  
 Finanzas / cobro MVP: [`docs/FINANCE_MVP_NOTES.md`](./docs/FINANCE_MVP_NOTES.md).  
-Visión a escala: [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md).
+Visión a escala: [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md).  
+Blindaje anti-bots / costo Railway: [`docs/SECURITY_COST_HARDENING.md`](./docs/SECURITY_COST_HARDENING.md).
 
 ### Identidad Digital Abitab (notas de integración)
 

@@ -56,18 +56,23 @@ function dataUrlToAttachment(dataUrl: string, baseFilename: string): EmailAttach
   }
 }
 
-async function urlToAttachment(url: string, filename: string): Promise<EmailAttachment | null> {
+/** Solo object storage propio — no fetch HTTP arbitrario (SSRF / egress). */
+async function storageKeyToAttachment(
+  storageKey: string,
+  filename: string,
+): Promise<EmailAttachment | null> {
   try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const contentType = response.headers.get('content-type') ?? 'image/jpeg';
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length < 32) return null;
+    const { getObjectBuffer, isObjectStorageConfigured } = await import(
+      '../../infrastructure/storage/object-storage'
+    );
+    if (!isObjectStorageConfigured()) return null;
+    const { body, contentType } = await getObjectBuffer(storageKey);
+    if (body.length < 32) return null;
     const ext = extensionForContentType(contentType);
     return {
       filename: filename.replace(/\.(jpg|jpeg|png|webp|gif|pdf)$/i, `.${ext}`),
       contentType,
-      content: buffer,
+      content: body,
       contentDisposition: 'attachment',
     };
   } catch {
@@ -112,7 +117,7 @@ export async function sendKycReviewEmail(input: {
   };
   locationLabel?: string | null;
   reviewToken: string;
-  photos: Array<{ kind?: string; url: string }>;
+  photos: Array<{ kind?: string; url: string; storageKey?: string }>;
 }): Promise<void> {
   const reviewUrl = `${env.APP_URL.replace(/\/$/, '')}/admin/kyc/${input.reviewToken}`;
   const to = parseNotifyEmail();
@@ -128,6 +133,20 @@ export async function sendKycReviewEmail(input: {
     if (!KYC_KINDS.has(kind)) continue;
     const filename = KYC_KIND_FILENAME[kind] ?? `${kind.toLowerCase()}.jpg`;
     const url = (photo.url ?? '').trim();
+    const storageKey =
+      photo.storageKey?.trim() ||
+      (url.startsWith('storage://') ? url.slice('storage://'.length) : '');
+
+    if (storageKey) {
+      const attachment = await storageKeyToAttachment(storageKey, filename);
+      if (attachment) attachments.push(attachment);
+      else {
+        failedKinds.push(kind);
+        linkLines.push(`- ${kind}: storage://${storageKey}`);
+      }
+      continue;
+    }
+
     if (!url) {
       failedKinds.push(kind);
       continue;
@@ -147,13 +166,9 @@ export async function sendKycReviewEmail(input: {
       continue;
     }
 
+    // No fetch HTTP arbitrario (SSRF). Solo link en el cuerpo del mail.
     if (/^https?:\/\//i.test(url)) {
-      const attachment = await urlToAttachment(url, filename);
-      if (attachment) attachments.push(attachment);
-      else {
-        failedKinds.push(kind);
-        linkLines.push(`- ${kind}: ${url}`);
-      }
+      linkLines.push(`- ${kind}: ${url}`);
       continue;
     }
 

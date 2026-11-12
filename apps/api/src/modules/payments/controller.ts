@@ -45,7 +45,10 @@ export class PaymentsController {
   manualTransfer = async (req: Request, res: Response): Promise<void> => {
     const code = String(req.params.code);
     const data = await this.service.submitManualPrexTransfer(req.user!.id, code, {
-      receiptDataUrl: String(req.body.receiptDataUrl),
+      receiptStorageKey:
+        typeof req.body.receiptStorageKey === 'string' ? req.body.receiptStorageKey : undefined,
+      receiptDataUrl:
+        typeof req.body.receiptDataUrl === 'string' ? req.body.receiptDataUrl : undefined,
       receiptFileName:
         typeof req.body.receiptFileName === 'string' ? req.body.receiptFileName : undefined,
     });

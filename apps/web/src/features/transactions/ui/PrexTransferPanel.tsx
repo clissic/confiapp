@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { Alert, Button, Form, Spinner } from 'react-bootstrap';
 import { Building2, Copy, QrCode, Upload } from 'lucide-react';
 
+import {
+  isMediaStorageConfigured,
+  uploadMediaFile,
+} from '@/shared/media/uploadMedia';
 import { useAppToast } from '@/shared/ui';
 
 const DEFAULT_PREX = {
@@ -24,7 +28,11 @@ interface PrexTransferPanelProps {
   account?: PrexAccountInfo | null;
   disabled?: boolean;
   isPending?: boolean;
-  onSubmit: (payload: { receiptDataUrl: string; receiptFileName: string }) => Promise<void>;
+  onSubmit: (payload: {
+    receiptDataUrl?: string;
+    receiptStorageKey?: string;
+    receiptFileName: string;
+  }) => Promise<void>;
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -51,6 +59,8 @@ export function PrexTransferPanel({
   const toast = useAppToast();
   const [fileName, setFileName] = useState<string | null>(null);
   const [receiptDataUrl, setReceiptDataUrl] = useState<string | null>(null);
+  const [receiptStorageKey, setReceiptStorageKey] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
   const prex = {
@@ -85,21 +95,37 @@ export function PrexTransferPanel({
     }
 
     try {
+      if (await isMediaStorageConfigured()) {
+        const uploaded = await uploadMediaFile(file, 'receipt');
+        setReceiptStorageKey(uploaded.storageKey);
+        setReceiptDataUrl(null);
+        setPreviewUrl(
+          file.type.startsWith('image/') ? uploaded.previewUrl : null,
+        );
+        setFileName(file.name);
+        return;
+      }
       const dataUrl = await fileToDataUrl(file);
+      setReceiptStorageKey(null);
       setReceiptDataUrl(dataUrl);
+      setPreviewUrl(dataUrl.startsWith('data:image/') ? dataUrl : null);
       setFileName(file.name);
     } catch {
-      setLocalError('No se pudo leer el archivo.');
+      setLocalError('No se pudo leer o subir el archivo.');
     }
   };
 
   const handleSubmit = async () => {
     setLocalError(null);
-    if (!receiptDataUrl || !fileName) {
+    if ((!receiptDataUrl && !receiptStorageKey) || !fileName) {
       setLocalError('Subí el comprobante de la transferencia antes de continuar.');
       return;
     }
-    await onSubmit({ receiptDataUrl, receiptFileName: fileName });
+    await onSubmit({
+      receiptDataUrl: receiptDataUrl ?? undefined,
+      receiptStorageKey: receiptStorageKey ?? undefined,
+      receiptFileName: fileName,
+    });
   };
 
   return (
@@ -206,9 +232,9 @@ export function PrexTransferPanel({
         {fileName ? (
           <p className="ca-tx-pay-prex__file-name mb-0">Archivo: {fileName}</p>
         ) : null}
-        {receiptDataUrl?.startsWith('data:image/') ? (
+        {previewUrl ? (
           <img
-            src={receiptDataUrl}
+            src={previewUrl}
             alt="Vista previa del comprobante"
             className="ca-tx-pay-prex__preview"
           />
@@ -221,7 +247,7 @@ export function PrexTransferPanel({
         <Button
           type="button"
           className="ca-btn-cta"
-          disabled={disabled || isPending || !receiptDataUrl}
+          disabled={disabled || isPending || (!receiptDataUrl && !receiptStorageKey)}
           onClick={() => void handleSubmit()}
         >
           {isPending ? (

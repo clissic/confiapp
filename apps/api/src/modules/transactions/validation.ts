@@ -7,6 +7,8 @@ import {
   ProductCondition,
 } from '@confiapp/database';
 
+import { attachmentRefSchema } from '../../shared/validation/media-ref';
+
 const feePayerSchema = z.nativeEnum(FeePayer);
 const fundingModeSchema = z.nativeEnum(FundingMode).default(FundingMode.AGENT_FEE_ONLY);
 const appCurrencySchema = z
@@ -17,18 +19,7 @@ const appCurrencySchema = z
     message: 'Moneda inválida. Usá UYU o USD',
   });
 
-const imageSchema = z.object({
-  url: z
-    .string()
-    .trim()
-    .min(8)
-    .max(3_500_000)
-    .refine(
-      (value) => /^https?:\/\//i.test(value) || value.startsWith('data:image/'),
-      'URL de imagen inválida',
-    ),
-  alt: z.string().trim().max(200).optional(),
-});
+const imageSchema = attachmentRefSchema({ maxDataUrlChars: 3_500_000 });
 
 const productPayloadSchema = z.object({
   title: z.string().trim().min(3).max(200),

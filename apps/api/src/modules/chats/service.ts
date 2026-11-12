@@ -454,7 +454,13 @@ export class ChatsService {
     input: { body?: string; attachments?: MessageAttachment[] },
   ): Promise<MessageDto> {
     const chat = await this.getChatForUser(userId, chatId);
-    const attachments = input.attachments ?? [];
+    const attachments = (input.attachments ?? []).map((att) => {
+      const storageKey =
+        att.storageKey ||
+        (att.url?.startsWith('storage://') ? att.url.slice('storage://'.length) : undefined);
+      const url = att.url || (storageKey ? `storage://${storageKey}` : '');
+      return { ...att, url, storageKey };
+    });
     const body = (input.body ?? '').trim();
 
     if (!body && attachments.length === 0) {
@@ -464,8 +470,16 @@ export class ChatsService {
       throw new ValidationError('Máximo 10 adjuntos por mensaje');
     }
     for (const att of attachments) {
-      if (!att.url || (!/^https?:\/\//i.test(att.url) && !att.url.startsWith('data:image/'))) {
-        throw new ValidationError('Adjunto inválido: se espera URL http(s) o data:image');
+      const hasKey = Boolean(att.storageKey);
+      const url = att.url ?? '';
+      const okUrl =
+        /^https?:\/\//i.test(url) ||
+        url.startsWith('data:image/') ||
+        url.startsWith('storage://');
+      if (!hasKey && !okUrl) {
+        throw new ValidationError(
+          'Adjunto inválido: se espera storageKey, URL http(s), storage:// o data:image',
+        );
       }
     }
 
@@ -565,7 +579,12 @@ export class ChatsService {
       };
     }
 
-    const messages = await MessageModel.find(filter).select('_id').lean().exec();
+    const messages = await MessageModel.find(filter)
+      .select('_id')
+      .sort({ createdAt: 1 })
+      .limit(500)
+      .lean()
+      .exec();
     const ids = messages.map((m) => m._id);
     if (ids.length > 0) {
       await MessageModel.updateMany(

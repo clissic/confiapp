@@ -70,8 +70,16 @@ export function isAuthenticated(): boolean {
   return Boolean(getAccessToken());
 }
 
-export async function loginRequest(email: string, password: string): Promise<AuthSession> {
-  const { data } = await apiClient.post<AuthSession>('/auth/login', { email, password });
+export async function loginRequest(
+  email: string,
+  password: string,
+  turnstileToken?: string | null,
+): Promise<AuthSession> {
+  const { data } = await apiClient.post<AuthSession>('/auth/login', {
+    email,
+    password,
+    ...(turnstileToken ? { turnstileToken } : {}),
+  });
   return data;
 }
 
@@ -81,12 +89,20 @@ export async function registerRequest(input: {
   fullName: string;
   documentNumber: string;
   phone: string;
+  turnstileToken?: string | null;
 }): Promise<{ user: AuthUser; message: string; needsVerification: boolean }> {
   const { data } = await apiClient.post<{
     user: AuthUser;
     message: string;
     needsVerification?: boolean;
-  }>('/auth/register', input, { timeout: 45_000 });
+  }>(
+    '/auth/register',
+    {
+      ...input,
+      ...(input.turnstileToken ? { turnstileToken: input.turnstileToken } : {}),
+    },
+    { timeout: 45_000 },
+  );
   return {
     ...data,
     needsVerification: data.needsVerification ?? true,
@@ -98,10 +114,13 @@ export async function verifyEmailRequest(token: string): Promise<{ message: stri
   return data;
 }
 
-export async function resendVerificationRequest(email: string): Promise<{ message: string }> {
+export async function resendVerificationRequest(
+  email: string,
+  turnstileToken?: string | null,
+): Promise<{ message: string }> {
   const { data } = await apiClient.post<{ message: string }>(
     '/auth/resend-verification',
-    { email },
+    { email, ...(turnstileToken ? { turnstileToken } : {}) },
     { timeout: 45_000 },
   );
   return data;
@@ -171,10 +190,13 @@ export async function startIdDigital(input: {
   return data;
 }
 
-export async function forgotPasswordRequest(email: string): Promise<{ message: string }> {
+export async function forgotPasswordRequest(
+  email: string,
+  turnstileToken?: string | null,
+): Promise<{ message: string }> {
   const { data } = await apiClient.post<{ message: string }>(
     '/auth/forgot-password',
-    { email },
+    { email, ...(turnstileToken ? { turnstileToken } : {}) },
     { timeout: 45_000 },
   );
   return data;

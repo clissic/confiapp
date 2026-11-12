@@ -33,26 +33,53 @@ export const addressBodySchema = z.object({
   formatted: z.string().trim().max(500).optional(),
 });
 
-export const photoBodySchema = z.object({
-  url: z
-    .string()
-    .trim()
-    .max(5_500_000)
-    .refine(
-      (value) =>
-        /^https?:\/\//i.test(value) ||
-        value.startsWith('data:image/') ||
-        value.startsWith('data:application/pdf'),
-      'Se espera URL http(s), data:image o data:application/pdf',
-    ),
-  storageKey: z.string().trim().max(512).optional(),
-  kind: z.nativeEnum(UserPhotoKind).optional(),
-  mimeType: z.string().trim().max(128).optional(),
-  sizeBytes: z.number().int().min(0).optional(),
-  width: z.number().int().min(0).optional(),
-  height: z.number().int().min(0).optional(),
-  isPrimary: z.boolean().optional(),
-});
+export const photoBodySchema = z
+  .object({
+    url: z.string().trim().max(5_500_000).optional(),
+    storageKey: z.string().trim().max(512).optional(),
+    kind: z.nativeEnum(UserPhotoKind).optional(),
+    mimeType: z.string().trim().max(128).optional(),
+    sizeBytes: z.number().int().min(0).optional(),
+    width: z.number().int().min(0).optional(),
+    height: z.number().int().min(0).optional(),
+    isPrimary: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.url && !value.storageKey) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Falta url o storageKey de la foto',
+        path: ['url'],
+      });
+      return;
+    }
+    if (value.url) {
+      const ok =
+        /^https?:\/\//i.test(value.url) ||
+        value.url.startsWith('data:image/') ||
+        value.url.startsWith('data:application/pdf') ||
+        value.url.startsWith('storage://');
+      if (!ok) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Se espera URL http(s), data:image/pdf o storage://',
+          path: ['url'],
+        });
+      }
+    }
+  })
+  .transform((value) => {
+    const storageKey =
+      value.storageKey ??
+      (value.url?.startsWith('storage://')
+        ? value.url.slice('storage://'.length)
+        : undefined);
+    return {
+      ...value,
+      storageKey,
+      url: value.url ?? (storageKey ? `storage://${storageKey}` : ''),
+    };
+  });
 
 export const payoutMethodBodySchema = z
   .object({

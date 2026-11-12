@@ -11,6 +11,8 @@ const strongPassword = z
       'La contraseña debe incluir mayúscula, minúscula, número y un carácter especial (8–128)',
   });
 
+const turnstileToken = z.string().trim().max(2048).optional();
+
 export const registerBodySchema = z.object({
   email: z.string().email('Email inválido').max(320),
   password: strongPassword,
@@ -32,11 +34,13 @@ export const registerBodySchema = z.object({
     .string()
     .trim()
     .regex(/^\+?[0-9\s()-]{7,32}$/, 'Teléfono inválido'),
+  turnstileToken,
 });
 
 export const loginBodySchema = z.object({
   email: z.string().email('Email inválido').max(320),
   password: z.string().min(1, 'Ingresá tu contraseña').max(128),
+  turnstileToken,
 });
 
 export const refreshBodySchema = z.object({
@@ -55,6 +59,7 @@ export const changePasswordBodySchema = z.object({
 
 export const forgotPasswordBodySchema = z.object({
   email: z.string().email('Email inválido').max(320),
+  turnstileToken,
 });
 
 export const resetPasswordBodySchema = z.object({
@@ -68,6 +73,7 @@ export const verifyEmailBodySchema = z.object({
 
 export const resendVerificationBodySchema = z.object({
   email: z.string().email('Email inválido').max(320),
+  turnstileToken,
 });
 
 export type RegisterBody = z.infer<typeof registerBodySchema>;

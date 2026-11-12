@@ -21,7 +21,7 @@ Stack de plataforma inicializado en el bootstrap. **No describe el inventario ac
 | **Morgan** | `app.ts` → `morganStream` | Access log HTTP; en prod `combined`, en dev `dev`; skip `/health` |
 | **CORS** | `app.ts` | Origen explícito (`CORS_ORIGIN`) + credentials para cookies futuras |
 | **Compression** | `app.ts` | gzip/deflate; menos bytes en JSON/Swagger |
-| **Rate limiter** | `middleware/rate-limit.ts` | Mitiga brute-force/DoS básico; límites por env |
+| **Rate limiter** | `middleware/rate-limit.ts` (+ stores Redis opc.) | Global + por ruta (webhook, checkout, geo, chat, media, oauth, auth) |
 | **JWT** | `infrastructure/security/jwt.ts` | `jsonwebtoken`; sign/verify |
 | **Bcrypt** | `utils/password.ts` (`bcryptjs`) | 12 rounds; portable (sin binding nativo en Windows CI) |
 | **Mongoose** | `database/` + `DatabaseModule` | ODM tipado; conexión con reconexión y shutdown limpio |
@@ -47,8 +47,9 @@ Ver `apps/api/.env.example` (incluye JWT, DB, CORS, rate limit, providers de pag
 
 ## Notas posteriores al bootstrap
 
-- Auth, users, transactions, payments, wallet, notifications, chats, agents, reviews y audit **ya están montados** como módulos.
-- Redis para rate-limit distribuido sigue siendo fase de escala (hoy in-memory por instancia en muchos entornos).
+- Auth, users, transactions, payments, wallet, notifications, chats, agents, reviews, audit y **media** (presign S3) **ya están montados** como módulos.
+- **Redis** (`REDIS_URL`): opcional. Con URL → rate limits / cooldowns compartidos; sin URL → memoria del proceso (OK con 1 réplica).
+- **Turnstile**, object storage Railway (`AWS_*`), `RUN_CRONS` y jobs con secret: ver [`SECURITY_COST_HARDENING.md`](./SECURITY_COST_HARDENING.md).
 
 ## Arranque
 

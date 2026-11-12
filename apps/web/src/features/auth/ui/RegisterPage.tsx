@@ -11,6 +11,7 @@ import { registerRequest } from '../api/auth.api';
 import { isStrongPassword } from '../lib/password';
 import { clearLocalVerifiedPhone } from '@/features/profile/model/phone-verification';
 import { isRequestTimeoutError } from '@/shared/api/client';
+import { isTurnstileEnabled, TurnstileField } from '@/shared/security/TurnstileField';
 import { AuthBrand } from './AuthBrand';
 import { useAuth } from './AuthProvider';
 import { PasswordInput } from './PasswordInput';
@@ -40,6 +41,7 @@ export function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -52,6 +54,10 @@ export function RegisterPage() {
     const mail = email.trim();
     const localPhone = nationalNumber.replace(/\D/g, '');
 
+    if (isTurnstileEnabled() && !turnstileToken) {
+      setError('Completá la verificación anti-bots.');
+      return;
+    }
     if (name.length < 2) {
       setError('El nombre completo debe tener al menos 2 caracteres.');
       return;
@@ -88,6 +94,7 @@ export function RegisterPage() {
         fullName: name,
         documentNumber: documento,
         phone,
+        turnstileToken,
       });
       navigate(
         `/verificar-email?email=${encodeURIComponent(mail)}&next=${encodeURIComponent(next)}`,
@@ -258,6 +265,8 @@ export function RegisterPage() {
               </Link>
             </span>
           </label>
+
+          <TurnstileField onToken={setTurnstileToken} className="mb-2" />
 
           <button className="ca-auth__submit ca-auth__submit--block" type="submit" disabled={loading}>
             {loading ? 'Creando…' : 'Crear cuenta gratis'}

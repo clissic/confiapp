@@ -12,10 +12,7 @@ const controller = new FinanceController();
 function assertJobSecret(header: string | undefined): void {
   const secret = env.TRANSACTIONS_JOB_SECRET?.trim();
   if (!secret) {
-    if (env.NODE_ENV === 'production') {
-      throw new ForbiddenError('Job secret no configurado');
-    }
-    return;
+    throw new ForbiddenError('Job secret no configurado');
   }
   if (header !== secret) {
     throw new ForbiddenError('Job secret inválido');

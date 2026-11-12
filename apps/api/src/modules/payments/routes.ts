@@ -4,8 +4,11 @@ import { PlatformRole } from '@confiapp/database';
 import {
   asyncHandler,
   authenticate,
+  checkoutRateLimiter,
+  oauthRateLimiter,
   requireRoles,
   validateRequest,
+  webhookRateLimiter,
 } from '../../middleware';
 import { env } from '../../shared/config/env';
 import { mercadoPagoClient } from '../../infrastructure/payments/mercadopago.client';
@@ -71,6 +74,7 @@ paymentsRoutes.get(
 paymentsRoutes.post(
   '/transactions/:code/checkout',
   authenticate,
+  checkoutRateLimiter,
   validateRequest({ params: paymentTransactionCodeParamsSchema }),
   asyncHandler(controller.checkout),
 );
@@ -78,6 +82,7 @@ paymentsRoutes.post(
 paymentsRoutes.post(
   '/transactions/:code/sync-checkout',
   authenticate,
+  checkoutRateLimiter,
   validateRequest({
     params: paymentTransactionCodeParamsSchema,
     body: syncCheckoutReturnBodySchema,
@@ -117,8 +122,16 @@ if (env.NODE_ENV !== 'production' && mercadoPagoClient.isMock()) {
 }
 
 /** Webhook público Mercado Pago (verifica firma si hay secret). */
-paymentsRoutes.post('/webhooks/mercadopago', asyncHandler(controller.webhook));
-paymentsRoutes.get('/webhooks/mercadopago', asyncHandler(controller.webhook));
+paymentsRoutes.post(
+  '/webhooks/mercadopago',
+  webhookRateLimiter,
+  asyncHandler(controller.webhook),
+);
+paymentsRoutes.get(
+  '/webhooks/mercadopago',
+  webhookRateLimiter,
+  asyncHandler(controller.webhook),
+);
 
 /** OAuth vendedor: estado / start / disconnect (JWT) + callback público. */
 paymentsRoutes.get(
@@ -129,9 +142,14 @@ paymentsRoutes.get(
 paymentsRoutes.get(
   '/mercadopago/oauth/start',
   authenticate,
+  oauthRateLimiter,
   asyncHandler(controller.mpOAuthStart),
 );
-paymentsRoutes.get('/mercadopago/oauth/callback', asyncHandler(controller.mpOAuthCallback));
+paymentsRoutes.get(
+  '/mercadopago/oauth/callback',
+  oauthRateLimiter,
+  asyncHandler(controller.mpOAuthCallback),
+);
 paymentsRoutes.delete(
   '/mercadopago/connection',
   authenticate,
