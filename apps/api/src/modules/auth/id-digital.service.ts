@@ -9,16 +9,27 @@ import {
   UserModel,
   type IdDigitalPurpose,
 } from '../../database/models';
-import { idDigitalClient } from '../../infrastructure/id-digital/id-digital.client';
 import {
+  idDigitalClient,
+  idDigitalJwksUrl,
+  type IdDigitalUserInfo,
+} from '../../infrastructure/id-digital/id-digital.client';
+import {
+  effectiveAuthMethods,
   IdTokenValidationError,
-  parseAndValidateIdToken,
+  verifyAndValidateIdToken,
 } from '../../infrastructure/id-digital/id-token';
 import { env } from '../../shared/config/env';
 import { AppError, ValidationError } from '../../shared/errors/app-error';
 import { auditService } from '../audit/service';
 import { logger } from '../../utils/logger';
 import { generateOAuthState } from '../../utils/secret-crypto';
+import {
+  documentMatches,
+  maskDocumentNumber,
+  snapshotFromUserInfo,
+  type IdDigitalUserInfoSnapshot,
+} from './id-digital-userinfo';
 
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 const PROOF_TTL_MS = 5 * 60 * 1000;
@@ -166,9 +177,12 @@ export class IdDigitalService {
         );
       }
 
-      const claims = parseAndValidateIdToken(tokens.id_token, {
+      // Firma RS256 contra JWKS + iss/aud/exp/sub. ID Digital no devuelve `nonce`:
+      // se acepta su ausencia (el state one-shot protege el flujo) y se rechaza si difiere.
+      const claims = await verifyAndValidateIdToken(tokens.id_token, {
         issuer: env.ID_DIGITAL_ISSUER,
         clientId: env.ID_DIGITAL_CLIENT_ID,
+        jwksUrl: idDigitalJwksUrl(),
         nonce: oauthState.nonce,
       });
 
@@ -232,6 +246,55 @@ export class IdDigitalService {
         };
       }
 
+      // Userinfo: CI/documento, nivel de registro y métodos de validación.
+      // Si falla, no se rompe el login (el id_token ya está verificado): se audita.
+      const userInfo = await this.loadUserInfo({
+        accessToken: tokens.access_token,
+        expectedSub: claims.sub,
+        userId,
+        purpose: oauthState.purpose,
+      });
+      const snapshot: IdDigitalUserInfoSnapshot | undefined = userInfo
+        ? snapshotFromUserInfo(userInfo)
+        : undefined;
+
+      // D11: matching de documento contra la cuenta ConfiApp.
+      let documentMismatch: boolean | undefined = user.idDigital?.documentMismatch;
+      let documentFilled = false;
+      if (snapshot?.document?.number) {
+        const current = user.documentNumber?.trim();
+        if (!current) {
+          user.documentNumber = snapshot.document.number;
+          documentFilled = true;
+          documentMismatch = false;
+        } else if (documentMatches(current, snapshot.document)) {
+          documentMismatch = false;
+        } else {
+          documentMismatch = true;
+          logger.warn('id-digital document mismatch', {
+            userId,
+            purpose: oauthState.purpose,
+          });
+          auditService.track({
+            actor: userId,
+            action: AuditAction.ID_DIGITAL_FAILED,
+            entityType: 'User',
+            entityId: userId,
+            outcome: AuditOutcome.FAILURE,
+            metadata: {
+              purpose: oauthState.purpose,
+              reason: 'document_mismatch',
+              severity: 'warning',
+              blocking: false,
+              profileDocument: maskDocumentNumber(current),
+              idDigitalDocument: maskDocumentNumber(snapshot.document.number),
+              idDigitalDocumentType: snapshot.document.type,
+            },
+          });
+        }
+      }
+
+      const methods = effectiveAuthMethods(claims);
       user.idDigital = {
         ...user.idDigital,
         sub: claims.sub,
@@ -239,10 +302,21 @@ export class IdDigitalService {
         lastVerifiedAt: now,
         lastAcr: claims.acr,
         lastAmr: claims.amr,
+        lastMethods: methods,
         onboardingVerifiedAt:
           oauthState.purpose === 'agent_onboarding'
             ? now
             : user.idDigital?.onboardingVerifiedAt,
+        ...(snapshot
+          ? {
+              document: snapshot.document ?? user.idDigital?.document,
+              registrationLevel: snapshot.registrationLevel,
+              registrationLevelDescription: snapshot.registrationLevelDescription,
+              validationMethods: snapshot.validationMethods,
+              userInfoFetchedAt: now,
+            }
+          : {}),
+        documentMismatch,
       };
       await user.save();
 
@@ -257,6 +331,12 @@ export class IdDigitalService {
           ref: oauthState.ref,
           acr: claims.acr,
           amr: claims.amr,
+          method: methods,
+          userInfo: snapshot ? 'ok' : 'unavailable',
+          registrationLevel: snapshot?.registrationLevel,
+          documentMatch:
+            documentMismatch === undefined ? undefined : !documentMismatch,
+          documentFilled: documentFilled || undefined,
         },
       });
 
@@ -310,6 +390,51 @@ export class IdDigitalService {
           reason,
         }),
       };
+    }
+  }
+
+  /**
+   * Llama al userinfo con el access_token y comprueba que el sub coincida con el
+   * del id_token. Nunca lanza: ante error audita (advertencia) y devuelve undefined.
+   */
+  private async loadUserInfo(input: {
+    accessToken: string | undefined;
+    expectedSub: string;
+    userId: string;
+    purpose: IdDigitalPurpose;
+  }): Promise<IdDigitalUserInfo | undefined> {
+    const warn = (reason: string, extra?: Record<string, unknown>): undefined => {
+      logger.warn('id-digital userinfo unavailable', { userId: input.userId, reason, ...extra });
+      auditService.track({
+        actor: input.userId,
+        action: AuditAction.ID_DIGITAL_FAILED,
+        entityType: 'User',
+        entityId: input.userId,
+        outcome: AuditOutcome.FAILURE,
+        metadata: {
+          purpose: input.purpose,
+          reason,
+          severity: 'warning',
+          blocking: false,
+          ...extra,
+        },
+      });
+      return undefined;
+    };
+
+    if (!input.accessToken) {
+      return warn('userinfo_missing_access_token');
+    }
+    try {
+      const info = await idDigitalClient.fetchUserInfo(input.accessToken);
+      if (info.sub !== input.expectedSub) {
+        return warn('userinfo_sub_mismatch');
+      }
+      return info;
+    } catch (error) {
+      return warn('userinfo_failed', {
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 

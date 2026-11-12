@@ -147,7 +147,7 @@ const envSchema = z.object({
   ID_DIGITAL_CLIENT_SECRET: z.string().optional().default(''),
   ID_DIGITAL_AUTH_URL: z
     .string()
-    .default('https://login.identidaddigital.com.uy/v2/authorize'),
+    .default('https://login.identificaciondigital.com.uy/v2/authorize'),
   ID_DIGITAL_TOKEN_URL: z
     .string()
     .default('https://auth.identificaciondigital.com.uy/api/v2/openid/token'),
@@ -157,6 +157,10 @@ const envSchema = z.object({
   ID_DIGITAL_REDIRECT_URI: z.string().optional().default(''),
   ID_DIGITAL_SCOPE: z.string().default('openid profile'),
   ID_DIGITAL_ACR_VALUES: z.string().default('pin'),
+  /** JWKS para verificar la firma RS256 del id_token. Vacío = `${ID_DIGITAL_ISSUER}/jwks`. */
+  ID_DIGITAL_JWKS_URL: z.string().optional().default(''),
+  /** Userinfo (CI / documento, nivel de registro). Vacío = `${ID_DIGITAL_ISSUER}/userinfo`. */
+  ID_DIGITAL_USERINFO_URL: z.string().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
