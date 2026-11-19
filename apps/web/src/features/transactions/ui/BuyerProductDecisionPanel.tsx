@@ -60,12 +60,12 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
         toast.success('Producto aceptado. El Agente inicia el viaje hacia vos.');
       } else if (confirm === 'reject') {
         await reject.mutateAsync();
-        toast.success('Compra cancelada. Se inició el reembolso del pago protegido.');
+        toast.success('Compra cancelada. Se inició el reembolso de la contratación del Agente.');
       } else {
         await confirmArrival.mutateAsync();
         toast.success(
           agentDeliveryDone
-            ? 'Arribo confirmado. La operación se completó y se liberaron los fondos.'
+            ? 'Arribo confirmado. La operación se completó.'
             : 'Arribo confirmado. Esperamos la confirmación de entrega del Agente.',
         );
       }
@@ -82,7 +82,7 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
             void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
             toast.success(
               refreshed.data.status === 'COMPLETED' || agentDeliveryDone
-                ? 'Arribo confirmado. La operación se completó y se liberaron los fondos.'
+                ? 'Arribo confirmado. La operación se completó.'
                 : 'Arribo confirmado. Esperamos la confirmación de entrega del Agente.',
             );
             setConfirm(null);
@@ -126,7 +126,7 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
                 ? 'Arribo y entrega confirmados. La operación quedó completada.'
                 : arrivalDone
                   ? 'Confirmaste el arribo. Esperamos que el Agente confirme la entrega.'
-                  : 'Aceptaste el producto. Cuando te llegue, confirmá el arribo. Los fondos se liberan al confirmar también el Agente.'}
+                  : 'Aceptaste el producto. Cuando te llegue, confirmá el arribo. La operación se cierra cuando el Agente también confirme la entrega.'}
         </p>
       </header>
 
@@ -257,8 +257,8 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
           {confirm === 'accept' ? (
             <>
               <p>
-                Al confirmar, el Agente inicia el viaje hacia vos con el producto. Los fondos siguen
-                en resguardo hasta que confirmes el arribo y el Agente confirme la entrega.
+                Al confirmar, el Agente inicia el viaje hacia vos con el producto. La operación se
+                cierra cuando confirmes el arribo y el Agente confirme la entrega.
               </p>
               <p className="ca-tx-product-decision__irreversible mb-0">
                 Esta elección no se puede deshacer.
@@ -267,7 +267,7 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
           ) : confirm === 'reject' ? (
             <>
               <p>
-                Al confirmar, se cancela la compra y se inicia el reembolso del pago protegido. El
+                Al confirmar, se cancela la compra y se reembolsa la contratación del Agente. El
                 Agente coordinará la devolución al vendedor si ya tenía el producto.
               </p>
               <p className="ca-tx-product-decision__irreversible mb-0">
@@ -277,8 +277,8 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
           ) : (
             <p className="mb-0">
               {agentDeliveryDone
-                ? 'Confirmá solo si ya recibiste el producto. Al confirmar, se liberarán los fondos al vendedor.'
-                : 'Confirmá solo si ya recibiste el producto. Cuando el Agente también confirme la entrega, se liberarán los fondos al vendedor.'}
+                ? 'Confirmá solo si ya recibiste el producto. Al confirmar, la operación se cierra.'
+                : 'Confirmá solo si ya recibiste el producto. Cuando el Agente también confirme la entrega, la operación se cierra.'}
             </p>
           )}
         </Modal.Body>

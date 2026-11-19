@@ -6,7 +6,7 @@ import {
 } from '@confiapp/database';
 import type { HydratedDocument } from 'mongoose';
 
-/** Plazo de liberación automática tras la primera confirmación de entrega. */
+/** Plazo de cierre automático tras la primera confirmación de entrega. */
 export const DELIVERY_AUTO_RELEASE_MS = 72 * 60 * 60 * 1000;
 
 /** Ventana antes del auto-release para enviar recordatorio (~48h tras primera confirmación). */
@@ -30,7 +30,7 @@ export function deliveryAutoReleaseNotice(autoReleaseAt?: Date): string {
     : '';
   return (
     'Si no confirmás el arribo ni reportás que no recibiste el producto dentro de las 72 horas, ' +
-    'el sistema registrará la recepción automáticamente y se liberarán los fondos.' +
+    'el sistema registrará la recepción automáticamente y se cerrará la operación.' +
     deadline
   );
 }

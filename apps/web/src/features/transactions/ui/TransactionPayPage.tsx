@@ -92,11 +92,7 @@ export function TransactionPayPage() {
   useEffect(() => {
     const status = searchParams.get('status') ?? searchParams.get('pago');
     if (status === 'success' || status === 'ok') {
-      toast.success(
-        isAgentFeeOnly
-          ? 'Pago confirmado. La contratación quedó retenida en ConfiApp.'
-          : 'Pago confirmado. El monto quedó en resguardo.',
-      );
+      toast.success('Contratación del Agente confirmada.');
       navigate(`/operaciones/${code}`, { replace: true });
     } else if (status === 'failure') {
       setError('El pago falló o fue cancelado. Podés intentarlo de nuevo.');
@@ -190,11 +186,7 @@ export function TransactionPayPage() {
     try {
       const sync = await syncCheckout.mutateAsync({});
       if (sync.confirmed) {
-        toast.success(
-          isAgentFeeOnly
-            ? 'Pago encontrado en Mercado Pago. La contratación quedó retenida.'
-            : 'Pago encontrado en Mercado Pago. El monto quedó en resguardo.',
-        );
+        toast.success('Contratación del Agente confirmada.');
         navigate(`/operaciones/${code}`, { replace: true });
         return;
       }
@@ -217,9 +209,7 @@ export function TransactionPayPage() {
     try {
       await manualTransfer.mutateAsync(payload);
       toast.success(
-        isAgentFeeOnly
-          ? 'Comprobante enviado. Verificaremos la transferencia y te avisaremos cuando la contratación quede retenida.'
-          : 'Comprobante enviado. Verificaremos la transferencia y te avisaremos cuando quede en resguardo.',
+        'Comprobante enviado. Verificaremos la transferencia y te avisaremos cuando se verifique.',
       );
       navigate(`/operaciones/${tx.code}`, { replace: true });
     } catch (err) {
@@ -265,17 +255,13 @@ export function TransactionPayPage() {
         </Link>
         <p className="ca-tx-pay-hero__kicker">
           <ShieldCheck size={16} strokeWidth={1.75} aria-hidden />
-          {isAgentFeeOnly ? 'Contratación del Agente' : 'Pago protegido'}
+          Contratación del Agente
         </p>
         <h1 className="ca-tx-pay-hero__title">Resumen del pago</h1>
         <p className="ca-tx-pay-hero__lead">
-          {isAgentFeeOnly
-            ? isManualPrex
-              ? 'Transferí el monto de la contratación a ConfiApp y subí el comprobante. Queda retenido hasta el fin de la operación.'
-              : 'Vas a pagar a ConfiApp la contratación del Agente. El monto queda retenido hasta confirmar la entrega; luego el Agente lo recibe en su wallet.'
-            : isManualPrex
-              ? 'Revisá los montos, transferí el total a la cuenta Prex indicada y subí el comprobante. Verificaremos la transferencia antes de habilitar el trabajo para agentes.'
-              : 'Revisá los montos. Al continuar vas a la pasarela de Mercado Pago para completar el cobro; el dinero queda en resguardo hasta confirmar la entrega.'}
+          {isManualPrex
+            ? 'Pagás en ConfiApp solo la contratación del Agente. Transferí el monto, subí el comprobante. El precio del producto se acuerda y se paga por fuera.'
+            : 'Pagás en ConfiApp solo la contratación del Agente. El precio del producto se acuerda y se paga por fuera.'}
         </p>
         <div className="ca-tx-pay-hero__meta">
           <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
@@ -296,7 +282,7 @@ export function TransactionPayPage() {
             </li>
             <li>
               <span>Quién paga</span>
-              <strong>{feePayerLabel}</strong>
+              <strong>El comprador</strong>
             </li>
             <li className="ca-tx-pay-summary__total">
               <span>Total a pagar ahora</span>
@@ -369,7 +355,7 @@ export function TransactionPayPage() {
           <section className="ca-tx-panel ca-tx-pay-cta">
             <Alert variant="info" className="mb-0">
               Ya recibimos tu comprobante. Estamos verificando la transferencia; cuando se
-              confirme, el pago quedará retenido en ConfiApp.
+              confirme, la contratación del Agente quedará registrada en ConfiApp.
             </Alert>
             <div className="ca-tx-pay-cta__actions mt-3">
               <Link to={`/operaciones/${tx.code}`} className="btn btn-primary">

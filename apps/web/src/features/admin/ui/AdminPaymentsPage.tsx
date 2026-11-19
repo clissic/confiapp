@@ -19,8 +19,8 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
   REQUIRES_ACTION: 'Pendiente confirmación',
   AUTHORIZED: 'Autorizado',
-  CAPTURED: 'En resguardo',
-  RELEASED: 'Liberado',
+  CAPTURED: 'Contratación cobrada',
+  RELEASED: 'Comisión acreditada',
   REFUNDED: 'Reembolsado',
   FAILED: 'Fallido',
   CANCELLED: 'Cancelado',
@@ -82,7 +82,7 @@ export function AdminPaymentsPage() {
         onSuccess: () => {
           toast.success(
             confirmed
-              ? 'Transferencia confirmada. La operación quedó en pago protegido y ya está visible para agentes.'
+              ? 'Transferencia confirmada. Agente contratado; ya visible para agentes.'
               : 'Transferencia marcada como no confirmada. Los agentes no la verán hasta que la vuelvas a confirmar.',
           );
         },
@@ -108,7 +108,7 @@ export function AdminPaymentsPage() {
           <HelpInfo id="admin-pay-help" title="Sobre esta pantalla">
             <p className="mb-2">
               Acá ves las transferencias Prex que los compradores declararon con comprobante. Revisá
-              el archivo, el monto y el estado del resguardo.
+              el archivo, el monto y el estado de la contratación.
             </p>
             <p className="mb-2">
               Mientras el cobro sea manual, Mercado Pago queda en standby. Cada comprobante nuevo

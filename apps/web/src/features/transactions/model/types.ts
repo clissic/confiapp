@@ -250,7 +250,7 @@ export const STATUS_LABELS: Record<TransactionStatus, string> = {
   WAITING_PARTICIPANT: 'Esperando participante',
   PENDING_BUYER_CONFIRM: 'Pendiente confirmación del comprador',
   ACCEPTED: 'Aceptada',
-  FUNDED: 'Pago protegido',
+  FUNDED: 'Agente contratado',
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Completada',
   CANCELLED: 'Cancelada',

@@ -93,7 +93,7 @@ export function TransactionPayMockPage() {
         <h1 className="ca-tx-pay-hero__title">Simular pago</h1>
         <p className="ca-tx-pay-hero__lead">
           Todavía no hay credenciales sandbox. Esta pantalla imita la pasarela: al aprobar,
-          el pago queda protegido como si Mercado Pago hubiera confirmado el cobro.
+          el servicio del Agente figura pagado, como en un cobro real de Mercado Pago.
         </p>
 
         <div className="ca-tx-pay-mock-card__amount">

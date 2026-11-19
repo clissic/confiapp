@@ -33,10 +33,9 @@ export function FundingModeStep({
         <span className="ca-tx-funding__badge">Disponible</span>
         <strong className="ca-tx-funding__title">Solo pago del Agente</strong>
         <p className="ca-tx-funding__lead">
-          El comprador paga {AGENT_FEE_LABEL} a ConfiApp por contratar al Agente. El monto queda
-          retenido hasta el fin de la operación; el Agente lo recibe en su wallet tras el plazo de
-          disponibilidad. El precio y la forma de pago del producto se acuerdan entre las partes;
-          ConfiApp no interviene en esa decisión.
+          El comprador paga {AGENT_FEE_LABEL} por el Agente en ConfiApp. El producto se acuerda y se
+          paga entre las partes. Al cerrar, la comisión del Agente se acredita en wallet (pendiente
+          unos días y luego disponible para liquidación mensual).
         </p>
       </button>
 

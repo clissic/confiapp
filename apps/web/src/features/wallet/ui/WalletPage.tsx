@@ -326,7 +326,7 @@ export function WalletPage() {
           </div>
         </div>
         <p className="ca-wallet__lead">
-          Saldos retenidos en UYU (Mercado Pago). Se muestran convertidos a {displayCurrencyLabel}{' '}
+          Saldos en UYU (ledger de la app). Se muestran convertidos a {displayCurrencyLabel}{' '}
           según tu preferencia; el valor en pantalla puede variar con la cotización.
         </p>
       </header>
@@ -351,7 +351,7 @@ export function WalletPage() {
           </strong>
         </div>
         <div className="ca-wallet-balance">
-          <span>Retenido (escrow)</span>
+          <span>Retenido en operación</span>
           <strong>
             {summary ? formatMoney(summary.retenidoCents, summary.currency) : '—'}
           </strong>
@@ -491,7 +491,7 @@ export function WalletPage() {
                     <Form.Text className="ca-wallet__hint">
                       Máximo:{' '}
                       {formatMoney(withdrawableCents, walletCurrency)}
-                      {summary?.agentCommissions ? ' (fondos de ventas)' : ''}
+                      {summary?.agentCommissions ? ' (saldo de operaciones)' : ''}
                     </Form.Text>
                   </Form.Group>
                   <Form.Group controlId="wallet-withdraw-destination">

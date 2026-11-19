@@ -131,7 +131,7 @@ export function PrexTransferPanel({
   return (
     <section className="ca-tx-panel ca-tx-pay-prex">
       <div className="ca-tx-pay-prex__intro">
-        <h2 className="ca-tx-pay-cta__title">Transferí el pago</h2>
+        <h2 className="ca-tx-pay-cta__title">Transferí la contratación del Agente</h2>
         <p className="ca-tx-pay-cta__lead mb-0">
           Por ahora el cobro es por transferencia a Prex (MVP). Transferí{' '}
           <strong>{amountLabel}</strong> a la cuenta de abajo y subí el comprobante. Nuestro equipo

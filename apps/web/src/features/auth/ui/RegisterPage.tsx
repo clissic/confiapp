@@ -128,7 +128,8 @@ export function RegisterPage() {
         <AuthBrand />
         <h1 className="ca-auth__title">Crear cuenta</h1>
         <p className="ca-auth__lead">
-          Empezá a comprar, vender o llevar productos como Agente, con pago protegido.
+          Empezá a comprar, vender o mediar entregas como Agente, con la operación ordenada en un
+          solo lugar.
         </p>
 
         <form className="ca-auth__form" onSubmit={onSubmit} noValidate>

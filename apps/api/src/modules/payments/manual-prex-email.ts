@@ -110,7 +110,7 @@ export async function sendManualPrexReceiptEmail(input: {
 
   const bodyHtml = `
     <p style="margin:0 0 14px;font-size:15px;line-height:1.55;color:#0f172a">
-      Un comprador declaró haber transferido el pago por Prex. El monto quedó en resguardo en la app.
+      Un comprador declaró haber transferido el pago por Prex (servicio del Agente).
     </p>
     <p style="margin:0 0 14px;font-size:14px;line-height:1.55;color:#334155">
       <strong style="color:#01285d">${escapeEmailHtml(input.transactionCode)}</strong><br/>

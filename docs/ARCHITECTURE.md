@@ -54,9 +54,9 @@ infrastructure ───────┘
 |--------|-----|
 | `auth` | Registro, login, verify email, reset password. **ID Digital Abitab** para Agentes (onboarding + accept job): [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md) |
 | `users` | Perfil, KYC (review admin), preferencias, payout methods |
-| `transactions` | Ciclo de vida escrow + invites + checklist + plazos 21d/72h — ver [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) |
-| `payments` | Cobro Prex / Checkout MP, hold, webhooks, sync return, OAuth agentes |
-| `wallet` | Saldos, retiros, comisiones, export |
+| `transactions` | Ciclo de vida de la operación + invites + checklist + plazos 21d/72h — ver [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) |
+| `payments` | Cobro de la **contratación del Agente** (Prex / MP), hold, webhooks, sync return, OAuth agentes; `ESCROW_FULL` deshabilitado por flag |
+| `wallet` | Saldos y comisiones del Agente (hold 14d + liquidación admin), export |
 | `notifications` | Inbox + `NotificationsService.notify` + gating prefs |
 | `chats` | Mensajería + realtime |
 | `agents` | Onboarding, búsqueda, open jobs, ofertas, salida de op |
@@ -65,7 +65,7 @@ infrastructure ───────┘
 | `health` | Healthcheck |
 | `media` | Presign/confirm/signed-url hacia Railway Bucket (`AWS_*`); cuotas anti-abuso |
 | `evidence` | Stub (`/status`) — dominio preparado, UX pendiente |
-| `disputes` | Stub (`/status`) — dominio preparado, UX pendiente |
+| `disputes` | Disputas de entrega / no recepción (comprador); resolución admin |
 
 Infra relevante: `infrastructure/redis` (rate limits opc.), `infrastructure/storage` (S3), Turnstile en auth. Detalle ops: [`SECURITY_COST_HARDENING.md`](./SECURITY_COST_HARDENING.md).
 
@@ -81,7 +81,7 @@ Estructura típica por feature: `{controller,service,repository,routes,dto,valid
 | GET | `/search` | Ranking geo + capacidad |
 | GET | `/jobs/open` | Trabajos sin intermediario ACCEPTED (incl. post-withdraw) |
 | POST | `/jobs/:code/accept` | Tomar trabajo abierto |
-| POST | `/jobs/:code/withdraw` | Agente sale (`REMOVED`); escrow intacto; reabre oferta/open-jobs |
+| POST | `/jobs/:code/withdraw` | Agente sale (`REMOVED`); contratación intacta; reabre oferta/open-jobs |
 | POST | `/assignments/offer` \| `…/reassign` | Cola de ofertas |
 | GET/POST | `/offers…` | Inbox de ofertas del agente (API; web usa open jobs como entry) |
 

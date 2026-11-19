@@ -32,7 +32,7 @@ export function BuyerDeliveryDisputePanel({ tx }: { tx: Transaction }) {
         </div>
         <p className="mb-2">
           Registramos tu reporte{tx.activeDispute?.openedAt ? ` el ${formatDateTime(tx.activeDispute.openedAt)}` : ''}.
-          La liberación de fondos quedó pausada hasta que un administrador resuelva el caso.
+          La operación está en disputa hasta que un administrador resuelva el caso.
         </p>
         {tx.activeDispute?.reason ? (
           <p className="ca-tx-dispute-banner__reason mb-1">

@@ -31,7 +31,7 @@ const AGENT_PIPELINE = [
 
 const AGENT_PIPELINE_LABELS: Record<(typeof AGENT_PIPELINE)[number], string> = {
   ACCEPTED: 'Aceptada',
-  FUNDED: 'Pago',
+  FUNDED: 'Agente contratado',
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Listo',
 };
@@ -149,7 +149,7 @@ export function AgentOperationDetail({
       await confirmDelivery.mutateAsync();
       toast.success(
         buyerArrivalDone
-          ? 'Entrega confirmada. La operación se completó y se liberaron los fondos.'
+          ? 'Entrega confirmada. Operación cerrada.'
           : 'Entrega confirmada. Esperamos que el comprador confirme el arribo.',
       );
       setDeliveryConfirmOpen(false);
@@ -281,7 +281,7 @@ export function AgentOperationDetail({
               ? 'Marcá lo que verifiques al retirar el producto del vendedor.'
               : tx.agentVerification
                 ? 'Verificación cerrada.'
-                : 'Disponible después del pago protegido.'
+                : 'Disponible después de la contratación del Agente.'
           }
           pendingItemId={
             toggleChecklist.isPending ? (toggleChecklist.variables?.itemId ?? null) : null
@@ -406,8 +406,8 @@ export function AgentOperationDetail({
         </Modal.Header>
         <Modal.Body>
           <p className="mb-0">
-            Confirmá solo si ya entregaste el producto al comprador. Cuando el comprador también
-            confirme el arribo, se liberarán los fondos.
+            Confirmá solo si ya entregaste el producto al comprador. Con la doble confirmación se
+            cierra todo.
           </p>
         </Modal.Body>
         <Modal.Footer>

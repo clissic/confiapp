@@ -88,14 +88,8 @@ export function TransactionDetailPage() {
             externalReference: externalReference ?? undefined,
             status: mpStatus ?? undefined,
           });
-          const agentFeeOnly =
-            (data?.data?.fundingMode ?? 'AGENT_FEE_ONLY') === 'AGENT_FEE_ONLY';
           if (sync.confirmed) {
-            toast.success(
-              agentFeeOnly
-                ? 'Pago confirmado. La contratación quedó retenida en ConfiApp.'
-                : 'Pago confirmado. El monto quedó en resguardo.',
-            );
+            toast.success('Contratación del Agente confirmada.');
           } else {
             toast.success(
               'Volviste de Mercado Pago. Si el pago figura aprobado allí, puede demorar unos segundos en reflejarse (webhook).',
@@ -262,7 +256,7 @@ export function TransactionDetailPage() {
   const onWithdrawAsAgent = async () => {
     if (!tx?.code) return;
     const ok = window.confirm(
-      '¿Solicitar salida de esta operación? El dinero en resguardo no se libera; buscaremos otro agente.',
+      '¿Solicitar salida de esta operación? La contratación del Agente permanece en ConfiApp; buscaremos reemplazo.',
     );
     if (!ok) return;
     setError(null);

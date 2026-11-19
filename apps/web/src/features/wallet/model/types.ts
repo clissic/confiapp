@@ -60,8 +60,8 @@ export type WalletMovementsQuery = {
 };
 
 export const WALLET_MOVEMENT_TYPE_LABELS: Record<string, string> = {
-  ESCROW_HOLD: 'Retención protegida',
-  ESCROW_RELEASE: 'Liberación',
+  ESCROW_HOLD: 'Contratación retenida',
+  ESCROW_RELEASE: 'Comisión acreditada',
   AGENT_PAYOUT: 'Pago a agente',
   PLATFORM_FEE: 'Comisión plataforma',
   WITHDRAWAL_REQUEST: 'Solicitud de retiro',

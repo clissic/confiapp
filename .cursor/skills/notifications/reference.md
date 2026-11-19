@@ -16,7 +16,7 @@ Eventos derivados de lo **ya implementado** en API. Auth verification / forgot-p
 
 | Evento | Tipo sugerido | Categoría | Dónde muta hoy |
 |--------|---------------|-----------|----------------|
-| Hold capturado / escrow liberado | `PAYMENT` | `paymentAlerts` | `payments/service.ts` |
+| Contratación cobrada / operación cerrada (comisión) | `PAYMENT` | `paymentAlerts` | `payments/service.ts` |
 | Payout agente | `PAYMENT` | `paymentAlerts` | `payments/service.ts` |
 | Retiro completado | `PAYMENT` | `paymentAlerts` | `wallet/service.ts` |
 | Compra aceptada / venta confirmada | `TRANSACTION_UPDATE` | `transactionUpdates` | `transactions/service.ts` |

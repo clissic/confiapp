@@ -16,8 +16,8 @@ import {
 import '../styles/payments.css';
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
-  ESCROW_HOLD: 'Retención protegida',
-  ESCROW_RELEASE: 'Liberación al vendedor',
+  ESCROW_HOLD: 'Contratación del Agente',
+  ESCROW_RELEASE: 'Cierre — comisión acreditada',
   REFUND: 'Reembolso',
   PLATFORM_FEE: 'Comisión ConfiApp',
   AGENT_PAYOUT: 'Pago al agente',
@@ -28,7 +28,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   REQUIRES_ACTION: 'Pendiente de pago',
   AUTHORIZED: 'Autorizado',
   CAPTURED: 'Cobrado',
-  RELEASED: 'Liberado',
+  RELEASED: 'Comisión acreditada',
   REFUNDED: 'Reembolsado',
   FAILED: 'Fallido',
   CANCELLED: 'Cancelado',
@@ -63,7 +63,7 @@ export function PaymentsPage() {
 
   useEffect(() => {
     if (statusParam === 'success') {
-      toast.success('Pago confirmado. El monto quedó en resguardo.');
+      toast.success('Contratación del Agente confirmada.');
     } else if (statusParam === 'failure') {
       setError('El pago falló o fue cancelado en Mercado Pago.');
     }
@@ -96,9 +96,13 @@ export function PaymentsPage() {
     setError(null);
     try {
       await release.mutateAsync();
-      toast.success('Fondos liberados: neto al vendedor y comisión repartida.');
+      toast.success(
+        'Operación cerrada. La comisión del Agente quedó acreditada en wallet (pendiente unos días).',
+      );
     } catch {
-      setError('No se pudo liberar. ¿La operación ya tiene el pago protegido?');
+      setError(
+        'No se pudo completar. ¿La contratación del Agente ya está confirmada y la entrega lista?',
+      );
     }
   };
 
@@ -108,16 +112,19 @@ export function PaymentsPage() {
   const feePayerLabel = escrow?.feePayer
     ? FEE_PAYER_LABELS[escrow.feePayer as FeePayer] ?? escrow.feePayer
     : null;
+  /** Modo vigente: sin precio de producto en la app. */
+  const isAgentFeeOnly =
+    (escrow?.productCents ?? escrow?.split.productCents ?? 0) === 0;
 
   return (
     <div className="ca-payments">
       <header className="ca-payments__header">
         <div>
           <p className="ca-payments__kicker">Pagos</p>
-          <h2 className="ca-payments__title">Pago protegido</h2>
+          <h2 className="ca-payments__title">Contratación del Agente</h2>
           <p className="ca-payments__lead">
-            Seguimiento de la retención y tus movimientos. El pago principal se inicia desde la
-            operación {escrow?.checkoutMode === 'manual_prex' ? 'con transferencia Prex' : ''}.
+            Seguimiento del pago del servicio del Agente y movimientos asociados
+            {escrow?.checkoutMode === 'manual_prex' ? ' (transferencia Prex)' : ''}.
           </p>
         </div>
       </header>
@@ -133,7 +140,7 @@ export function PaymentsPage() {
             />
           </Form.Group>
           <Button type="submit" className="ca-btn-primary align-self-end">
-            Ver retención
+            Ver operación
           </Button>
         </Form>
       </section>
@@ -152,58 +159,95 @@ export function PaymentsPage() {
                 <span>
                   Estado: <strong>{statusLabel}</strong>
                 </span>
-                {feePayerLabel ? (
+                {isAgentFeeOnly ? (
+                  <span>
+                    En la app: <strong>solo contratación del Agente</strong>
+                  </span>
+                ) : feePayerLabel ? (
                   <span>
                     Comisión: <strong>{feePayerLabel}</strong>
                   </span>
                 ) : null}
               </div>
 
-              <div className="ca-payments-split">
-                <div>
-                  <span>Precio acordado</span>
-                  <strong>
-                    {formatOperationMoney(
-                      escrow.productCents ?? escrow.split.productCents,
-                      escrow.currency,
-                    )}
-                  </strong>
+              {isAgentFeeOnly ? (
+                <div className="ca-payments-split">
+                  <div>
+                    <span>Contratación del Agente</span>
+                    <strong>
+                      {formatOperationMoney(
+                        escrow.split.buyerPaysCents ??
+                          escrow.commissionCents ??
+                          escrow.split.commissionCents,
+                        escrow.currency,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Paga el comprador</span>
+                    <strong>
+                      {formatOperationMoney(
+                        escrow.split.buyerPaysCents ?? escrow.grossCents,
+                        escrow.currency,
+                      )}
+                    </strong>
+                  </div>
                 </div>
-                <div>
-                  <span>Comisión de intermediación</span>
-                  <strong>
-                    {formatOperationMoney(
-                      escrow.commissionCents ?? escrow.split.commissionCents,
-                      escrow.currency,
-                    )}
-                  </strong>
+              ) : (
+                <div className="ca-payments-split">
+                  <div>
+                    <span>Precio acordado</span>
+                    <strong>
+                      {formatOperationMoney(
+                        escrow.productCents ?? escrow.split.productCents,
+                        escrow.currency,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Comisión de intermediación</span>
+                    <strong>
+                      {formatOperationMoney(
+                        escrow.commissionCents ?? escrow.split.commissionCents,
+                        escrow.currency,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Comprador paga</span>
+                    <strong>
+                      {formatOperationMoney(
+                        escrow.split.buyerPaysCents ?? escrow.grossCents,
+                        escrow.currency,
+                      )}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Vendedor recibe</span>
+                    <strong>
+                      {formatOperationMoney(escrow.split.sellerCents, escrow.currency)}
+                    </strong>
+                  </div>
                 </div>
-                <div>
-                  <span>Comprador paga</span>
-                  <strong>
-                    {formatOperationMoney(
-                      escrow.split.buyerPaysCents ?? escrow.grossCents,
-                      escrow.currency,
-                    )}
-                  </strong>
-                </div>
-                <div>
-                  <span>Vendedor recibe</span>
-                  <strong>
-                    {formatOperationMoney(escrow.split.sellerCents, escrow.currency)}
-                  </strong>
-                </div>
-              </div>
+              )}
 
               <div className="ca-payments-split ca-payments-split--fees">
                 <div>
-                  <span>ConfiApp (20% de la comisión)</span>
+                  <span>
+                    {isAgentFeeOnly
+                      ? 'ConfiApp (20% de la contratación)'
+                      : 'ConfiApp (20% de la comisión)'}
+                  </span>
                   <strong>
                     {formatOperationMoney(escrow.split.platformFeeCents, escrow.currency)}
                   </strong>
                 </div>
                 <div>
-                  <span>Agente (80% de la comisión)</span>
+                  <span>
+                    {isAgentFeeOnly
+                      ? 'Agente (80% de la contratación)'
+                      : 'Agente (80% de la comisión)'}
+                  </span>
                   <strong>
                     {formatOperationMoney(escrow.split.agentFeeCents, escrow.currency)}
                   </strong>
@@ -232,7 +276,7 @@ export function PaymentsPage() {
                     disabled={release.isPending}
                     onClick={() => void onRelease()}
                   >
-                    {release.isPending ? 'Liberando…' : 'Liberar fondos'}
+                    {release.isPending ? 'Cerrando…' : 'Completar operación'}
                   </Button>
                 ) : null}
                 <Link className="btn btn-link" to={`/operaciones/${escrow.code}`}>

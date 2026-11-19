@@ -1,7 +1,9 @@
 # Finanzas MVP — notas de implementación
 
-Spec: [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md).  
+Spec histórica / detallada: [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md).  
 Flujos de operación (roles, pagos, plazos): [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).
+
+> **Modo vigente (2026-11):** `AGENT_FEE_ONLY`. En la app solo se cobra la **contratación del Agente** (UYU $400). El precio del producto **no** entra al ledger ni se “libera al vendedor”. `ESCROW_FULL` = roadmap (`FUNDING_ESCROW_FULL_ENABLED`).
 
 ## Cobro al comprador (modo actual)
 
@@ -42,7 +44,8 @@ Al subir comprobante (Prex):
 
 ## Flujo dinero al COMPLETED
 
-`releaseEscrow` → (fee-only: comisión agente) · (escrow full: neto vendedor + fees) + `AgentCommission` **PENDING** (`availableAt = completedAt + **14d**`). No acredita `availableCents` de agente al instante.
+`releaseEscrow` (cierre de operación) → en **fee-only**: acredita comisión del Agente + `AgentCommission` **PENDING** (`availableAt = completedAt + **14d**`). No acredita `availableCents` al instante ni paga el producto al vendedor.  
+(Rama `ESCROW_FULL`, si se habilita: neto vendedor + fees — no es el modo de producto actual.)
 
 ## Liquidación
 

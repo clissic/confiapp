@@ -4,13 +4,15 @@ Documento de producto y desarrollo. Describe **cómo se vive una operación** se
 
 - creación e invitación
 - aceptación / confirmación
-- **pagos** (contratación del Agente vs resguardo completo)
+- **pagos** (hoy: solo contratación del Agente; resguardo del producto = próximamente)
 - intermediación (agente)
 - verificación, entrega y arribo
 - **plazos** (21 días operativos, 72 h post-entrega, 14 días de comisión)
 - disputas
 
-**Última actualización:** 2026-09-27.
+**Última actualización:** 2026-11-19.
+
+> **Modo vigente:** `AGENT_FEE_ONLY`. En la app el comprador paga **UYU $400** (contratación del Agente). El precio del producto **no** se custodia ni se libera en ConfiApp. Label UI de `FUNDED` = **«Agente contratado»**.
 
 **Fuente de código:**  
 `packages/database` (enums) · `apps/api/src/modules/transactions` · `payments` · `agents` · `disputes` · `finance` · `apps/web/src/features/transactions`.
@@ -24,7 +26,7 @@ Documento de producto y desarrollo. Describe **cómo se vive una operación** se
 | 🔵 Azul (`buyer`) | Acción o pantalla del **Comprador** |
 | 🟠 Ámbar (`seller`) | Acción o pantalla del **Vendedor** |
 | 🟢 Teal (`agent`) | Acción o pantalla del **Agente** |
-| 💜 Púrpura (`pay`) | **Pago** / retención de fondos |
+| 💜 Púrpura (`pay`) | **Pago en la app** (contratación del Agente) |
 | 🟡 Amarillo (`deadline`) | Activación o vencimiento de **plazos** |
 | 🔴 Rojo (`dispute`) | **Disputa** / reclamo |
 | ⬜ Gris (`system`) | Job automático / sistema / admin |
@@ -38,7 +40,7 @@ En Mermaid, los nodos usan `classDef` con esos roles.
 | Rol | Quién es | Responsabilidades principales |
 |-----|----------|-------------------------------|
 | **Comprador** | Parte que adquiere el producto | Crear op (o unirse), pagar la **contratación del Agente** (modo default), aceptar/rechazar producto, confirmar **arribo**, abrir **disputa** si hace falta |
-| **Vendedor** | Parte que ofrece el producto | Crear op (o unirse), confirmar venta / condiciones, esperar pago del comprador, coordinar retiro |
+| **Vendedor** | Parte que ofrece el producto | Crear op (o unirse), confirmar venta / condiciones, esperar que el comprador pague la contratación del Agente, coordinar retiro; cobro del producto por fuera |
 | **Agente** | Intermediario independiente | Onboarding + ID Digital, tomar trabajo, checklist, verificación, **confirmar entrega**, comisión 80 % tras COMPLETED |
 
 En el modelo: `TransactionInitiator` = `BUYER` \| `SELLER`. El agente es `INTERMEDIARY` con `ACCEPTED`.
@@ -49,8 +51,8 @@ En el modelo: `TransactionInitiator` = `BUYER` \| `SELLER`. El agente es `INTERM
 
 | Modo | Código | Qué paga el comprador en la app |
 |------|--------|----------------------------------|
-| **Solo pago del Agente** (default) | `AGENT_FEE_ONLY` | Fijo **UYU $400** (`AGENT_FEE_ONLY_UYU_CENTS`) — “contratación del Agente”. El precio del producto se arregla fuera de ConfiApp. |
-| **Resguardo completo** | `ESCROW_FULL` | Precio + comisión (solo si `FUNDING_ESCROW_FULL_ENABLED=true`) |
+| **Solo pago del Agente** (**vigente**) | `AGENT_FEE_ONLY` | Fijo **UYU $400** (`AGENT_FEE_ONLY_UYU_CENTS`) — “contratación del Agente”. El precio del producto se arregla y se paga **fuera** de ConfiApp. |
+| **Resguardo completo** (próximamente) | `ESCROW_FULL` | Precio + comisión (solo si `FUNDING_ESCROW_FULL_ENABLED=true`; UI deshabilitada) |
 
 **Cobro técnico** (`PAYMENTS_CHECKOUT_MODE`):
 
@@ -71,7 +73,7 @@ stateDiagram-v2
   WAITING_PARTICIPANT --> ACCEPTED: contraparte acepta sin diffs / join OK
   PENDING_BUYER_CONFIRM --> ACCEPTED: comprador acepta cambios
   PENDING_BUYER_CONFIRM --> CANCELLED: comprador rechaza cambios
-  ACCEPTED --> FUNDED: pago capturado
+  ACCEPTED --> FUNDED: contratación del Agente capturada
   FUNDED --> IN_PROGRESS: agente opera / checklist
   IN_PROGRESS --> COMPLETED: entrega + arribo (o auto 72h)
   FUNDED --> COMPLETED: cierre con arribo/entrega
@@ -79,12 +81,12 @@ stateDiagram-v2
   FUNDED --> DISPUTED: comprador abre disputa
   IN_PROGRESS --> DISPUTED: comprador abre disputa
   DISPUTED --> IN_PROGRESS: admin reanuda
-  DISPUTED --> CANCELLED: admin cancela / reembolsa
+  DISPUTED --> CANCELLED: admin cancela / reembolsa contratación
   DISPUTED --> COMPLETED: resolución excepcional
   COMPLETED --> [*]
 ```
 
-**Labels UI** (no mostrar enums crudos): p. ej. `FUNDED` → “Pago protegido”, `WAITING_PARTICIPANT` → “esperando a la otra parte”.
+**Labels UI** (no mostrar enums crudos): p. ej. `FUNDED` → **«Agente contratado»**, `WAITING_PARTICIPANT` → “esperando a la otra parte”.
 
 ---
 
@@ -180,7 +182,7 @@ flowchart TB
 | Unirse | — | Abre enlace, confirma venta | — |
 | Reconfirm | Si hay diffs: acepta/rechaza | Espera | — |
 | Agente | Puede buscar / esperar open job | Idem | Acepta trabajo (ID Digital) |
-| Pagar | Paga **$400** contratación | Espera “Pago protegido” | Aparece trabajo fondeado |
+| Pagar | Paga **$400** contratación | Espera “Agente contratado” | Aparece trabajo con fee cobrado |
 | Producto | Acepta / rechaza verificación | Coordina retiro | Checklist + finalize |
 | Entrega | Confirma **arribo** | — | Confirma **entrega** |
 | Disputa | Puede abrir disputa | Informado | Comisión puede bloquearse |
@@ -257,7 +259,7 @@ flowchart TB
   W3 --> P1
   P5 --> M1
 
-  X1[Solicitar salida: intermediario REMOVED<br/>escrow intacto · “Buscando nuevo agente”]:::agent
+  X1[Solicitar salida: intermediario REMOVED<br/>contratación intacta · “Buscando nuevo agente”]:::agent
   W3 -.-> X1
 
   classDef buyer fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
@@ -269,7 +271,7 @@ flowchart TB
 
 **ID Digital:** obligatorio al start de onboarding y en cada aceptación de trabajo (web). Credenciales: `ID_DIGITAL_*`. Detalle: [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md).
 
-**Open jobs:** solo operaciones **fondeadas** visibles; el agente no “reserva” trabajo sin pago previo en el modo actual de producto.
+**Open jobs:** solo operaciones con **contratación del Agente cobrada** (`FUNDED`) visibles; el agente no “reserva” trabajo sin ese pago en el modo vigente.
 
 ---
 
@@ -302,7 +304,7 @@ sequenceDiagram
 |---------|-------|------------|
 | Checkout | Comprador | Preferencia MP o panel Prex |
 | Confirmación | Sistema / admin | Webhook, sync return, o admin Prex |
-| `FUNDED` | Sistema | Retención; open jobs ven la op |
+| `FUNDED` | Sistema | Contratación del Agente cobrada («Agente contratado»); open jobs ven la op |
 | Release | Sistema | Al completar entrega/arribo (o auto 72h) |
 | Comisión | Sistema | `AgentCommission` PENDING → AVAILABLE (+14d) |
 | Liquidación | Admin | PayoutBatch días **1–10** del mes |

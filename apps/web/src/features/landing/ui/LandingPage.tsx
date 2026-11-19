@@ -7,7 +7,6 @@ import {
   Facebook,
   Handshake,
   Instagram,
-  Lock,
   MessageSquare,
   Package,
   Search,
@@ -23,9 +22,9 @@ import { Reveal, RevealGroup, RevealItem } from './Reveal';
 
 const FEATURES = [
   {
-    icon: ShieldCheck,
-    title: 'Tu pago, bajo resguardo',
-    text: 'El dinero no se libera a ciegas: queda protegida hasta que la entrega queda confirmada. Menos miedo, más control.',
+    icon: Handshake,
+    title: 'Un Agente que certifica la entrega',
+    text: 'Hoy ConfiApp no retiene el dinero del producto: el Agente media la entrega y ayuda a certificar que el producto y la operación son reales.',
   },
   {
     icon: BadgeCheck,
@@ -39,8 +38,8 @@ const FEATURES = [
   },
   {
     icon: Wallet,
-    title: 'Sabés qué pasa con tu dinero',
-    text: 'Estados claros del pago y de la operación. Entendés el momento sin tener que adivinar ni insistir.',
+    title: 'En la app, solo contratás al Agente',
+    text: 'El pago del producto se acuerda y se hace por fuera. Dentro de ConfiApp pagás el servicio del Agente; de ahí sale la comisión de la plataforma.',
   },
 ] as const;
 
@@ -56,14 +55,15 @@ const STEPS = [
     feeling: 'Cercanía y claridad: cómo, cuándo y dónde se entrega.',
   },
   {
-    icon: Lock,
-    label: 'Pagás con protección',
-    feeling: 'Tranquilidad: el dinero espera a que el producto llegue.',
+    icon: Wallet,
+    label: 'Contratás al Agente en la app',
+    feeling: 'Pagás el servicio del Agente acá. El precio del producto, por fuera.',
   },
   {
     icon: CheckCircle2,
-    label: 'Entrega confirmada y cierre',
-    feeling: 'Alivio: se libera el pago y podés calificar.',
+    label: 'Transferís, entregás y cerrás',
+    feeling:
+      'El producto se paga por fuera entre las partes; en ConfiApp confirmás la entrega.',
   },
 ] as const;
 
@@ -71,19 +71,19 @@ const ROLES = [
   {
     icon: ShoppingBag,
     title: 'Comprador',
-    text: 'Querés recibir lo que pagaste, sin quedar expuesto.',
+    text: 'Querés recibir lo acordado, con alguien de confianza en el medio.',
     points: [
       'Seguís la operación sin depender solo de un mensaje suelto.',
-      'El pago se libera cuando la entrega está confirmada.',
+      'El Agente media la entrega; el pago del producto lo hacés por fuera.',
     ],
   },
   {
     icon: Package,
     title: 'Vendedor',
-    text: 'Querés entregar y cobrar con la cabeza en paz.',
+    text: 'Querés entregar con un proceso claro, no solo una promesa.',
     points: [
       'Un Agente lleva el producto hasta el comprador.',
-      'No entregás a cambio de una promesa vacía.',
+      'Acordás el cobro del producto fuera de la app, con la operación registrada.',
     ],
   },
   {
@@ -91,8 +91,8 @@ const ROLES = [
     title: 'Agente',
     text: 'Sos el puente de confianza entre ambas partes.',
     points: [
-      'Tu rol es claro: mediar la entrega con transparencia.',
-      'Construís reputación con cada operación bien hecha.',
+      'Tu rol es claro: mediar y certificar la entrega con transparencia.',
+      'Te contratan y te pagan desde la app; construís reputación con cada operación.',
     ],
   },
 ] as const;
@@ -106,7 +106,7 @@ const SIMPLICITY = [
   {
     icon: ShieldCheck,
     title: 'Estados que se entienden',
-    text: 'Sabés en qué momento está el producto y el pago, sin tecnicismos.',
+    text: 'Sabés en qué momento está el producto y la entrega, sin tecnicismos.',
   },
   {
     icon: MessageSquare,
@@ -118,11 +118,19 @@ const SIMPLICITY = [
 const FAQS = [
   {
     q: '¿Qué es un Agente en ConfiApp?',
-    a: 'Es la persona que media la entrega: lleva el producto del vendedor al comprador. En ConfiApp, “Agente” es ese rol de confianza — no un intermediario anónimo.',
+    a: 'Es la persona que media la entrega: lleva el producto del vendedor al comprador y ayuda a certificar que la operación es real. En ConfiApp, “Agente” es ese rol de confianza — no un intermediario anónimo.',
   },
   {
-    q: '¿Cuándo se libera el pago?',
-    a: 'Cuando la entrega queda confirmada en la operación. La idea es simple: el dinero acompaña la confianza del proceso, no la apura.',
+    q: '¿El dinero se maneja dentro de la plataforma?',
+    a: 'Hoy, el precio del producto no. Lo pagás por fuera, entre comprador y vendedor, según lo que acuerden. Dentro de ConfiApp solo se paga el servicio del Agente (y de ahí se obtiene el porcentaje de la app). Próximamente vamos a integrar un proveedor de pagos para manejar el dinero del producto dentro de la plataforma, cobrar una comisión que valga el servicio y proteger ese pago hasta confirmar la entrega.',
+  },
+  {
+    q: '¿Cómo se paga el producto?',
+    a: 'Por fuera de la app: transferencia u otro medio que acuerden las partes. En ConfiApp registrás la operación, contratás al Agente y confirmás la entrega; el dinero del producto no queda retenido acá (todavía).',
+  },
+  {
+    q: '¿Qué se paga dentro de ConfiApp?',
+    a: 'La contratación del Agente. Ese es el servicio que hoy ordena el proceso: mediación y certificación de la entrega. El precio del producto queda fuera de ese cobro.',
   },
   {
     q: '¿Qué pasa si hay un problema?',
@@ -221,10 +229,10 @@ export function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: HERO_EASE }}
         >
-          <h1>Confianza que conecta, tecnología que protege.</h1>
+          <h1>Confianza que conecta, tecnología que ordena.</h1>
           <p className="ca-landing__hero-lead">
-            Comprá o vendé sin que el miedo a la estafa te frene: un Agente lleva el producto de una
-            punta a la otra, y el pago se libera cuando la entrega está confirmada.
+            Comprá o vendé con un Agente que media la entrega y certifica la operación. El producto
+            se paga por fuera; en la app contratás al Agente que hace de puente de confianza.
           </p>
           <div className="ca-landing__hero-cta">
             <Link className="ca-landing__btn ca-landing__btn--navy" to="/registro">
@@ -239,7 +247,7 @@ export function LandingPage() {
           </div>
           <div className="ca-landing__trust-row">
             <span className="ca-landing__trust-item">
-              <ShieldCheck size={18} /> Pago protegido hasta la entrega
+              <Handshake size={18} /> Agente que certifica la entrega
             </span>
             <span className="ca-landing__trust-item">
               <BadgeCheck size={18} /> Agentes con historial visible
@@ -276,7 +284,7 @@ export function LandingPage() {
           <RevealGroup className="ca-landing__pains" stagger={0.12}>
             <RevealItem className="ca-landing__pain">
               <h3>Pagué y no recibí</h3>
-              <p>El dinero salió… y el producto nunca apareció.</p>
+              <p>Transferiste… y el producto nunca apareció, sin nadie que medie.</p>
             </RevealItem>
             <RevealItem className="ca-landing__pain">
               <h3>Entregué y no cobré</h3>
@@ -285,7 +293,7 @@ export function LandingPage() {
             <RevealItem className="ca-landing__pain">
               <h3>No sé a quién confiarle el envío</h3>
               <p>
-                Entre el vendedor y el comprador hace falta alguien — pero ¿quién garantiza el
+                Entre el vendedor y el comprador hace falta alguien — pero ¿quién certifica el
                 proceso?
               </p>
             </RevealItem>
@@ -336,7 +344,7 @@ export function LandingPage() {
             <figure>
               <img
                 src="/landing/flow-agents.png"
-                alt="Flujo: vendedor, Agente y comprador en una entrega protegida"
+                alt="Flujo: vendedor, Agente y comprador en una entrega mediada"
                 width={1920}
                 height={1080}
                 loading="lazy"
@@ -417,10 +425,10 @@ export function LandingPage() {
       <div className="ca-landing__cta-wrap">
         <Reveal className="ca-landing__cta" y={32}>
           <div>
-            <h2>Empezá con una operación protegida</h2>
+            <h2>Empezá con una operación mediada</h2>
             <p>
-              Creá tu cuenta y probá el recorrido: comprador, vendedor o Agente. Estamos lanzando —
-              tu experiencia cuenta.
+              Creá tu cuenta y probá el recorrido: comprador, vendedor o Agente. El producto se paga
+              por fuera; en ConfiApp contratás al Agente. Estamos lanzando — tu experiencia cuenta.
             </p>
             <div className="ca-landing__cta-actions">
               <Link className="ca-landing__btn ca-landing__btn--light-teal" to="/registro">
@@ -445,7 +453,7 @@ export function LandingPage() {
               decoding="async"
             />
             <div className="ca-landing__float ca-landing__float--pay">
-              <Lock size={16} /> Pago protegido
+              <Handshake size={16} /> Entrega certificada
             </div>
           </div>
         </Reveal>
@@ -459,8 +467,8 @@ export function LandingPage() {
                 <BrandMark />
               </div>
               <p>
-                ConfiApp conecta compradores y vendedores con Agentes que llevan el producto, con pago
-                protegido hasta la entrega.
+                ConfiApp conecta compradores y vendedores con Agentes que median la entrega. El
+                producto se paga por fuera; en la app contratás al Agente.
               </p>
             </div>
             <div>

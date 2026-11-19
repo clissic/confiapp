@@ -86,7 +86,7 @@ export class DisputesService {
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        'Solo podés reportar un problema mientras la operación está activa (pago protegido o en curso).',
+        'Solo podés reportar un problema mientras la operación está activa (Agente contratado o en curso).',
         { status: tx.status },
       );
     }
@@ -282,7 +282,7 @@ export class DisputesService {
       assertTransition(tx.status, TransactionStatus.CANCELLED);
       tx.status = TransactionStatus.CANCELLED;
       tx.cancelledAt = now;
-      historyNote = 'Disputa resuelta: reembolso al comprador';
+      historyNote = 'Disputa resuelta: reembolso de la contratación del Agente';
       tx.statusHistory.push({
         status: TransactionStatus.CANCELLED,
         changedAt: now,
@@ -345,7 +345,7 @@ export class DisputesService {
           userId,
           type: NotificationType.DISPUTE,
           title: `Disputa abierta · ${input.tx.code}`,
-          body: `El comprador reportó un problema (${categoryLabel}). La liberación de fondos quedó pausada.`,
+          body: `El comprador reportó un problema (${categoryLabel}). La operación queda en disputa.`,
           data: {
             href,
             code: input.tx.code,
@@ -423,7 +423,7 @@ export class DisputesService {
     const bodies: Record<typeof input.outcome, string> = {
       RESUME: `La disputa de ${input.tx.code} se resolvió. La operación sigue en curso.`,
       CANCEL: `La disputa de ${input.tx.code} se resolvió. La operación fue cancelada.`,
-      COMPLETE_WITH_REFUND: `La disputa de ${input.tx.code} se resolvió. Se inició el reembolso al comprador.`,
+      COMPLETE_WITH_REFUND: `La disputa de ${input.tx.code} se resolvió. Se inició el reembolso de la contratación del Agente.`,
     };
     const body = bodies[input.outcome];
     const recipientIds = [input.buyerId, input.sellerId, input.agentId].filter(

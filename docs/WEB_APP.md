@@ -3,10 +3,11 @@
 Documento orientado a **desarrolladores y producto**.  
 La UI de cara al usuario debe usar copy claro; los estados internos de dominio (p. ej. `WAITING_PARTICIPANT`) viven **aquí** y en la API, no en pantallas de uso cotidiano.
 
-Última actualización: **2026-09-27**.
+Última actualización: **2026-11-19**.
 
 > **Flujos de operación (compra / venta / agente)** con diagramas de colores, pagos y plazos:  
-> [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).
+> [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).  
+> **Pagos hoy:** en la app solo se cobra la **contratación del Agente** (`AGENT_FEE_ONLY`, UYU $400). El precio del producto se paga **por fuera**. UI de `FUNDED` = «Agente contratado».
 
 ---
 
@@ -43,11 +44,11 @@ Reglas Cursor: `.cursor/rules/frontend-bootstrap.mdc`, `.cursor/rules/web-aesthe
 | `/operaciones/nueva/vendedor` | Crear como vendedor | Hero con `/landing/Sale.png` |
 | `/operaciones/unirse/:token` | Join por invite | |
 | `/operaciones/:code` | Detalle | Vista por rol (buyer/seller/agent); checklist; disputa; salida agente |
-| `/operaciones/:code/pagar` | Pago (contratación Agente / Prex o MP) | |
+| `/operaciones/:code/pagar` | Pago de la **contratación del Agente** (Prex o MP) | No cobra el precio del producto |
 | `/operaciones/:code/pagar/simular` | Mock de pago MP | Solo con `PAYMENTS_CHECKOUT_MODE=mercadopago` + MOCK |
 | `/mensajes` | Chat | Composer **excluido** de reglas de botones full-width |
-| `/pagos` | Checkout / pagos | |
-| `/wallet` | Saldos, retiros, movimientos | Agentes: Ganado/Pendiente/Disponible/Liquidado; sin retiro self-service de comisiones |
+| `/pagos` | Seguimiento de la contratación del Agente | Desglose fee-only (20/80); sin “vendedor recibe” en modo vigente |
+| `/wallet` | Saldos y comisiones | Agentes: pendiente 14d → disponible → liquidación admin 1–10; sin retiro self-service de comisiones |
 | `/admin/pagos` | Transferencias Prex entrantes (admin) | Comprobantes + detalle |
 | `/auditoria/pagos` | Auditoría de pagos (paginado) | Incluye eventos Prex |
 | `/admin/finanzas` | Liquidaciones a agentes | Solo admin · PayoutBatch 1–10 |
@@ -71,7 +72,7 @@ Públicas: `/`, `/ingresar`, `/registro`, `/verificar-email` (alias `/verify-ema
 | **Reactivar** | Vuelve a `ACTIVE` y acepta asignaciones |
 | **Cerrar agencia** | Hard: bloqueado si hay ops activas (`ACTIVE_JOBS`); quita el rol de agente |
 | **Trabajos abiertos** | Tablero geo + filtros; aceptar trabajo |
-| **Solicitar salida** | Desde detalle de op (agente asignado): intermediario `REMOVED`, escrow intacto, aviso a partes + “Buscando nuevo agente” |
+| **Solicitar salida** | Desde detalle de op (agente asignado): intermediario `REMOVED`, la contratación del Agente no se mueve, aviso a partes + “Buscando nuevo agente” |
 
 Estados internos de onboarding: `NONE` → `DRAFT` → `ACTIVE` / `INACTIVE` (y `SUSPENDED` admin). En UI: “en pausa”, no enums crudos.
 
@@ -162,12 +163,13 @@ En `apps/web/src/app/styles/global.css`:
 
 ---
 
-## Pago protegido (MVP Prex)
+## Contratación del Agente (MVP Prex / MP)
 
-- Ruta: `/operaciones/:code/pagar`.
+- Ruta: `/operaciones/:code/pagar` — cobra solo el fee del Agente (UYU $400), no el precio del producto.
 - Default: transferencia a cuenta Prex (`Ignacio La Cava` / `1065233`) + QR + upload de comprobante.
 - API: `POST /payments/transactions/:code/manual-transfer`.
-- Reactivar Mercado Pago: `PAYMENTS_CHECKOUT_MODE=mercadopago` en la API (código MP intacto).
+- Mercado Pago: `PAYMENTS_CHECKOUT_MODE=mercadopago` en la API (código MP intacto).
+- Tras cobro: estado `FUNDED` → UI «Agente contratado».
 - Admin: `/admin/pagos` — transferencias Prex con comprobante. Eventos en `/auditoria/pagos`.
 - Notas: [`FINANCE_MVP_NOTES.md`](./FINANCE_MVP_NOTES.md).
 

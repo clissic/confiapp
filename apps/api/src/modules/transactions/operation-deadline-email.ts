@@ -39,7 +39,7 @@ export async function sendOperationDeadlineReminderEmail(input: {
       ),
       emailParagraphs(roleLine),
       emailParagraphs(
-        'En ConfiApp usamos el término «disputa» (también «reclamo») para estos casos. Un administrador puede mediar y, según corresponda, reanudar, cancelar o reembolsar.',
+        'En ConfiApp usamos el término «disputa» (también «reclamo») para estos casos. Un administrador puede mediar y, según corresponda, reanudar, cancelar o reembolsar la contratación del Agente.',
       ),
     ].join(''),
     cta: {

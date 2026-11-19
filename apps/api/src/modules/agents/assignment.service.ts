@@ -280,7 +280,7 @@ export class AgentAssignmentService {
       tx,
       userId,
       now,
-      'Operación en curso: agente aceptó la oferta tras el pago protegido',
+      'Operación en curso: agente aceptó la oferta tras el servicio del Agente pagado',
     );
     if (!advanced) {
       tx.statusHistory.push({
@@ -332,7 +332,7 @@ export class AgentAssignmentService {
           title: 'Ya tenés agente asignado',
           body:
             tx.fundingMode === FundingMode.AGENT_FEE_ONLY
-              ? `Un agente aceptó mediar ${tx.code}. El comprador debe pagar UYU $400 de contratación por Mercado Pago.`
+              ? `Un agente aceptó mediar ${tx.code}. El comprador debe pagar la contratación del Agente en la app.`
               : `Un agente aceptó mediar la operación ${tx.code}.`,
           data: {
             href: `/operaciones/${tx.code}`,

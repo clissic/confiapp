@@ -63,7 +63,7 @@ export const FINANCIAL_AUDIT_ACTION_LABELS: Record<string, string> = {
   PAYOUT_COMPLETED: 'Pago completado',
   PAYOUT_BATCH_CREATED: 'Liquidación creada',
   PAYMENT_CAPTURED: 'Pago capturado',
-  PAYMENT_RELEASED: 'Pago liberado',
+  PAYMENT_RELEASED: 'Operación cerrada — comisión acreditada',
   PAYMENT_REFUNDED: 'Pago reembolsado',
 };
 

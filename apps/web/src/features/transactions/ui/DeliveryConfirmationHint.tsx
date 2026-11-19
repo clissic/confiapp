@@ -26,7 +26,7 @@ export function DeliveryConfirmationHint({
           <time dateTime={autoReleaseAt}>{formatDateTime(autoReleaseAt)}</time>.
         </>
       ) : (
-        <> Confirmá en cuanto corresponda para avanzar con la liberación de fondos.</>
+        <> Confirmá en cuanto corresponda para completar la entrega.</>
       )}
     </p>
   );

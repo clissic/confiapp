@@ -15,7 +15,7 @@ export function createDemoProfile(): UserProfile {
     phoneVerified: true,
     fullName: 'Joaquín Creator',
     documentNumber: '12345678',
-    bio: 'Comprador y vendedor en operaciones de escrow físico con ConfiApp.',
+    bio: 'Comprador y vendedor en operaciones mediadas por Agente con ConfiApp.',
     avatar: undefined,
     status: 'ACTIVE',
     role: 'USER',

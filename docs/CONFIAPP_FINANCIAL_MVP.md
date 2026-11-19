@@ -1,12 +1,25 @@
 # ConfiApp — Especificación Financiera MVP
 
-**Versión:** 1.1  
-**Estado:** Implementación MVP  
+**Versión:** 1.2  
+**Estado:** Implementación MVP (parcial respecto a escrow de producto)  
 **Moneda operativa:** UYU  
 **Proveedor de pagos (objetivo):** Mercado Pago  
 **Cobro comprador (transitorio MVP):** transferencia manual a cuenta Prex de la plataforma + comprobante (`PAYMENTS_CHECKOUT_MODE=manual_prex`). El flujo Checkout Pro / webhooks / OAuth permanece en el código y se reactiva con `PAYMENTS_CHECKOUT_MODE=mercadopago`.  
-**Payouts de Agentes:** Manuales  
-**Período de disponibilidad:** 14 días
+**Payouts de Agentes:** Manuales (ventana 1–10)  
+**Período de disponibilidad:** 14 días  
+
+### Estado de producto vigente (2026-11) — leer antes que el resto
+
+| Tema | Realidad actual |
+|------|-----------------|
+| Modo de fondeo | **`AGENT_FEE_ONLY`** (UI: “Solo pago del Agente”). `ESCROW_FULL` deshabilitado / próximamente. |
+| Qué se cobra en la app | Solo la **contratación del Agente** (UYU $400). |
+| Precio del producto | Se acuerda y se paga **fuera** de ConfiApp. No hay hold/release del producto al vendedor. |
+| Label `FUNDED` en UI | **«Agente contratado»**. |
+| Al completar | Se cierra la operación y se acredita la **comisión del Agente** (PENDING 14d → AVAILABLE → liquidación admin). |
+| Reembolso | De la **contratación del Agente** (no del precio del producto). |
+
+Las secciones siguientes conservan el diseño financiero completo (incl. escrow de producto) como **spec / roadmap**. Donde choquen con la tabla de arriba, **prevalece el modo vigente**. Notas operativas cortas: [`FINANCE_MVP_NOTES.md`](./FINANCE_MVP_NOTES.md).
 
 ---
 
@@ -41,23 +54,18 @@ ConfiApp es una plataforma C2C para operaciones entre particulares.
 La plataforma combina:
 
 - acuerdo digital
-- encuentro físico
-- comprador
-- vendedor
-- Agente intermediario
+- encuentro físico mediado por Agente
+- comprador / vendedor / Agente intermediario
 - checklist de entrega
 - evidencia del proceso
-- pago protegido
-- reputación
-- chat
-- notificaciones
+- cobro de la **contratación del Agente** (hoy); resguardo del precio del producto (roadmap)
+- reputación, chat, notificaciones
 - verificación de identidad
-- historial de estados
-- auditoría
+- historial de estados y auditoría
 
 El Agente actúa como intermediario de la operación.
 
-Cuando una operación finaliza exitosamente, el Agente recibe económicamente el 80% de la comisión cobrada por ConfiApp.
+Cuando una operación finaliza exitosamente, el Agente recibe económicamente el 80% de la **contratación/comisión** cobrada por ConfiApp (el 20% es fee de plataforma).
 
 ConfiApp conserva el 20%.
 
@@ -938,7 +946,7 @@ La implementación se considera correcta únicamente si:
 - el precio del producto no se diluye
 - el fee payer funciona correctamente
 - las ganancias quedan PENDING durante 14 días
-- AVAILABLE solamente contiene fondos liberados
+- AVAILABLE solamente contiene comisiones ya liberadas del hold de 14 días (no el precio del producto en modo fee-only)
 - un mismo saldo nunca puede pagarse dos veces
 - los payouts manuales son auditables
 - los refunds generan compensaciones correctas

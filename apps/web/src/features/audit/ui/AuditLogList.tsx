@@ -61,9 +61,20 @@ function summarize(item: AuditLogItem): string {
       manual_prex_receipt: 'Comprobante Prex recibido',
       manual_prex_admin_confirmed: 'Prex confirmado por admin',
       manual_prex_admin_unconfirmed: 'Prex desconfirmado por admin',
-      confirm_hold: 'Pago confirmado en resguardo',
-      release: 'Fondos liberados',
-      refund: 'Reembolso',
+      manual_prex_pending: 'Prex pendiente de verificación',
+      confirm_hold: 'Servicio del Agente pagado',
+      agent_fee_captured: 'Contratación del Agente cobrada',
+      agent_fee_checkout_created: 'Checkout de contratación creado',
+      agent_fee_only_released: 'Operación cerrada — comisión acreditada',
+      hold_captured: 'Contratación cobrada',
+      retention: 'Contratación en proceso',
+      retained: 'Contratación retenida',
+      checkout_created: 'Checkout creado',
+      release: 'Operación cerrada — comisión acreditada',
+      escrow_released: 'Operación cerrada — comisión acreditada',
+      released: 'Operación cerrada — comisión acreditada',
+      refund: 'Reembolso de la contratación',
+      refunded: 'Reembolso de la contratación',
     };
     bits.push(phaseLabels[meta.phase] ?? String(meta.phase));
   }

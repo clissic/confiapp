@@ -32,7 +32,7 @@ const SELLER_PIPELINE = [
 const SELLER_PIPELINE_LABELS: Record<(typeof SELLER_PIPELINE)[number], string> = {
   WAITING_PARTICIPANT: 'Esperando',
   ACCEPTED: 'Aceptada',
-  FUNDED: 'Pago',
+  FUNDED: 'Agente contratado',
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Listo',
 };
@@ -72,7 +72,8 @@ function upcomingForSeller(tx: Transaction, pendingPayment: boolean) {
         }
       : {
           title: 'Pago',
-          detail: 'A la espera de que el comprador pague. El monto queda retenido en ConfiApp.',
+          detail:
+            'A la espera de que el comprador pague la contratación del Agente en la app.',
         };
   }
   if (tx.status === 'FUNDED' || tx.status === 'IN_PROGRESS') {
@@ -96,7 +97,7 @@ function upcomingForSeller(tx: Transaction, pendingPayment: boolean) {
     if (!arrival || !delivery) {
       return {
         title: 'Entrega',
-        detail: 'El producto va hacia el comprador. Al confirmar arribo y entrega se liberan fondos.',
+        detail: 'El producto va hacia el comprador. Al confirmar arribo y entrega, la operación se cierra.',
       };
     }
   }
@@ -188,7 +189,10 @@ export function SellerOperationDetail({
           <Search size={16} strokeWidth={1.75} aria-hidden />
           <div>
             <strong>Buscando nuevo agente</strong>
-            <p className="mb-0">El intermediario anterior salió. El pago del comprador sigue protegido.</p>
+            <p className="mb-0">
+              El intermediario anterior salió. Vamos a asignar otro Agente. Lo ya pagado por el
+              servicio del Agente no se mueve.
+            </p>
           </div>
         </section>
       ) : null}
@@ -197,7 +201,7 @@ export function SellerOperationDetail({
         <section className="ca-tx-buyer-view__cta">
           <p className="ca-tx-buyer-view__cta-kicker">
             <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
-            Pago protegido
+            Pago en la app
           </p>
           <h2>
             {pendingPaymentConfirmation
@@ -207,7 +211,7 @@ export function SellerOperationDetail({
           <p className="mb-0">
             {pendingPaymentConfirmation
               ? 'El comprador ya envió el comprobante. Estamos verificando la transferencia.'
-              : 'Cuando pague, ConfiApp retiene el monto hasta confirmar la entrega.'}
+              : 'El comprador paga en ConfiApp solo la contratación del Agente. El producto lo acuerdan y pagan entre ustedes.'}
           </p>
         </section>
       ) : null}
@@ -353,7 +357,7 @@ export function SellerOperationDetail({
             {tx.agentVerification.buyerDecision === 'ACCEPTED'
               ? 'El comprador aceptó. El Agente lleva el producto al punto de entrega.'
               : tx.agentVerification.buyerDecision === 'REJECTED'
-                ? 'El comprador rechazó el producto y se canceló la compra.'
+                ? 'El comprador rechazó el producto y se canceló la compra. Se reembolsa la contratación del Agente.'
                 : 'Esperamos la decisión del comprador sobre el producto.'}
           </p>
           {tx.agentVerification.note ? (

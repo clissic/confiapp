@@ -59,7 +59,7 @@ const JOIN_STEPS = [
     id: 'funding',
     label: 'Pago',
     title: 'Cómo se paga',
-    lead: 'Elegí si la app custodia el dinero o solo la contratación del Agente.',
+    lead: 'En ConfiApp pagás el servicio del Agente. El precio del producto lo acuerdan entre las partes.',
   },
   {
     id: 'price',
@@ -688,7 +688,7 @@ function JoinAsBuyerWizard({
                     ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
-                        <dd>UYU $400 (a ConfiApp; retenido hasta el fin de la operación)</dd>
+                        <dd>UYU $400 (contratación del Agente en ConfiApp)</dd>
                       </div>
                     ) : (
                       <>
@@ -1333,7 +1333,7 @@ function JoinAsSellerWizard({
                     ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
-                        <dd>UYU $400 (a ConfiApp; retenido hasta el fin de la operación)</dd>
+                        <dd>UYU $400 (contratación del Agente en ConfiApp)</dd>
                       </div>
                     ) : (
                       <>

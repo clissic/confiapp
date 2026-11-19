@@ -16,10 +16,10 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'primeros-pasos',
     title: 'Primeros pasos',
-    lead: 'ConfiApp conecta comprador, vendedor y un Agente de confianza para operaciones con pago a la app.',
+    lead: 'ConfiApp conecta comprador, vendedor y un Agente de confianza; el producto se paga por fuera.',
     bullets: [
       'Como comprador podés iniciar una operación o unirte a una oferta del vendedor.',
-      'Como vendedor publicás el producto y las condiciones; el comprador paga a ConfiApp lo que corresponda al modo elegido.',
+      'Como vendedor publicás el producto y las condiciones; el comprador contrata al Agente en la app.',
       'Como Agente verificás el producto, lo trasladás y confirmás la entrega; tu comisión se acredita en wallet al completar.',
     ],
   },
@@ -27,10 +27,10 @@ export const HELP_SECTIONS: HelpSection[] = [
     id: 'operaciones',
     title: 'Operaciones y pagos',
     paragraphs: [
-      'Cada operación tiene estados claros: aceptación, pago, en curso y completada. El comprador paga a ConfiApp (hoy, en el modo disponible, la contratación fija del Agente cuando ya hay Agente asignado). Los fondos se liberan al completar: doble confirmación de entrega o el plazo automático de 72 h.',
+      'Estados: aceptación → contratación del Agente → en curso → completada. Cierre por doble confirmación de entrega o el plazo automático de 72 h.',
     ],
     bullets: [
-      'En “Solo pago del Agente”, ConfiApp retiene la contratación hasta el fin de la operación; el precio del producto lo acuerdan las partes.',
+      'ConfiApp solo cobra/gestiona el fee del Agente; el precio del producto lo acuerdan las partes por fuera.',
       'Al completar, la comisión del Agente queda pendiente 14 días en su wallet y luego pasa a disponible.',
       'La liquidación del saldo disponible la hace un administrador entre el 1 y el 10 de cada mes.',
       'Si algo sale mal, el comprador puede abrir un reclamo para revisión de ConfiApp.',
@@ -61,8 +61,8 @@ export const HELP_SECTIONS: HelpSection[] = [
         ],
         bullets: [
           'Cuentas con pocas operaciones completadas: la reseña pesa menos.',
-          'Operaciones de monto muy bajo: la reseña pesa menos.',
-          'Operaciones de monto alto: la reseña puede pesar un poco más.',
+          'Operaciones con poca actividad o historial corto: la reseña pesa menos.',
+          'Operaciones con más trayectoria entre las partes: la reseña puede pesar un poco más.',
           'Patrones raros (por ejemplo muchas reseñas seguidas o calificaciones mutuas idénticas en minutos): se reduce el peso o se revisa la reseña.',
         ],
       },

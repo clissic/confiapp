@@ -37,7 +37,7 @@ export function BuyerDisputeReportModal({
       </Modal.Header>
       <Modal.Body>
         <Alert variant="warning" className="ca-tx-dispute-modal__alert">
-          Al confirmar, se abrirá una disputa y se pausará la liberación de fondos hasta que un
+          Al confirmar, se abrirá una disputa y la operación queda en disputa hasta que un
           administrador revise el caso.
         </Alert>
         <Form.Group>

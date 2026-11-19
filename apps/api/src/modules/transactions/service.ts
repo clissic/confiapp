@@ -807,7 +807,7 @@ export class TransactionsService {
         status: TransactionStatus.IN_PROGRESS,
         changedAt: now,
         changedBy: new Types.ObjectId(userId),
-        note: 'Operación en curso: agente asignado tras el pago protegido',
+        note: 'Operación en curso: agente asignado tras el servicio del Agente pagado',
       });
       await tx.save();
     }
@@ -1014,7 +1014,7 @@ export class TransactionsService {
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        'Solo se puede finalizar la verificación con la operación en curso o con pago protegido.',
+        'Solo se puede finalizar la verificación con la operación en curso o con Agente contratado.',
         { status: tx.status },
       );
     }
@@ -1160,7 +1160,7 @@ export class TransactionsService {
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        'Solo podés aceptar el producto con la operación en curso o con pago protegido.',
+        'Solo podés aceptar el producto con la operación en curso o con Agente contratado.',
         { status: tx.status },
       );
     }
@@ -1238,7 +1238,7 @@ export class TransactionsService {
 
   /**
    * Comprador confirma que el producto llegó (punto de entrega).
-   * Si el Agente ya confirmó la entrega, se liberan los fondos.
+   * Si el Agente ya confirmó la entrega, se cierra la operación y se acredita la comisión.
    */
   async buyerConfirmArrival(userId: string, code: string): Promise<TransactionDto> {
     const tx = await this.repository.findByCode(code);
@@ -1326,7 +1326,7 @@ export class TransactionsService {
 
   /**
    * Agente confirma la entrega al comprador.
-   * Si el comprador ya confirmó el arribo, se liberan los fondos.
+   * Si el comprador ya confirmó el arribo, se cierra la operación y se acredita la comisión.
    */
   async agentConfirmDelivery(userId: string, code: string): Promise<TransactionDto> {
     const tx = await this.repository.findByCode(code);
@@ -1448,7 +1448,7 @@ export class TransactionsService {
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        'Solo podés rechazar el producto con la operación en curso o con pago protegido.',
+        'Solo podés rechazar el producto con la operación en curso o con Agente contratado.',
         { status: tx.status },
       );
     }

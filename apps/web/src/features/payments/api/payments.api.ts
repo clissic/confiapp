@@ -1,4 +1,4 @@
-import { computeIntermediationFees } from '@confiapp/shared';
+import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 
 import { apiClient } from '@/shared/api/client';
 
@@ -15,23 +15,34 @@ function hasApiAuth(): boolean {
   return Boolean(localStorage.getItem('accessToken'));
 }
 
+/** Demo alineado al modo vigente: solo contratación del Agente. */
 function demoEscrow(code: string): EscrowView {
-  const productCents = 5_000_000; // $50.000 UYU → comisión $1.000 UYU
-  const split = computeIntermediationFees({
-    productCents,
-    currency: 'UYU',
+  const buyerPays = AGENT_FEE_ONLY_UYU_CENTS;
+  const platformFeeCents = Math.floor((buyerPays * 2_000) / 10_000);
+  const agentFeeCents = buyerPays - platformFeeCents;
+  const split = {
+    productCents: 0,
+    commissionCents: buyerPays,
+    buyerPaysCents: buyerPays,
+    sellerNetCents: 0,
+    platformFeeCents,
+    agentFeeCents,
     feePayer: 'BUYER',
-    uyuPerUsd: 40,
-  });
+    currency: 'UYU' as const,
+    grossCents: buyerPays,
+    sellerCents: 0,
+    platformCommissionBps: 2_000,
+    agentCommissionBps: 8_000,
+  };
   return {
     transactionId: 'demo-tx',
     code: code.toUpperCase() || 'DEMO-001',
     status: 'ACCEPTED',
     currency: 'UYU',
-    grossCents: split.buyerPaysCents,
-    productCents: split.productCents,
-    commissionCents: split.commissionCents,
-    feePayer: split.feePayer,
+    grossCents: buyerPays,
+    productCents: 0,
+    commissionCents: buyerPays,
+    feePayer: 'BUYER',
     split,
     parties: {
       buyerId: 'demo-buyer',
@@ -40,7 +51,7 @@ function demoEscrow(code: string): EscrowView {
     },
     providerMode: 'MANUAL_PREX',
     checkoutMode: 'manual_prex',
-    amountDueCents: split.buyerPaysCents,
+    amountDueCents: buyerPays,
     prexAccount: {
       bank: 'Prex',
       accountName: 'Ignacio La Cava',

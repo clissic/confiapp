@@ -1,7 +1,7 @@
 # ConfiApp Design System — Guía de uso
 
 **Versión:** 1.0.0  
-**Posicionamiento:** plataforma de confianza (escrow físico), no marketplace.  
+**Posicionamiento:** plataforma de confianza (intermediación segura / entrega mediada por Agente), no marketplace.  
 **Audiencia:** compradores, vendedores y agentes intermediarios.
 
 Archivos del sistema:
@@ -76,7 +76,7 @@ Cada estado tiene **bg / border / fg / solid**:
 
 | Estado | Solid | Uso |
 |--------|-------|-----|
-| Success | `#1B9E78` | Operación exitosa, fondos liberados |
+| Success | `#1B9E78` | Operación exitosa, entrega confirmada / cierre |
 | Warning | `#D97706` | Riesgo, plazo, requiere atención |
 | Danger | `#DC2626` | Error, disputa crítica, destructivo |
 | Info | `#245F96` | Información neutra (derivado del primary) |
@@ -185,7 +185,7 @@ No apilar multi-shadow decorativo. Un nivel por superficie.
 | Variante | Fondo | Texto | Cuándo |
 |----------|-------|-------|--------|
 | Primary | Primary 700 | White | Acción principal de la vista |
-| CTA / Confirm | Secondary 400 | Primary 700 | Confirmar escrow, liberar fondos, aceptar |
+| CTA / Confirm | Secondary 400 | Primary 700 | Confirmar entrega, contratar Agente, aceptar |
 | Secondary | White + border Gray 200 | Primary 700 | Alternativa |
 | Ghost | Transparent | Primary 700 | Terciario en toolbars |
 | Danger | Danger solid | White | Acciones irreversibles |
@@ -224,7 +224,7 @@ Date Picker: popover sombra 4; día seleccionado Secondary; hoy ring Primary.
 - Padding 24
 - Header H4 + Caption meta
 - Sin “card soup”: cards solo para unidades de interacción/contenido delimitado
-- En escrow: preferir paneles con borde y poco relieve (confianza > glamour)
+- En operaciones / pagos: preferir paneles con borde y poco relieve (confianza > glamour)
 
 ### 7.5 Dialog / Drawer
 
@@ -346,7 +346,7 @@ Mobile:
 
 - Topbar compacta; sidebar → drawer
 - Tablas → cards apiladas o scroll horizontal con sombra de borde
-- CTAs sticky bottom cuando la acción es crítica de escrow
+- CTAs sticky bottom cuando la acción es crítica de la operación
 - Una columna por defecto
 
 ---
@@ -369,7 +369,7 @@ Copy: preciso, sin jerga de tienda (“¡Ofertón!”). Preferir “Fondos reten
 
 - Navy en shell, teal en confirmación
 - Una CTA dominante
-- Estados de escrow siempre visibles
+- Estados de la operación / contratación siempre visibles
 - Inter + escala 8
 
 **Don’t**
@@ -415,7 +415,7 @@ Detalle de rutas y producto: [`../WEB_APP.md`](../WEB_APP.md).
 - [ ] ¿Contraste AA en light y dark?
 - [ ] ¿Focus visible y teclado completos?
 - [ ] ¿Motion ≤ 250 ms y reduced-motion ok?
-- [ ] ¿Mobile first sin pérdida de estados críticos de escrow?
+- [ ] ¿Mobile first sin pérdida de estados críticos de la operación?
 - [ ] ¿Toasts vs Alerts según regla web-toasts?
 - [ ] ¿Formularios usable en mobile (acciones full-width)?
 

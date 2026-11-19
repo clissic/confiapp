@@ -378,7 +378,7 @@ export class PaymentsService {
       throw new ValidationError(
         fundingMode === FundingMode.AGENT_FEE_ONLY
           ? 'La contratación del Agente ya está paga'
-          : 'La operación ya tiene el pago protegido',
+          : 'La operación ya tiene el servicio del Agente pagado',
       );
     }
     assertNotPastDeadline(tx);
@@ -402,7 +402,7 @@ export class PaymentsService {
     }).exec();
 
     if (existingHold?.status === PaymentStatus.CAPTURED) {
-      throw new ValidationError('Ya existe un pago protegido capturado para esta operación');
+      throw new ValidationError('Ya existe una contratación del Agente capturada para esta operación');
     }
 
     const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
@@ -483,7 +483,7 @@ export class PaymentsService {
     const preference = await paymentProvider.createCheckout({
       items: [
         {
-          title: `Pago protegido ConfiApp ${tx.code} — ${tx.title}`.slice(0, 250),
+          title: `Servicio del Agente ConfiApp ${tx.code} — ${tx.title}`.slice(0, 250),
           quantity: 1,
           unitPriceCents: buyerPays,
           currency,
@@ -518,7 +518,7 @@ export class PaymentsService {
     await persistLog({
       source: 'checkout',
       event: 'checkout.created',
-      message: 'Checkout comprador creado (pago protegido)',
+      message: 'Checkout comprador creado (servicio del Agente)',
       transactionId: String(tx._id),
       paymentId: String(hold._id),
       externalId: preference.id,
@@ -809,7 +809,7 @@ export class PaymentsService {
       deletedAt: null,
     }).exec();
     if (existingCaptured) {
-      throw new ValidationError('La operación ya tiene el pago protegido');
+      throw new ValidationError('La operación ya tiene el servicio del Agente pagado');
     }
 
     const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
@@ -859,7 +859,7 @@ export class PaymentsService {
       hold.status === PaymentStatus.CAPTURED ||
       hold.status === PaymentStatus.RELEASED
     ) {
-      throw new ValidationError('La operación ya tiene el pago protegido');
+      throw new ValidationError('La operación ya tiene el servicio del Agente pagado');
     } else {
       hold.amountCents = amountDue;
       hold.provider = PaymentProvider.MANUAL_PREX;
@@ -998,7 +998,7 @@ export class PaymentsService {
       const result = await this.confirmHold(String(hold._id), {
         source: 'confirm',
         externalPaymentId: hold.externalId,
-        note: 'Pago protegido confirmado por admin tras revisar comprobante Prex',
+        note: 'Servicio del Agente confirmado por admin tras revisar comprobante Prex',
       });
 
       const refreshed = await PaymentModel.findById(hold._id).exec();
@@ -1086,7 +1086,7 @@ export class PaymentsService {
       direction: WalletMovementDirection.DEBIT,
       amountCents: hold.amountCents,
       currency: hold.currency,
-      description: `Reversión retención escrow ${tx.code} (admin desconfirmó Prex)`,
+      description: `Reversión contratación · ${tx.code} (admin desconfirmó Prex)`,
       paymentId: String(hold._id),
       transactionId: String(tx._id),
       balanceAfter: sellerAfter
@@ -1221,7 +1221,7 @@ export class PaymentsService {
         direction: WalletMovementDirection.CREDIT,
         amountCents: hold.amountCents,
         currency: hold.currency,
-        description: `Retención escrow ${tx.code}`,
+        description: `Contratación retenida · ${tx.code}`,
         paymentId: String(hold._id),
         transactionId: String(tx._id),
         balanceAfter: sellerAfter
@@ -1247,7 +1247,7 @@ export class PaymentsService {
           opts.note ??
           (isAgentFeeOnly
             ? 'Contratación del Agente confirmada con Mercado Pago'
-            : 'Pago protegido confirmado con Mercado Pago'),
+            : 'Servicio del Agente pagado con Mercado Pago'),
       });
 
       // Si el Agente ya estaba asignado, pasar a en curso.
@@ -1322,11 +1322,11 @@ export class PaymentsService {
           notificationsService.notify({
             userId: uid,
             type: NotificationType.PAYMENT,
-            title: 'Pago protegido confirmado',
+            title: 'Servicio del Agente pagado',
             body:
               uid === parties.buyerId
-                ? `Tu pago de ${tx.code} quedó en resguardo hasta confirmar la entrega.`
-                : `El comprador pagó ${tx.code}. El monto está en resguardo hasta confirmar la entrega.`,
+                ? `Servicio del Agente pagado en ${tx.code}. La operación puede seguir adelante.`
+                : `El comprador pagó el servicio del Agente en ${tx.code}.`,
             data: { href, code: tx.code, status: TransactionStatus.FUNDED },
             entityType: 'Transaction',
             entityId: String(tx._id),
@@ -1597,7 +1597,7 @@ export class PaymentsService {
   }
 
   /**
-   * Liberación: descuenta 20% plataforma, paga agente, libera neto al vendedor.
+   * Cierre: descuenta 20% plataforma, acredita comisión del Agente; en ESCROW_FULL también el neto vendedor.
    */
   async releaseEscrow(userId: string, code: string) {
     const tx = await this.loadTxForParticipant(userId, code);
@@ -1606,7 +1606,7 @@ export class PaymentsService {
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        `Solo se puede liberar con pago protegido o en curso (actual: ${tx.status})`,
+        `Solo se puede liquidar con servicio del Agente pagado o en curso (actual: ${tx.status})`,
       );
     }
     assertNotPastDeadline(tx);
@@ -1617,7 +1617,7 @@ export class PaymentsService {
       const agentOk = Boolean(tx.deliveryConfirmation?.agentDeliveryConfirmedAt);
       if (!buyerOk || !agentOk) {
         throw new ValidationError(
-          'Para liberar los fondos, el comprador debe confirmar el arribo y el Agente la entrega.',
+          'Para completar la operación, el comprador debe confirmar el arribo y el Agente la entrega.',
           { buyerArrivalConfirmed: buyerOk, agentDeliveryConfirmed: agentOk },
         );
       }
@@ -1634,7 +1634,7 @@ export class PaymentsService {
       status: PaymentStatus.CAPTURED,
       deletedAt: null,
     }).exec();
-    if (!hold) throw new ValidationError('No hay fondos retenidos para liberar');
+    if (!hold) throw new ValidationError('No hay contratación del Agente retenida para completar');
 
     const alreadyReleased = await PaymentModel.findOne({
       transaction: tx._id,
@@ -1643,7 +1643,7 @@ export class PaymentsService {
       deletedAt: null,
     }).lean();
     if (alreadyReleased) {
-      throw new ValidationError('El pago protegido ya fue liberado');
+      throw new ValidationError('La comisión del Agente ya fue liquidada');
     }
 
     // Solo contratación del Agente: liberar comisión a wallet (sin payout de producto).
@@ -1927,7 +1927,7 @@ export class PaymentsService {
       direction: WalletMovementDirection.CREDIT,
       amountCents: sellerNet,
       currency,
-      description: `Liberación neto · ${tx.code}`,
+      description: `Comisión acreditada · ${tx.code}`,
       paymentId: String(release._id),
       transactionId: String(tx._id),
       balanceAfter: sellerAfter
@@ -1971,15 +1971,15 @@ export class PaymentsService {
       changedAt: now,
       changedBy: new Types.ObjectId(userId),
       note: autoReleased
-        ? 'Fondos liberados al vendedor (confirmación automática tras 72h)'
-        : 'Fondos liberados al vendedor',
+        ? 'Entrega confirmada — operación cerrada (confirmación automática tras 72h)'
+        : 'Entrega confirmada — operación cerrada',
     });
     await tx.save();
 
     await persistLog({
       source: 'release',
       event: 'escrow.released',
-      message: 'Pago protegido liberado (neto vendedor + comisión)',
+      message: 'Comisión liquidada (cierre de operación)',
       transactionId: String(tx._id),
       paymentId: String(release._id),
       payload: {
@@ -2060,22 +2060,22 @@ export class PaymentsService {
     const partyBody = (uid: string): string => {
       if (uid === parties.agentId) {
         return autoReleased
-          ? `Se acreditó tu comisión de intermediación en ${tx.code} (liberación automática). Estará disponible para retiro en ${AGENT_COMMISSION_HOLD_DAYS} días.`
-          : `Se acreditó tu comisión de intermediación en ${tx.code}. Estará disponible para retiro en ${AGENT_COMMISSION_HOLD_DAYS} días.`;
+          ? `Se acreditó tu comisión de intermediación en ${tx.code} (cierre automático). Queda pendiente ${AGENT_COMMISSION_HOLD_DAYS} días y luego disponible para la liquidación mensual.`
+          : `Se acreditó tu comisión de intermediación en ${tx.code}. Queda pendiente ${AGENT_COMMISSION_HOLD_DAYS} días y luego disponible para la liquidación mensual.`;
       }
       if (isAgentFeeOnly) {
         return autoReleased
-          ? `La operación ${tx.code} se completó automáticamente. La contratación del Agente quedó registrada.`
-          : `La operación ${tx.code} se completó. La contratación del Agente quedó registrada.`;
+          ? `La operación ${tx.code} se completó automáticamente. La comisión del Agente quedó acreditada en wallet (pendiente).`
+          : `La operación ${tx.code} se completó. La comisión del Agente quedó acreditada en wallet (pendiente).`;
       }
       if (uid === parties.sellerId) {
         return autoReleased
-          ? `Se liberaron los fondos de ${tx.code} automáticamente tras 72h. El neto ya está en tu wallet disponible.`
-          : `Se liberaron los fondos de ${tx.code}. El neto ya está en tu wallet disponible.`;
+          ? `La operación ${tx.code} se completó automáticamente tras 72h.`
+          : `La operación ${tx.code} se completó.`;
       }
       return autoReleased
-        ? `La operación ${tx.code} se completó con liberación automática de fondos al vendedor.`
-        : `La operación ${tx.code} se completó y los fondos fueron liberados al vendedor.`;
+        ? `La operación ${tx.code} se completó automáticamente tras 72h.`
+        : `La operación ${tx.code} se completó.`;
     };
 
     await Promise.all(
@@ -2112,14 +2112,10 @@ export class PaymentsService {
         notificationsService.notify({
           userId: String(admin._id),
           type: NotificationType.PAYMENT,
-          title: `Fondos liberados · ${tx.code}`,
-          body: isAgentFeeOnly
-            ? autoReleased
-              ? `Liberación automática tras 72h: comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`
-              : `Comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`
-            : autoReleased
-              ? `Liberación automática tras 72h: neto del vendedor en wallet; comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`
-              : `Neto del vendedor acreditado en wallet; comisión del agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días.`,
+          title: `Operación cerrada · ${tx.code}`,
+          body: autoReleased
+            ? `Cierre automático tras 72h: comisión del Agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días (luego liquidación mensual).`
+            : `Comisión del Agente pendiente ${AGENT_COMMISSION_HOLD_DAYS} días (luego liquidación mensual).`,
           data: {
             href: '/admin/finanzas',
             code: tx.code,
@@ -2146,7 +2142,7 @@ export class PaymentsService {
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        `Solo se puede reembolsar con pago protegido o en curso (actual: ${tx.status})`,
+        `Solo se puede reembolsar con servicio del Agente pagado o en curso (actual: ${tx.status})`,
       );
     }
     assertNotPastDeadline(tx);
@@ -2159,7 +2155,7 @@ export class PaymentsService {
       status: PaymentStatus.CAPTURED,
       deletedAt: null,
     }).exec();
-    if (!hold) throw new ValidationError('No hay fondos retenidos para reembolsar');
+    if (!hold) throw new ValidationError('No hay contratación del Agente para reembolsar');
 
     const alreadyReleased = await PaymentModel.findOne({
       transaction: tx._id,
@@ -2168,7 +2164,7 @@ export class PaymentsService {
       deletedAt: null,
     }).lean();
     if (alreadyReleased) {
-      throw new ValidationError('El pago protegido ya fue liberado; no se puede reembolsar así');
+      throw new ValidationError('La comisión ya fue liquidada; no se puede reembolsar así');
     }
 
     const now = new Date();
@@ -2199,7 +2195,7 @@ export class PaymentsService {
       direction: WalletMovementDirection.DEBIT,
       amountCents: hold.amountCents,
       currency: hold.currency,
-      description: `Reembolso escrow · ${tx.code}`,
+      description: `Reembolso contratación · ${tx.code}`,
       paymentId: String(hold._id),
       transactionId: String(tx._id),
       balanceAfter: sellerAfter
@@ -2243,7 +2239,7 @@ export class PaymentsService {
     await persistLog({
       source: 'system',
       event: 'escrow.refunded',
-      message: 'Pago protegido reembolsado tras rechazo del comprador',
+      message: 'Servicio del Agente reembolsado tras rechazo del comprador',
       transactionId: String(tx._id),
       paymentId: String(hold._id),
       payload: {
@@ -2295,7 +2291,7 @@ export class PaymentsService {
           title: 'Compra cancelada',
           body:
             uid === parties.buyerId
-              ? `Rechazaste el producto de ${tx.code}. Se inició el reembolso del pago protegido.`
+              ? `Rechazaste el producto de ${tx.code}. Se inició el reembolso de la contratación del Agente.`
               : uid === parties.sellerId
                 ? `El comprador rechazó el producto en ${tx.code}. La operación se canceló.`
                 : `El comprador rechazó el producto en ${tx.code}. Coordiná la devolución si corresponde.`,

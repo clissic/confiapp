@@ -547,7 +547,7 @@ export class OpenJobsService {
       tx,
       agentId,
       now,
-      'Operación en curso: agente tomó el trabajo tras el pago protegido',
+      'Operación en curso: agente tomó el trabajo tras el servicio del Agente pagado',
     );
     if (!advanced) {
       tx.statusHistory.push({
@@ -593,7 +593,7 @@ export class OpenJobsService {
           title: 'Ya tenés agente asignado',
           body:
             tx.fundingMode === FundingMode.AGENT_FEE_ONLY
-              ? `Un agente tomó ${tx.code}. El comprador debe pagar UYU $400 de contratación por Mercado Pago.`
+              ? `Un agente tomó ${tx.code}. El comprador debe pagar la contratación del Agente en la app.`
               : `Un agente tomó la operación ${tx.code} desde trabajos abiertos.`,
           data: {
             href: `/operaciones/${tx.code}`,
@@ -758,7 +758,7 @@ export class OpenJobsService {
           userId: uid,
           type: NotificationType.TRANSACTION_UPDATE,
           title: 'El agente solicitó salida',
-          body: `Estamos buscando un nuevo agente para la operación ${tx.code}. El dinero en resguardo no se mueve.`,
+          body: `Estamos buscando un nuevo agente para la operación ${tx.code}. Lo pagado por el servicio del Agente no se mueve.`,
           data: {
             href: `/operaciones/${tx.code}`,
             code: tx.code,

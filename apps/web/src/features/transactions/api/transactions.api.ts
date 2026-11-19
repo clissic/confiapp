@@ -508,7 +508,7 @@ function demoCompleteIfBoth(
       {
         status: 'COMPLETED',
         changedAt: now,
-        note: 'Fondos liberados tras confirmación de arribo y entrega',
+        note: 'Entrega confirmada — operación cerrada',
       },
     ],
     updatedAt: now,

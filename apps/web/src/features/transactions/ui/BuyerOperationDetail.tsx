@@ -39,7 +39,7 @@ const BUYER_PIPELINE = [
 const BUYER_PIPELINE_LABELS: Record<(typeof BUYER_PIPELINE)[number], string> = {
   WAITING_PARTICIPANT: 'Esperando',
   ACCEPTED: 'Aceptada',
-  FUNDED: 'Pago',
+  FUNDED: 'Agente contratado',
   IN_PROGRESS: 'En curso',
   COMPLETED: 'Listo',
 };
@@ -186,7 +186,10 @@ export function BuyerOperationDetail({
           <Search size={16} strokeWidth={1.75} aria-hidden />
           <div>
             <strong>Buscando nuevo agente</strong>
-            <p className="mb-0">El intermediario anterior salió. Tu pago sigue protegido.</p>
+            <p className="mb-0">
+              El intermediario anterior salió. Vamos a asignar otro Agente. Lo ya pagado por el
+              servicio del Agente no se mueve.
+            </p>
           </div>
         </section>
       ) : null}
@@ -196,13 +199,12 @@ export function BuyerOperationDetail({
           <section className="ca-tx-buyer-view__cta">
             <p className="ca-tx-buyer-view__cta-kicker">
               <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
-              {isAgentFeeOnly ? 'Contratación del Agente' : 'Pago protegido'}
+              Contratación del Agente
             </p>
             <h2>Esperando confirmación del pago</h2>
             <p className="mb-0">
-              {isAgentFeeOnly
-                ? 'Ya recibimos tu comprobante. Cuando se verifique, la contratación queda retenida en ConfiApp.'
-                : 'Ya recibimos tu comprobante. Cuando se verifique, el dinero queda en resguardo.'}
+              Ya recibimos tu comprobante. Cuando se verifique, la contratación del Agente queda
+              registrada en ConfiApp.
             </p>
           </section>
         ) : isAgentFeeOnly && !hasAcceptedAgent ? (
@@ -220,13 +222,11 @@ export function BuyerOperationDetail({
           <section className="ca-tx-buyer-view__cta ca-tx-buyer-view__cta--action">
             <p className="ca-tx-buyer-view__cta-kicker">
               <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
-              {isAgentFeeOnly ? 'Contratación del Agente' : 'Pago protegido'}
+              Contratación del Agente
             </p>
             <h2>Listo para pagar</h2>
             <p>
-              {isAgentFeeOnly
-                ? 'Pagá a ConfiApp la contratación del Agente. Queda retenida hasta el fin de la operación.'
-                : 'Completá la transferencia. Verificamos el comprobante antes de habilitar el trabajo.'}
+              Pagá a ConfiApp la contratación del Agente. El precio del producto se paga por fuera.
             </p>
             <p className="ca-tx-buyer-view__cta-amount">
               Total:{' '}
@@ -403,7 +403,7 @@ export function BuyerOperationDetail({
                   }
                 : {
                     title: 'Pago',
-                    detail: 'Completá el pago protegido para habilitar el trabajo del Agente.',
+                    detail: 'Contratá al Agente desde la app para que pueda empezar.',
                   }
               : tx.status === 'FUNDED' || tx.status === 'IN_PROGRESS'
                 ? !tx.agentVerification

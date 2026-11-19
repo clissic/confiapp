@@ -35,7 +35,7 @@ export function WalletSection({ profile }: { profile: UserProfile }) {
             <strong>{formatMoney(wallet.pendingCents, wallet.currency)}</strong>
           </div>
           <div className="ca-stat">
-            <span className="ca-stat__label">Retenido (escrow)</span>
+            <span className="ca-stat__label">Retenido en operación</span>
             <strong>{formatMoney(wallet.heldCents, wallet.currency)}</strong>
           </div>
           <div className="ca-stat">

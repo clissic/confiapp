@@ -3,18 +3,20 @@
 Documento de diseño de arquitectura (visión a escala + decisiones).  
 Estado implementado del monorepo y de la web: [`ARCHITECTURE.md`](./ARCHITECTURE.md), [`WEB_APP.md`](./WEB_APP.md).
 
-Plataforma SaaS de **intermediación segura** para compras entre particulares (escrow físico + control digital).
+Plataforma SaaS de **intermediación segura** para compras entre particulares (encuentro físico mediado por Agente + control digital).
 
 **Objetivo de escala:** cientos de miles de usuarios activos, picos concurrentes altos en operaciones en curso, evidencias multimedia y eventos en tiempo real.
+
+> **Estado de producto (2026-11):** el dinero del **producto** no se custodia en la app. Solo se cobra/gestiona la **contratación del Agente**. El resguardo monetario del precio (`ESCROW_FULL`) queda como capacidad de arquitectura / roadmap.
 
 ---
 
 ## 1. Visión del producto (contexto)
 
-Dos particulares (y opcionalmente un intermediario físico) acuerdan una operación. ConfiApp:
+Dos particulares (y un intermediario físico — el Agente) acuerdan una operación. ConfiApp:
 
 1. Formaliza el acuerdo (condiciones, participantes, estados).
-2. Retiene o coordina el **compromiso económico** (pagos / escrow monetario) cuando aplique.
+2. Cobra y gestiona la **contratación del Agente**; en el futuro podrá custodiar también el precio del producto (escrow monetario).
 3. Exige **evidencias** (fotos, documentos, geolocalización).
 4. Gestiona **disputas** y deja **auditoría** inmutable.
 5. Notifica y sincroniza en tiempo real a las partes.
@@ -313,19 +315,23 @@ Autorización al join: el socket debe probar membresía en la operación.
 3. ConfiApp mantiene un **ledger interno** (doble entrada simplificada) para saldo retenido, liberado, reembolsado.
 4. Toda mutación financiera es **idempotente**.
 
-### 9.2 Flujo de alto nivel (escrow monetario)
+### 9.2 Flujo de alto nivel (modo vigente + roadmap)
+
+**Hoy (`AGENT_FEE_ONLY`):**
 
 ```text
-CREATED → WAITING_PARTICIPANT → ACCEPTED → … → FUNDED (hold/capture authorized)
+CREATED → WAITING_PARTICIPANT → ACCEPTED → FUNDED (contratación del Agente capturada)
                                               ↓
-                                         IN_PROGRESS (evidencias)
+                                         IN_PROGRESS (verificación / entrega)
                                               ↓
-                                      COMPLETED → release al vendedor
-                                      CANCELLED / DISPUTED → reverse / hold manual
+                                      COMPLETED → comisión Agente PENDING 14d → liquidación admin
+                                      CANCELLED / DISPUTED → reembolso de la contratación (si aplica)
 ```
 
-- **`WAITING_PARTICIPANT`**: operación creada; se espera que la contraparte acepte el invite/enlace. Es estado **interno** (no se muestra como código en la UI de usuario común; ver [`WEB_APP.md`](./WEB_APP.md)).
-- Nota: el estado `FUNDED` del dominio de operación se alinea con “fondos comprometidos”, aunque el PSP use Authorization vs Capture según producto/país.
+**Roadmap (`ESCROW_FULL`):** mismo esqueleto, pero `FUNDED` implica hold del precio del producto y al `COMPLETED` release neto al vendedor (+ fees).
+
+- **`WAITING_PARTICIPANT`**: operación creada; se espera que la contraparte acepte el invite/enlace. Es estado **interno** (ver [`WEB_APP.md`](./WEB_APP.md)).
+- **`FUNDED` en UI hoy:** «Agente contratado» (no “pago protegido” del producto).
 
 ### 9.3 Componentes
 
@@ -344,9 +350,9 @@ CREATED → WAITING_PARTICIPANT → ACCEPTED → … → FUNDED (hold/capture au
 - Congelamiento por disputa automática.
 - Multi-moneda: moneda de la operación inmutable una vez fondeada.
 
-### 9.5 Por qué no “solo transferencias P2P fuera de plataforma”
+### 9.5 Producto por fuera vs resguardo en la app
 
-Porque pierde el control del escrow digital. Se puede soportar modo “pago en efectivo en el encuentro” **sin** ledger, pero entonces `FUNDED` significa “compromiso declarado + evidencias”, no dinero custodiado. La arquitectura debe soportar **ambos modos** con flags de producto.
+Hoy el precio del producto se paga **P2P / fuera de plataforma**; ConfiApp aporta mediación del Agente, trazabilidad y cobro del fee. El modo `ESCROW_FULL` (custodia del precio) está previsto en arquitectura y flag de producto, pero **no** es el modo vigente. En fee-only, `FUNDED` = contratación del Agente cobrada, no dinero del producto custodiado.
 
 ---
 
@@ -443,7 +449,7 @@ Tracing distribuido en HTTP → use case → Mongo/Redis/PSP.
 | Fase | Alcance |
 |------|---------|
 | **MVP** *(gran parte hecho)* | Auth, users, transactions (+ `WAITING_PARTICIPANT`), web app, health, monorepo |
-| **Trust** *(en curso)* | Pagos + ledger, KYC, notificaciones in-app, Socket (chat/notif), wallet, audit UI, agentes (open jobs, salida/cierre) |
+| **Trust** *(en curso)* | Pagos fee-only + ledger de comisión, KYC, notificaciones in-app, Socket (chat/notif), wallet, audit UI, agentes (open jobs, salida/cierre); escrow de producto pendiente |
 | **Cost / anti-bots** *(en master)* | Rate limits por ruta, Turnstile auth, webhook/checkout endurecidos, crons con lock, media presign S3 (`AWS_*`), Redis opcional — ver [`SECURITY_COST_HARDENING.md`](./SECURITY_COST_HARDENING.md) |
 | **Scale** *(parcial)* | ~~S3 uploads~~ (presign listo), ~~rate limits distribuidos~~ (Redis opcional). Pendiente ops/código: Redis prod multi-réplica, `STORAGE_REQUIRE_OBJECT_KEYS` + backfill, Socket.io Redis adapter, workers/BullMQ, WAF edge, antivirus uploads, geofence, phone verify real, evidence/disputes UI |
 | **Hardening** | Sharding, multi-región lectura, admin forense, warehouse analytics, WAF edge |
@@ -452,7 +458,7 @@ Tracing distribuido en HTTP → use case → Mongo/Redis/PSP.
 
 ## 15. Resumen de justificaciones
 
-1. **Clean Architecture** protege el dominio de escrow/pagos de cambios de vendor.
+1. **Clean Architecture** protege el dominio de operaciones/pagos de cambios de vendor.
 2. **Monorepo modular** acelera delivery; extracción a servicios cuando el dolor sea real.
 3. **Mongo + agregados** encaja en lecturas de operación; **S3** para binarios; **Redis** para tiempo real y colas.
 4. **Workers** aíslan webhooks y media del path síncrono.

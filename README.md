@@ -1,6 +1,6 @@
 # ConfiApp
 
-Plataforma de **escrow físico** con control digital de participantes, condiciones, evidencias, estados y auditoría.
+Plataforma de **intermediación segura** (encuentro físico + control digital): un Agente media la entrega; en la app se contrata ese servicio. El precio del producto se paga por fuera (resguardo del producto en la app = roadmap).
 
 ## Stack
 
@@ -13,10 +13,10 @@ Plataforma de **escrow físico** con control digital de participantes, condicion
 
 ## Qué hace el producto hoy
 
-- **Operaciones** con invite, checklist de entrega y flujo de estados hasta fondeo / progreso / cierre.
+- **Operaciones** con invite, checklist de entrega y flujo de estados hasta contratación del Agente / progreso / cierre.
 - **Tres roles en cada op:** Comprador, Vendedor y Agente — flujos detallados con diagramas en [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md).
-- **Pagos:** contratación del Agente (UYU $400, `AGENT_FEE_ONLY`) vía Mercado Pago o Prex (`PAYMENTS_CHECKOUT_MODE`). Wallet de saldos y retiros.
-- **Agentes intermediarios:** onboarding, búsqueda, trabajos abiertos, ofertas de asignación; **suspender / cerrar agencia** y **solicitar salida** de una operación (escrow intacto).
+- **Pagos (modo vigente):** solo la **contratación del Agente** (UYU $400, `AGENT_FEE_ONLY`) vía Prex o Mercado Pago (`PAYMENTS_CHECKOUT_MODE`). El **precio del producto** se acuerda y se paga **fuera** de ConfiApp. Wallet de comisiones del Agente (hold 14 días + liquidación admin 1–10).
+- **Agentes intermediarios:** onboarding, búsqueda, trabajos abiertos, ofertas de asignación; **suspender / cerrar agencia** y **solicitar salida** de una operación (la contratación del Agente no se mueve; se busca reemplazo).
 - **Chat** y **notificaciones** in-app en tiempo real.
 - **KYC** (review admin por fotos), **reputación** y **auditoría** (admin).
 - **Identidad Digital Abitab** para **Agentes**: onboarding + cada aceptación de trabajo (`acr=pin`; roadmap `liveness`). KYC fotos se mantiene sin bloquear el wizard. Detalle: [`docs/ID_DIGITAL_AGENTS.md`](./docs/ID_DIGITAL_AGENTS.md).
