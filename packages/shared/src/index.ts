@@ -53,6 +53,7 @@ export {
   agentWithdrawBlockedMessage,
   hasAgentCustodyOrVerificationStarted,
   type AgentWithdrawBlockReason,
+  type AgentWithdrawChecklistItem,
   type AgentWithdrawPolicyInput,
   type AgentWithdrawStatus,
 } from './agent-withdraw-policy.js';

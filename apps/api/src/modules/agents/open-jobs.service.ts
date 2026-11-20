@@ -14,6 +14,8 @@ import {
   canAgentSelfServeWithdraw,
   getAgentWithdrawBlockReason,
   minProductUyuForMinCommission,
+  type AgentWithdrawChecklistItem,
+  type AgentWithdrawPolicyInput,
 } from '@confiapp/shared';
 import { Types } from 'mongoose';
 
@@ -36,6 +38,20 @@ import {
   loadManualPrexEscrowGate,
   loadManualPrexEscrowGates,
 } from '../payments/manual-prex-gate';
+
+/** Normaliza checklist legacy (string[] | items) al shape de la política de salida. */
+function toWithdrawChecklistItems(
+  checklist: unknown,
+): AgentWithdrawChecklistItem[] | undefined {
+  if (!Array.isArray(checklist) || checklist.length === 0) return undefined;
+  return checklist.map((item) => {
+    if (typeof item === 'string') return { done: false };
+    if (item && typeof item === 'object' && 'done' in item) {
+      return { done: Boolean((item as { done?: unknown }).done) };
+    }
+    return { done: false };
+  });
+}
 
 export interface OpenJobsQuery {
   lng: number;
@@ -727,17 +743,15 @@ export class OpenJobsService {
       throw new ForbiddenError('No sos el agente activo de esta operación');
     }
 
-    const withdrawInput = {
+    const withdrawInput: AgentWithdrawPolicyInput = {
       status: tx.status,
       agentVerification: tx.agentVerification,
       deliveryConfirmation: tx.deliveryConfirmation,
-      party: tx.party,
-      conditionsChecklist: Array.isArray(tx.conditions?.checklist)
-        ? tx.conditions.checklist.filter(
-            (item): item is { done?: boolean } =>
-              typeof item === 'object' && item !== null,
-          )
-        : undefined,
+      party: {
+        buyer: { checklist: toWithdrawChecklistItems(tx.party?.buyer?.checklist) },
+        seller: { checklist: toWithdrawChecklistItems(tx.party?.seller?.checklist) },
+      },
+      conditionsChecklist: toWithdrawChecklistItems(tx.conditions?.checklist),
     };
     if (!canAgentSelfServeWithdraw(withdrawInput)) {
       throw new ValidationError(
