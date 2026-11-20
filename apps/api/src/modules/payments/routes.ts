@@ -155,3 +155,12 @@ paymentsRoutes.delete(
   authenticate,
   asyncHandler(controller.mpDisconnect),
 );
+
+/** Probe oculto: Checkout Pro UYU $10 (solo admin) para validar credenciales. */
+paymentsRoutes.post(
+  '/probe/mercadopago',
+  authenticate,
+  requireRoles(PlatformRole.ADMIN),
+  checkoutRateLimiter,
+  asyncHandler(controller.mpCredentialProbe),
+);

@@ -175,4 +175,10 @@ export class PaymentsController {
     const data = await this.mpOAuth.disconnect(req.user!.id);
     res.status(200).json(data);
   };
+
+  /** Preferencia oculta UYU $10 para probar credenciales de producción. */
+  mpCredentialProbe = async (req: Request, res: Response): Promise<void> => {
+    const data = await this.service.createMercadoPagoCredentialProbe(req.user!.id);
+    res.status(201).json(data);
+  };
 }
