@@ -257,7 +257,7 @@ export function AgentAgencyPanel({
             </p>
             <p className="ca-agency-active-jobs__hint mb-0">
               {activeJobsCount > 0
-                ? 'Para cerrar la agencia, terminá el trabajo o pedí la salida desde cada operación.'
+                ? 'Si el comprador no paga la contratación, podés dejar la operación desde su detalle. También podés pedir salida antes de empezar la verificación.'
                 : 'Cuando no quede ninguna, podés cerrar la agencia.'}
             </p>
           </div>

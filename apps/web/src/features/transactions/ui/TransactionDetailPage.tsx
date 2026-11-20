@@ -17,6 +17,7 @@ import {
   useTransaction,
   useBuyerConfirmChanges,
   useBuyerRejectChanges,
+  useBuyerCancelBeforeAgent,
 } from '../hooks/useTransactions';
 import { AgentOperationDetail } from './AgentOperationDetail';
 import { BuyerOperationDetail } from './BuyerOperationDetail';
@@ -46,6 +47,7 @@ export function TransactionDetailPage() {
   const refresh = useRefreshInvite();
   const buyerConfirm = useBuyerConfirmChanges(code);
   const buyerReject = useBuyerRejectChanges(code);
+  const buyerCancelBeforeAgent = useBuyerCancelBeforeAgent(code);
   const [shareUrl, setShareUrl] = useState<string | undefined>(state?.shareUrl);
   const [error, setError] = useState<string | null>(null);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
@@ -238,15 +240,22 @@ export function TransactionDetailPage() {
 
   const onWithdrawAsAgent = async () => {
     if (!tx?.code) return;
+    const unpaid = tx.status === 'ACCEPTED';
     const ok = window.confirm(
-      '¿Solicitar salida de esta operación? Solo es posible si aún no empezaste la verificación. La contratación del Agente permanece en ConfiApp; buscaremos reemplazo.',
+      unpaid
+        ? '¿Dejar esta operación? El comprador aún no pagó la contratación. Deja de contar en tus trabajos activos y la operación vuelve a buscar Agente.'
+        : '¿Solicitar salida de esta operación? Solo es posible si aún no empezaste la verificación. La contratación del Agente permanece en ConfiApp; buscaremos reemplazo.',
     );
     if (!ok) return;
     setError(null);
     setWithdrawing(true);
     try {
       await withdrawFromJob(tx.code);
-      toast.success('Salida registrada. Las partes fueron avisadas.');
+      toast.success(
+        unpaid
+          ? 'Liberaste la operación. Ya no figura en tu agencia.'
+          : 'Salida registrada. Las partes fueron avisadas.',
+      );
       await refetch();
     } catch (err) {
       setError(getApiErrorMessage(err, 'No se pudo solicitar la salida.'));
@@ -312,6 +321,21 @@ export function TransactionDetailPage() {
     }
   };
 
+  const onCancelBeforeAgent = async () => {
+    if (!tx?.code) return;
+    const ok = window.confirm(
+      '¿Cancelar la operación? Todavía no hay Agente asignado y no se cobró la contratación.',
+    );
+    if (!ok) return;
+    setError(null);
+    try {
+      await buyerCancelBeforeAgent.mutateAsync();
+      toast.success('Operación cancelada. No se realizó ningún cobro.');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'No se pudo cancelar la operación.'));
+    }
+  };
+
   const onPayNow = () => {
     if (!tx?.code) return;
     navigate(`/operaciones/${tx.code}/pagar`);
@@ -343,12 +367,14 @@ export function TransactionDetailPage() {
         refreshPending={refresh.isPending}
         buyerConfirmPending={buyerConfirm.isPending}
         buyerRejectPending={buyerReject.isPending}
+        cancelBeforeAgentPending={buyerCancelBeforeAgent.isPending}
         onPayNow={onPayNow}
         onRefresh={() => void onRefresh()}
         onCopyLink={() => void copyLink()}
         onShare={() => void shareNative()}
         onBuyerConfirm={() => void onBuyerConfirm()}
         onBuyerReject={() => void onBuyerReject()}
+        onCancelBeforeAgent={() => void onCancelBeforeAgent()}
         onGallery={setGalleryIndex}
         galleryIndex={galleryIndex}
         onCloseGallery={() => setGalleryIndex(null)}

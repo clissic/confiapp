@@ -131,6 +131,12 @@ export class TransactionsController {
     res.status(200).json(data);
   };
 
+  buyerCancelBeforeAgent = async (req: Request, res: Response): Promise<void> => {
+    const code = String(req.params.code);
+    const data = await this.service.buyerCancelBeforeAgent(req.user!.id, code);
+    res.status(200).json(data);
+  };
+
   expireDeadlines = async (req: Request, res: Response): Promise<void> => {
     const provided = String(req.headers['x-job-secret'] ?? '');
     const expected = env.TRANSACTIONS_JOB_SECRET?.trim() ?? '';

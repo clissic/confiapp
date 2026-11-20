@@ -50,6 +50,19 @@ export interface TransactionParticipant {
   respondedAt?: string;
 }
 
+/** Perfil público del Agente asignado (comprador / vendedor). */
+export interface OperationAgent {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone?: string;
+  avatarUrl?: string;
+  ratingAverage: number;
+  ratingCount: number;
+  acceptedAt?: string;
+}
+
 export interface TransactionProduct {
   id: string;
   title: string;
@@ -137,6 +150,7 @@ export interface Transaction {
   };
   productId?: string;
   product?: TransactionProduct;
+  agent?: OperationAgent;
   participants: TransactionParticipant[];
   statusHistory: Array<{
     status: TransactionStatus;

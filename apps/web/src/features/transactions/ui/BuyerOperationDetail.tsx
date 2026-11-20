@@ -26,6 +26,7 @@ import {
 import { AgentChecklistPanel } from './AgentChecklistPanel';
 import { BuyerProductDecisionPanel } from './BuyerProductDecisionPanel';
 import { BuyerDeliveryDisputePanel } from './BuyerDeliveryDisputePanel';
+import { OperationAgentSection } from './OperationAgentSection';
 import { OperationHistoryAccordion } from './OperationHistoryAccordion';
 import { PhotoLightbox } from './PhotoLightbox';
 
@@ -94,12 +95,14 @@ export function BuyerOperationDetail({
   refreshPending,
   buyerConfirmPending,
   buyerRejectPending,
+  cancelBeforeAgentPending,
   onPayNow,
   onRefresh,
   onCopyLink,
   onShare,
   onBuyerConfirm,
   onBuyerReject,
+  onCancelBeforeAgent,
   onGallery,
   galleryIndex,
   onCloseGallery,
@@ -113,12 +116,14 @@ export function BuyerOperationDetail({
   refreshPending: boolean;
   buyerConfirmPending: boolean;
   buyerRejectPending: boolean;
+  cancelBeforeAgentPending: boolean;
   onPayNow: () => void;
   onRefresh: () => void;
   onCopyLink: () => void;
   onShare: () => void;
   onBuyerConfirm: () => void;
   onBuyerReject: () => void;
+  onCancelBeforeAgent: () => void;
   onGallery: (index: number) => void;
   galleryIndex: number | null;
   onCloseGallery: () => void;
@@ -201,8 +206,21 @@ export function BuyerOperationDetail({
               Contratación del Agente
             </p>
             <h2>Esperando Agente</h2>
-            <p className="mb-0">
+            <p>
               Cuando un Agente acepte la operación, vas a poder pagar la contratación a ConfiApp.
+            </p>
+            <Button
+              type="button"
+              variant="outline-danger"
+              size="sm"
+              className="ca-tx-buyer-view__cancel-before-agent"
+              disabled={cancelBeforeAgentPending}
+              onClick={onCancelBeforeAgent}
+            >
+              {cancelBeforeAgentPending ? 'Cancelando…' : 'Cancelar operación'}
+            </Button>
+            <p className="ca-tx-buyer-view__cancel-hint mb-0">
+              Todavía no se cobró nada. Podés cancelar mientras ningún Agente haya aceptado.
             </p>
           </section>
         ) : (
@@ -225,6 +243,8 @@ export function BuyerOperationDetail({
           </section>
         )
       ) : null}
+
+      {hasAcceptedAgent && tx.agent ? <OperationAgentSection agent={tx.agent} /> : null}
 
       {tx.status === 'PENDING_BUYER_CONFIRM' ? (
         <section className="ca-tx-buyer-view__reconfirm">

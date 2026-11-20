@@ -7,6 +7,8 @@ import {
   FundingMode,
   ParticipantRole,
   ParticipantStatus,
+  PaymentStatus,
+  PaymentType,
   ProductCategory,
   ProductStatus,
   TransactionInitiator,
@@ -24,7 +26,7 @@ import {
 import type { HydratedDocument } from 'mongoose';
 import { Types } from 'mongoose';
 
-import { NotificationModel, ProductModel, UserModel } from '../../database/models';
+import { NotificationModel, PaymentModel, ProductModel, UserModel } from '../../database/models';
 import { env } from '../../shared/config/env';
 import { AppError, ForbiddenError, NotFoundError, ValidationError } from '../../shared/errors/app-error';
 import { generateOpaqueToken, hashToken } from '../../utils/crypto-tokens';
@@ -46,6 +48,7 @@ import type {
   CreateTransactionDto,
   InvitePreviewDto,
   MeetingLocationDto,
+  OperationAgentDto,
   PartyInstructionsDto,
   TransactionChecklistItemDto,
   TransactionDto,
@@ -380,6 +383,51 @@ function resolveViewerRole(
   return null;
 }
 
+function splitPersonName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: 'Agente', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0]!, lastName: '' };
+  return { firstName: parts[0]!, lastName: parts.slice(1).join(' ') };
+}
+
+async function loadOperationAgent(
+  tx: HydratedDocument<ITransaction> | TransactionDocument,
+): Promise<OperationAgentDto | undefined> {
+  const intermediary = tx.participants.find(
+    (p) =>
+      p.role === ParticipantRole.INTERMEDIARY &&
+      p.status === ParticipantStatus.ACCEPTED &&
+      p.user,
+  );
+  if (!intermediary?.user) return undefined;
+
+  const user = await UserModel.findById(intermediary.user)
+    .select('fullName phone avatar rating roleRatings')
+    .lean()
+    .exec();
+  if (!user) return undefined;
+
+  const fullName = (user.fullName ?? '').trim() || 'Agente';
+  const { firstName, lastName } = splitPersonName(fullName);
+  const agentRating = user.roleRatings?.agent;
+  const ratingAverage = agentRating?.average ?? user.rating?.average ?? 0;
+  const ratingCount = agentRating?.count ?? user.rating?.count ?? 0;
+  const phone = typeof user.phone === 'string' ? user.phone.trim() : '';
+  const avatarUrl = typeof user.avatar === 'string' ? user.avatar.trim() : '';
+
+  return {
+    userId: String(intermediary.user),
+    firstName,
+    lastName,
+    fullName,
+    ...(phone ? { phone } : {}),
+    ...(avatarUrl ? { avatarUrl } : {}),
+    ratingAverage,
+    ratingCount,
+    acceptedAt: intermediary.respondedAt?.toISOString() ?? intermediary.invitedAt?.toISOString(),
+  };
+}
+
 function toDto(
   tx: HydratedDocument<ITransaction> | TransactionDocument,
   options?: {
@@ -387,6 +435,7 @@ function toDto(
     product?: TransactionProductDto;
     viewerUserId?: string;
     activeDispute?: ActiveDisputeDto;
+    agent?: OperationAgentDto;
   },
 ): TransactionDto {
   const expiresAt = tx.inviteExpiresAt;
@@ -479,6 +528,7 @@ function toDto(
     deliveryConfirmation: mapDeliveryConfirmationToDto(tx.deliveryConfirmation),
     productId: tx.product ? String(tx.product) : undefined,
     product: options?.product,
+    agent: options?.agent,
     participants: tx.participants.map((p) => ({
       userId: p.user ? String(p.user) : undefined,
       role: p.role,
@@ -858,6 +908,109 @@ export class TransactionsService {
       product: await loadProductDto(tx.product),
       viewerUserId: userId,
       activeDispute,
+      agent: await loadOperationAgent(tx),
+    });
+  }
+
+  /**
+   * Comprador cancela la operación antes de que un Agente la acepte.
+   * En fee-only aún no hay cobro (el pago exige agente), así que no hay reembolso.
+   */
+  async buyerCancelBeforeAgent(userId: string, code: string): Promise<TransactionDto> {
+    const tx = await this.repository.findByCode(code);
+    if (!tx) throw new NotFoundError('Operación no encontrada');
+    if (!isParticipant(tx, userId)) {
+      throw new ForbiddenError('No tenés acceso a esta operación');
+    }
+    if (resolveViewerRole(tx, userId) !== 'BUYER') {
+      throw new ForbiddenError('Solo el comprador puede cancelar en este punto');
+    }
+    if (tx.status !== TransactionStatus.ACCEPTED) {
+      throw new ValidationError(
+        `Solo se puede cancelar mientras la operación está aceptada y a la espera de un Agente (actual: ${tx.status})`,
+      );
+    }
+
+    const hasAcceptedAgent = tx.participants.some(
+      (p) =>
+        p.role === ParticipantRole.INTERMEDIARY &&
+        p.status === ParticipantStatus.ACCEPTED,
+    );
+    if (hasAcceptedAgent) {
+      throw new ValidationError(
+        'Ya hay un Agente asignado. Si aún no pagaste, el Agente puede dejar la operación; si ya pagaste, usá disputa o el flujo de rechazo según corresponda.',
+      );
+    }
+
+    const capturedHold = await PaymentModel.findOne({
+      transaction: tx._id,
+      type: PaymentType.ESCROW_HOLD,
+      status: PaymentStatus.CAPTURED,
+      deletedAt: null,
+    })
+      .select('_id')
+      .lean()
+      .exec();
+    if (capturedHold) {
+      throw new ValidationError(
+        'Hay un pago capturado. Esta cancelación solo aplica antes de contratar un Agente.',
+      );
+    }
+
+    const updated = await this.repository.transitionStatus(tx, TransactionStatus.CANCELLED, {
+      userId,
+      note: 'Comprador canceló antes de que un Agente aceptara la operación',
+    });
+
+    const sellerId = updated.participants.find(
+      (p) =>
+        p.role === ParticipantRole.COUNTERPARTY &&
+        p.status === ParticipantStatus.ACCEPTED &&
+        p.user,
+    );
+    const notifyIds = [
+      sellerId?.user ? String(sellerId.user) : null,
+    ].filter((id): id is string => Boolean(id) && id !== userId);
+
+    await Promise.all(
+      notifyIds.map((uid) =>
+        notificationsService.notify({
+          userId: uid,
+          type: NotificationType.TRANSACTION_UPDATE,
+          title: 'Operación cancelada',
+          body: `El comprador canceló ${updated.code} antes de que un Agente la tomara. No se cobró la contratación.`,
+          data: {
+            href: `/operaciones/${updated.code}`,
+            code: updated.code,
+            status: updated.status,
+          },
+          entityType: 'Transaction',
+          entityId: String(updated._id),
+          channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        }),
+      ),
+    );
+
+    const { auditService, AuditAction, AuditOutcome } = await import('../audit');
+    auditService.track({
+      actor: userId,
+      action: AuditAction.STATUS_CHANGE,
+      entityType: 'Transaction',
+      entityId: String(updated._id),
+      outcome: AuditOutcome.SUCCESS,
+      correlationId: updated.code,
+      metadata: {
+        code: updated.code,
+        step: 'buyer_cancel_before_agent',
+        from: TransactionStatus.ACCEPTED,
+        to: TransactionStatus.CANCELLED,
+      },
+    });
+
+    return toDto(updated, {
+      product: await loadProductDto(updated.product),
+      viewerUserId: userId,
+      agent: await loadOperationAgent(updated),
     });
   }
 

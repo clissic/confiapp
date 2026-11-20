@@ -146,6 +146,13 @@ transactionsRoutes.post(
 );
 
 transactionsRoutes.post(
+  '/by-code/:code/cancel-before-agent',
+  authenticate,
+  validateRequest({ params: transactionCodeParamsSchema }),
+  asyncHandler(controller.buyerCancelBeforeAgent),
+);
+
+transactionsRoutes.post(
   '/jobs/expire-deadlines',
   asyncHandler(controller.expireDeadlines),
 );

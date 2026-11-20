@@ -122,6 +122,19 @@ export interface TransactionParticipantDto {
   respondedAt?: string;
 }
 
+/** Perfil público del Agente asignado (visible a comprador/vendedor). */
+export interface OperationAgentDto {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone?: string;
+  avatarUrl?: string;
+  ratingAverage: number;
+  ratingCount: number;
+  acceptedAt?: string;
+}
+
 export interface TransactionChecklistItemDto {
   id: string;
   text: string;
@@ -189,6 +202,8 @@ export interface TransactionDto {
   };
   productId?: string;
   product?: TransactionProductDto;
+  /** Agente intermediario ACCEPTED (perfil para buyer/seller). */
+  agent?: OperationAgentDto;
   participants: TransactionParticipantDto[];
   statusHistory: Array<{
     status: TransactionStatus;

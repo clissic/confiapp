@@ -1012,3 +1012,47 @@ export async function buyerRejectChanges(
   );
   return { data, source: 'api' };
 }
+
+/** Cancela la operación antes de que un Agente la acepte (sin cobro). */
+export async function buyerCancelBeforeAgent(
+  code: string,
+): Promise<{ data: Transaction; source: 'api' | 'demo' }> {
+  if (!hasAccessToken()) {
+    const list = loadDemoList();
+    const index = list.findIndex((tx) => tx.code === code.toUpperCase());
+    if (index < 0) throw new Error('Operación no encontrada');
+    const current = list[index]!;
+    if (current.status !== 'ACCEPTED') {
+      throw new Error('Solo se puede cancelar mientras se espera un Agente');
+    }
+    const hasAcceptedAgent = current.participants.some(
+      (p) => p.role === 'INTERMEDIARY' && p.status === 'ACCEPTED',
+    );
+    if (hasAcceptedAgent) {
+      throw new Error('Ya hay un Agente asignado');
+    }
+    const now = new Date().toISOString();
+    const updated: Transaction = {
+      ...current,
+      status: 'CANCELLED',
+      agent: undefined,
+      statusHistory: [
+        ...current.statusHistory,
+        {
+          status: 'CANCELLED',
+          changedAt: now,
+          note: 'Comprador canceló antes de que un Agente aceptara la operación',
+        },
+      ],
+      updatedAt: now,
+    };
+    const next = [...list];
+    next[index] = updated;
+    saveDemoList(next);
+    return { data: updated, source: 'demo' };
+  }
+  const { data } = await apiClient.post<Transaction>(
+    `/transactions/by-code/${encodeURIComponent(code)}/cancel-before-agent`,
+  );
+  return { data, source: 'api' };
+}

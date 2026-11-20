@@ -5,6 +5,7 @@ import {
   agentConfirmDelivery,
   buyerAcceptProduct,
   buyerConfirmArrival,
+  buyerCancelBeforeAgent,
   buyerConfirmChanges,
   buyerRejectChanges,
   buyerRejectProduct,
@@ -246,6 +247,20 @@ export function useBuyerRejectChanges(code: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => buyerRejectChanges(code!),
+    onSuccess: (result) => {
+      queryClient.setQueryData(
+        [...transactionsQueryKey, 'code', result.data.code],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
+    },
+  });
+}
+
+export function useBuyerCancelBeforeAgent(code: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => buyerCancelBeforeAgent(code!),
     onSuccess: (result) => {
       queryClient.setQueryData(
         [...transactionsQueryKey, 'code', result.data.code],

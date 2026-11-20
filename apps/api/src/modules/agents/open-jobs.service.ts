@@ -4,6 +4,8 @@ import {
   NotificationType,
   ParticipantRole,
   ParticipantStatus,
+  PaymentStatus,
+  PaymentType,
   TransactionInitiator,
   TransactionStatus,
   type ITransaction,
@@ -19,7 +21,7 @@ import {
 } from '@confiapp/shared';
 import { Types } from 'mongoose';
 
-import { TransactionModel, UserModel } from '../../database/models';
+import { PaymentModel, TransactionModel, UserModel } from '../../database/models';
 import { env } from '../../shared/config/env';
 import {
   ForbiddenError,
@@ -739,13 +741,26 @@ export class OpenJobsService {
       );
     }
 
+    const hiringPaid = Boolean(
+      await PaymentModel.exists({
+        transaction: tx._id,
+        type: PaymentType.ESCROW_HOLD,
+        status: PaymentStatus.CAPTURED,
+        deletedAt: null,
+      }),
+    );
+
     const now = new Date();
     intermediary.status = ParticipantStatus.REMOVED;
     intermediary.respondedAt = now;
 
+    const unpaidNote =
+      'Agente liberó la operación: el comprador aún no había pagado la contratación';
     const note = reason?.trim()
       ? `${AGENT_WITHDRAW_HISTORY_NOTE}: ${reason.trim().slice(0, 200)}`
-      : AGENT_WITHDRAW_HISTORY_NOTE;
+      : hiringPaid
+        ? AGENT_WITHDRAW_HISTORY_NOTE
+        : unpaidNote;
 
     tx.statusHistory.push({
       status: tx.status,
@@ -767,18 +782,26 @@ export class OpenJobsService {
         .map((p) => String(p.user)),
     ].filter((id, idx, arr) => id !== agentId && arr.indexOf(id) === idx);
 
+    const notifyTitle = hiringPaid
+      ? 'El agente solicitó salida'
+      : 'El agente liberó la operación';
+    const notifyBody = hiringPaid
+      ? `Estamos buscando un nuevo agente para la operación ${tx.code}. Lo pagado por el servicio del Agente no se mueve.`
+      : `El Agente dejó ${tx.code} porque la contratación aún no estaba paga. La operación vuelve a buscar Agente.`;
+
     await Promise.all(
       partyUserIds.map((uid) =>
         notificationsService.notify({
           userId: uid,
           type: NotificationType.TRANSACTION_UPDATE,
-          title: 'El agente solicitó salida',
-          body: `Estamos buscando un nuevo agente para la operación ${tx.code}. Lo pagado por el servicio del Agente no se mueve.`,
+          title: notifyTitle,
+          body: notifyBody,
           data: {
             href: `/operaciones/${tx.code}`,
             code: tx.code,
             status: tx.status,
             lookingForAgent: true,
+            hiringPaid,
           },
           entityType: 'Transaction',
           entityId: String(tx._id),

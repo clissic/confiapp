@@ -19,6 +19,7 @@ import {
   type TransactionStatus,
 } from '../model/types';
 import { AgentChecklistPanel } from './AgentChecklistPanel';
+import { OperationAgentSection } from './OperationAgentSection';
 import { OperationHistoryAccordion } from './OperationHistoryAccordion';
 import { PhotoLightbox } from './PhotoLightbox';
 
@@ -202,6 +203,11 @@ export function SellerOperationDetail({
             pagan entre ustedes.
           </p>
         </section>
+      ) : null}
+
+      {tx.participants.some((p) => p.role === 'INTERMEDIARY' && p.status === 'ACCEPTED') &&
+      tx.agent ? (
+        <OperationAgentSection agent={tx.agent} />
       ) : null}
 
       {tx.status === 'PENDING_BUYER_CONFIRM' ? (

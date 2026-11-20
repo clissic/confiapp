@@ -361,10 +361,16 @@ export function AgentOperationDetail({
             onClick={onWithdraw}
           >
             <LogOut size={15} strokeWidth={1.75} aria-hidden />
-            {withdrawing ? 'Procesando…' : 'Solicitar salida'}
+            {withdrawing
+              ? 'Procesando…'
+              : tx.status === 'ACCEPTED'
+                ? 'Dejar esta operación'
+                : 'Solicitar salida'}
           </Button>
           <p className="ca-tx-agent-view__exit-hint mb-0">
-            Disponible solo hasta empezar la verificación del producto.
+            {tx.status === 'ACCEPTED'
+              ? 'El comprador aún no pagó la contratación. Podés salir para que no se acumule en tu agencia.'
+              : 'Disponible solo hasta empezar la verificación del producto.'}
           </p>
         </div>
       ) : withdrawBlockedReason &&
