@@ -477,7 +477,7 @@ export async function buyerRejectProduct(
         {
           status: 'CANCELLED',
           changedAt: now,
-          note: 'Comprador rechazó el producto y canceló la compra',
+          note: 'Comprador rechazó el producto. Contratación del Agente no reembolsada (trabajo realizado).',
         },
       ],
       updatedAt: now,

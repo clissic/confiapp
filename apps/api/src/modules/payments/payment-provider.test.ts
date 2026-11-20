@@ -17,6 +17,19 @@ describe('PaymentProvider webhook / refund mock', () => {
     expect(a.status).toBe('approved');
   });
 
+  it('live refund exige autorización admin_dispute', async () => {
+    const provider = new MercadoPagoPaymentProvider({
+      isMock: () => false,
+      createPreference: vi.fn(),
+      getPayment: vi.fn(),
+      verifyWebhookSignature: () => true,
+    } as never);
+
+    await expect(provider.refundPayment('12345', 1000)).rejects.toThrow(
+      /administrador.*disputa/i,
+    );
+  });
+
   it('firma webhook delega al client', () => {
     const verify = vi.fn().mockReturnValue(true);
     const provider = new MercadoPagoPaymentProvider({

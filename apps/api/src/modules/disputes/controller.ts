@@ -39,12 +39,19 @@ export class DisputesController {
   };
 
   open = async (req: Request, res: Response): Promise<void> => {
-    const body = req.body as { reason?: string; category?: DisputeCategory };
+    const body = req.body as {
+      reason?: string;
+      category?: DisputeCategory;
+      photoStorageKeys?: string[];
+    };
     const data = await this.service.openDispute({
       userId: req.user!.id,
       transactionCode: String(req.params.code),
       reason: String(body.reason ?? 'Disputa abierta'),
       category: body.category,
+      photoStorageKeys: Array.isArray(body.photoStorageKeys)
+        ? body.photoStorageKeys.filter((k): k is string => typeof k === 'string')
+        : undefined,
     });
     res.status(201).json(data);
   };

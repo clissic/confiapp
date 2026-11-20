@@ -32,6 +32,7 @@ import type {
   DisputeResolveResultDto,
   DisputesStatusDto,
 } from './dto';
+import { disputeEvidenceSnapshotService } from './evidence-snapshot.service';
 import { DisputesRepository, mapActiveDisputeDto } from './repository';
 
 const ACTIVE_STATUSES = [DisputeStatus.OPEN, DisputeStatus.UNDER_REVIEW];
@@ -67,6 +68,8 @@ export class DisputesService {
     transactionCode: string;
     reason: string;
     category?: DisputeCategory;
+    /** Fotos opcionales (solo imágenes; sin video/audio). */
+    photoStorageKeys?: string[];
   }): Promise<DisputeOpenResultDto> {
     const tx = await TransactionModel.findOne({
       code: input.transactionCode.toUpperCase(),
@@ -118,6 +121,16 @@ export class DisputesService {
       category,
       reason,
       openedAt: now,
+    });
+
+    await disputeEvidenceSnapshotService.captureOnOpen({
+      disputeId: String(dispute._id),
+      transaction: tx,
+      openedByUserId: input.userId,
+      reason,
+      category,
+      openedAt: now,
+      photoStorageKeys: input.photoStorageKeys,
     });
 
     await agentCommissionService.setDisputeBlocked(String(tx._id), true);
@@ -179,6 +192,8 @@ export class DisputesService {
     const row = await this.repository.findDetailById(disputeId);
     if (!row) throw new NotFoundError('Disputa no encontrada');
 
+    const evidence = await disputeEvidenceSnapshotService.listForDispute(disputeId);
+
     return {
       id: String(row._id),
       status: row.status,
@@ -206,6 +221,7 @@ export class DisputesService {
             },
           }
         : {}),
+      evidence,
     };
   }
 
@@ -270,7 +286,9 @@ export class DisputesService {
         deletedAt: null,
       }).exec();
       if (hold?.externalId) {
-        await paymentProvider.refundPayment(hold.externalId);
+        await paymentProvider.refundPayment(hold.externalId, undefined, {
+          via: 'admin_dispute',
+        });
         hold.status = PaymentStatus.REFUNDED;
         hold.refundedAt = now;
         await hold.save();

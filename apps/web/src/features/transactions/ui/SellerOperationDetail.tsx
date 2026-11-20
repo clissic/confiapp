@@ -49,7 +49,7 @@ function placeLabel(label?: string): string {
   return label?.trim() || 'A coordinar';
 }
 
-function upcomingForSeller(tx: Transaction, pendingPayment: boolean) {
+function upcomingForSeller(tx: Transaction) {
   if (tx.status === 'CANCELLED' || tx.status === 'DISPUTED' || tx.status === 'COMPLETED') {
     return null;
   }
@@ -66,16 +66,10 @@ function upcomingForSeller(tx: Transaction, pendingPayment: boolean) {
     };
   }
   if (tx.status === 'ACCEPTED') {
-    return pendingPayment
-      ? {
-          title: 'Verificación del pago',
-          detail: 'El comprador ya pagó. ConfiApp está confirmando la transferencia.',
-        }
-      : {
-          title: 'Pago',
-          detail:
-            'A la espera de que el comprador pague la contratación del Agente en la app.',
-        };
+    return {
+      title: 'Pago',
+      detail: 'A la espera de que el comprador pague la contratación del Agente en la app.',
+    };
   }
   if (tx.status === 'FUNDED' || tx.status === 'IN_PROGRESS') {
     if (!tx.agentVerification) {
@@ -109,7 +103,6 @@ function upcomingForSeller(tx: Transaction, pendingPayment: boolean) {
 export function SellerOperationDetail({
   tx,
   error,
-  pendingPaymentConfirmation,
   lookingForAgent,
   showInvitePanel,
   shareUrl,
@@ -123,7 +116,6 @@ export function SellerOperationDetail({
 }: {
   tx: Transaction;
   error: string | null;
-  pendingPaymentConfirmation: boolean;
   lookingForAgent: boolean;
   showInvitePanel: boolean;
   shareUrl?: string;
@@ -145,7 +137,7 @@ export function SellerOperationDetail({
         : [];
   const pickupLabel = placeLabel(tx.party?.seller?.meetingLocation?.label);
   const ownInstructions = tx.party?.seller?.conditionsSummary || tx.conditions.summary;
-  const upcoming = upcomingForSeller(tx, pendingPaymentConfirmation);
+  const upcoming = upcomingForSeller(tx);
 
   return (
     <div className="ca-tx ca-tx--detail ca-tx-agent-view">
@@ -204,15 +196,10 @@ export function SellerOperationDetail({
             <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
             Pago en la app
           </p>
-          <h2>
-            {pendingPaymentConfirmation
-              ? 'Esperando confirmación del pago'
-              : 'Esperando el pago del comprador'}
-          </h2>
+          <h2>Esperando el pago del comprador</h2>
           <p className="mb-0">
-            {pendingPaymentConfirmation
-              ? 'El comprador ya envió el comprobante. Estamos verificando la transferencia.'
-              : 'El comprador paga en ConfiApp solo la contratación del Agente. El producto lo acuerdan y pagan entre ustedes.'}
+            El comprador paga en ConfiApp solo la contratación del Agente. El producto lo acuerdan y
+            pagan entre ustedes.
           </p>
         </section>
       ) : null}
@@ -362,7 +349,7 @@ export function SellerOperationDetail({
             {tx.agentVerification.buyerDecision === 'ACCEPTED'
               ? 'El comprador aceptó. El Agente lleva el producto al punto de entrega.'
               : tx.agentVerification.buyerDecision === 'REJECTED'
-                ? 'El comprador rechazó el producto y se canceló la compra. Se reembolsa la contratación del Agente.'
+                ? 'El comprador rechazó el producto y canceló la compra. La contratación del Agente no se reembolsa (trabajo ya realizado).'
                 : 'Esperamos la decisión del comprador sobre el producto.'}
           </p>
           {tx.agentVerification.note ? (

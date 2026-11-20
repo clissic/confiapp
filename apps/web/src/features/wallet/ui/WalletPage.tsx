@@ -20,7 +20,6 @@ import { formatPayoutMethodType } from '@/features/profile/model/payout-methods'
 import type { ProfilePayoutMethod } from '@/features/profile/model/types';
 
 import {
-  useCompleteWithdrawal,
   useExportWallet,
   useRequestWithdrawal,
   useWalletCommissions,
@@ -31,6 +30,7 @@ import {
 import {
   WALLET_COMMISSION_TYPE_LABELS,
   WALLET_MOVEMENT_TYPE_LABELS,
+  WALLET_WITHDRAWAL_STATUS_LABELS,
   type WalletCommissionsQuery,
   type WalletMovementsQuery,
 } from '../model/types';
@@ -85,7 +85,6 @@ export function WalletPage() {
   const { data: profileRes } = useProfile();
   const { data: withdrawalsRes } = useWalletWithdrawals();
   const requestWd = useRequestWithdrawal();
-  const completeWd = useCompleteWithdrawal();
   const exportWd = useExportWallet();
 
   const summary = summaryRes?.data;
@@ -530,29 +529,27 @@ export function WalletPage() {
             <p className="ca-wallet-withdrawals__empty-list">Sin retiros todavía.</p>
           ) : (
             <ul className="ca-wallet-list">
-              {withdrawalsRes?.items.map((w) => (
-                <li key={w.id}>
-                  <div>
-                    <strong>{formatMoney(w.amountCents, w.currency)}</strong>
-                    <Badge bg="secondary" className="ms-2">
-                      {w.status}
-                    </Badge>
-                    <div className="ca-wallet__hint">
-                      {w.destinationHint || 'Sin destino'} · {formatDateTime(w.requestedAt)}
+              {withdrawalsRes?.items.map((w) => {
+                const pending = w.status === 'PENDING' || w.status === 'PROCESSING';
+                return (
+                  <li key={w.id}>
+                    <div>
+                      <strong>{formatMoney(w.amountCents, w.currency)}</strong>
+                      <Badge bg={pending ? 'warning' : 'secondary'} text={pending ? 'dark' : undefined} className="ms-2">
+                        {WALLET_WITHDRAWAL_STATUS_LABELS[w.status] ?? w.status}
+                      </Badge>
+                      <div className="ca-wallet__hint">
+                        {w.destinationHint || 'Sin destino'} · {formatDateTime(w.requestedAt)}
+                      </div>
+                      {pending ? (
+                        <div className="ca-wallet__hint">
+                          ConfiApp transferirá a tu método de cobro y confirmará el retiro.
+                        </div>
+                      ) : null}
                     </div>
-                  </div>
-                  {w.status === 'PENDING' || w.status === 'PROCESSING' ? (
-                    <Button
-                      size="sm"
-                      variant="outline-secondary"
-                      disabled={completeWd.isPending}
-                      onClick={() => void completeWd.mutateAsync(w.id)}
-                    >
-                      Completar
-                    </Button>
-                  ) : null}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

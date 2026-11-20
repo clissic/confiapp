@@ -31,8 +31,11 @@ export function useDispute(disputeId: string | null) {
 export function useOpenDispute(code: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { reason: string; category?: DisputeCategory }) =>
-      openDispute(code, payload),
+    mutationFn: (payload: {
+      reason: string;
+      category?: DisputeCategory;
+      photoStorageKeys?: string[];
+    }) => openDispute(code, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: transactionsQueryKey });
       void queryClient.invalidateQueries({ queryKey: disputesQueryKey });

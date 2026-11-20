@@ -19,7 +19,7 @@ const ALLOWED_MIME = new Set([
   'application/pdf',
 ]);
 
-export type MediaPurpose = 'chat' | 'kyc' | 'product' | 'receipt' | 'profile';
+export type MediaPurpose = 'chat' | 'kyc' | 'product' | 'receipt' | 'profile' | 'evidence';
 
 const MAX_BYTES: Record<MediaPurpose, number> = {
   chat: 2 * 1024 * 1024,
@@ -27,6 +27,8 @@ const MAX_BYTES: Record<MediaPurpose, number> = {
   product: 3 * 1024 * 1024,
   receipt: 5 * 1024 * 1024,
   profile: 3 * 1024 * 1024,
+  /** Fotos de disputa (sin video/audio). */
+  evidence: 4 * 1024 * 1024,
 };
 
 let s3: S3Client | null = null;

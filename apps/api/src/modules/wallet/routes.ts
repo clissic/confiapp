@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import { PlatformRole } from '@confiapp/database';
+import { z } from 'zod';
 
-import { asyncHandler, authenticate, validateRequest } from '../../middleware';
+import { asyncHandler, authenticate, requireRoles, validateRequest } from '../../middleware';
 import { WalletController } from './controller';
 import {
   walletCommissionsQuerySchema,
@@ -27,6 +29,17 @@ walletRoutes.get(
   asyncHandler(controller.commissions),
 );
 walletRoutes.get('/withdrawals', authenticate, asyncHandler(controller.withdrawals));
+walletRoutes.get(
+  '/admin/withdrawals',
+  authenticate,
+  requireRoles(PlatformRole.ADMIN),
+  validateRequest({
+    query: z.object({
+      limit: z.coerce.number().int().min(1).max(100).optional(),
+    }),
+  }),
+  asyncHandler(controller.adminPendingWithdrawals),
+);
 walletRoutes.post(
   '/withdrawals',
   authenticate,
@@ -36,6 +49,7 @@ walletRoutes.post(
 walletRoutes.post(
   '/withdrawals/:id/complete',
   authenticate,
+  requireRoles(PlatformRole.ADMIN),
   validateRequest({ params: walletWithdrawalIdParamsSchema }),
   asyncHandler(controller.completeWithdrawal),
 );

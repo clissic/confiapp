@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, Modal, Spinner } from 'react-bootstrap';
+import { Alert, Button, Modal, Spinner } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, MapPinCheck, PackageCheck, PackageX, ShieldCheck } from 'lucide-react';
 
@@ -60,7 +61,9 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
         toast.success('Producto aceptado. El Agente inicia el viaje hacia vos.');
       } else if (confirm === 'reject') {
         await reject.mutateAsync();
-        toast.success('Compra cancelada. Se inició el reembolso de la contratación del Agente.');
+        toast.success(
+          'Compra cancelada. La contratación del Agente no se reembolsa: el Agente ya realizó el trabajo.',
+        );
       } else {
         await confirmArrival.mutateAsync();
         toast.success(
@@ -119,9 +122,9 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
         </h2>
         <p className="ca-tx-product-decision__lead mb-0">
           {!decided
-            ? 'La verificación se hizo al retirar el producto del vendedor. Podés aceptar (el Agente te lo lleva) o rechazar y cancelar la compra.'
+            ? 'La verificación se hizo al retirar el producto del vendedor. Podés aceptar (el Agente te lo lleva) o rechazar y cancelar sin reembolso del fee del Agente. Si pedís devolución, abrí una disputa.'
             : rejected
-              ? 'Rechazaste el producto y cancelaste la compra.'
+              ? 'Rechazaste el producto y cancelaste la compra. La contratación del Agente no se reembolsa.'
               : arrivalDone && agentDeliveryDone
                 ? 'Arribo y entrega confirmados. La operación quedó completada.'
                 : arrivalDone
@@ -266,12 +269,29 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
             </>
           ) : confirm === 'reject' ? (
             <>
+              <Alert variant="warning" className="ca-tx-dispute-modal__alert mb-3">
+                Si cancelás ahora, <strong>no se te reembolsa</strong> lo pagado por la
+                contratación del Agente.
+              </Alert>
               <p>
-                Al confirmar, se cancela la compra y se reembolsa la contratación del Agente. El
-                Agente coordinará la devolución al vendedor si ya tenía el producto.
+                Desde que el Agente quedó asignado y pagaste la contratación, el Agente se
+                entiende como <strong>contratado</strong>. ConfiApp no puede medir cuánto tiempo
+                dedicó a la operación (traslado, verificación u otras gestiones). Por eso, al
+                cancelar sin disputa, ese monto se liquida como trabajo realizado y no se
+                devuelve.
+              </p>
+              <p>
+                Si considerás que corresponde devolverte el dinero, no cancelés así: abrí una{' '}
+                <strong>disputa</strong> para que un administrador revise el caso. Esta regla
+                está en los{' '}
+                <Link to="/terminos#termino-16" onClick={() => setConfirm(null)}>
+                  Términos y Condiciones
+                </Link>
+                .
               </p>
               <p className="ca-tx-product-decision__irreversible mb-0">
-                Esta elección no se puede deshacer.
+                Al confirmar, la compra se cancela sin reembolso. Esta elección no se puede
+                deshacer.
               </p>
             </>
           ) : (
@@ -282,33 +302,66 @@ export function BuyerProductDecisionPanel({ tx }: { tx: Transaction }) {
             </p>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="outline-secondary"
-            disabled={pending}
-            onClick={() => setConfirm(null)}
-          >
-            Volver
-          </Button>
-          <Button
-            className={confirm === 'reject' ? undefined : 'ca-btn-cta'}
-            variant={confirm === 'reject' ? 'danger' : undefined}
-            disabled={pending}
-            onClick={() => void onConfirm()}
-          >
-            {pending ? (
-              <>
-                <Spinner size="sm" animation="border" className="me-2" />
-                Procesando…
-              </>
-            ) : confirm === 'accept' ? (
-              'Confirmar aceptación'
-            ) : confirm === 'reject' ? (
-              'Confirmar rechazo'
-            ) : (
-              'Confirmar arribo'
-            )}
-          </Button>
+        <Modal.Footer className={confirm === 'reject' ? 'flex-column align-items-stretch gap-2' : undefined}>
+          {confirm === 'reject' ? (
+            <>
+              <Button
+                variant="outline-primary"
+                disabled={pending}
+                onClick={() => {
+                  setConfirm(null);
+                  disputeReport.openReport('other');
+                }}
+              >
+                Abrir disputa (pedir revisión / reembolso)
+              </Button>
+              <div className="d-flex gap-2 justify-content-end">
+                <Button
+                  variant="outline-secondary"
+                  disabled={pending}
+                  onClick={() => setConfirm(null)}
+                >
+                  Volver
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={pending}
+                  onClick={() => void onConfirm()}
+                >
+                  {pending ? (
+                    <>
+                      <Spinner size="sm" animation="border" className="me-2" />
+                      Procesando…
+                    </>
+                  ) : (
+                    'Entiendo: cancelar sin reembolso'
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline-secondary"
+                disabled={pending}
+                onClick={() => setConfirm(null)}
+              >
+                Volver
+              </Button>
+              <Button className="ca-btn-cta" disabled={pending} onClick={() => void onConfirm()}>
+                {pending ? (
+                  <>
+                    <Spinner size="sm" animation="border" className="me-2" />
+                    Procesando…
+                  </>
+                ) : confirm === 'accept' ? (
+                  'Confirmar aceptación'
+                ) : (
+                  'Confirmar arribo'
+                )}
+              </Button>
+            </>
+          )}
         </Modal.Footer>
       </Modal>
 

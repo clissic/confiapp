@@ -1460,7 +1460,9 @@ export class TransactionsService {
   }
 
   /**
-   * Comprador rechaza el producto tras la verificación → reembolso + cancelación.
+   * Comprador rechaza el producto tras la verificación → cancela sin reembolso.
+   * La contratación del Agente se liquida (trabajo ya hecho: viaje / verificación).
+   * Reembolsos MP solo por resolución admin de disputa.
    */
   async buyerRejectProduct(userId: string, code: string): Promise<TransactionDto> {
     const tx = await this.repository.findByCode(code);
@@ -1490,24 +1492,22 @@ export class TransactionsService {
     }
     assertNotPastDeadline(tx);
 
+    // Marcar decisión antes de liquidar/cancelar para no perder el rechazo si falla el settle.
+    const decidedAt = new Date();
+    tx.agentVerification.buyerDecision = 'REJECTED';
+    tx.agentVerification.buyerDecidedAt = decidedAt;
+    tx.agentVerification.buyerDecidedBy = new Types.ObjectId(userId);
+    await tx.save();
+
     const { PaymentsService } = await import('../payments/service');
-    await new PaymentsService().refundEscrowAndCancel(
+    await new PaymentsService().settleAgentFeeAndCancelOnBuyerReject(
       userId,
       code,
-      'Comprador rechazó el producto y canceló la compra',
+      'Comprador rechazó el producto. Contratación del Agente no reembolsada (trabajo realizado).',
     );
 
     const refreshed = await this.repository.findByCode(code);
     if (!refreshed) throw new NotFoundError('Operación no encontrada');
-    if (!refreshed.agentVerification) {
-      throw new ValidationError('Estado de verificación inconsistente.');
-    }
-
-    const now = new Date();
-    refreshed.agentVerification.buyerDecision = 'REJECTED';
-    refreshed.agentVerification.buyerDecidedAt = now;
-    refreshed.agentVerification.buyerDecidedBy = new Types.ObjectId(userId);
-    await refreshed.save();
 
     const { auditService, AuditAction, AuditOutcome } = await import('../audit');
     auditService.track({
@@ -1521,7 +1521,9 @@ export class TransactionsService {
       metadata: {
         code: refreshed.code,
         step: 'buyer_reject_product',
-        allPassed: refreshed.agentVerification.allPassed,
+        allPassed: refreshed.agentVerification?.allPassed,
+        noRefund: true,
+        agentFeeSettled: true,
       },
     });
 

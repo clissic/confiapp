@@ -42,19 +42,6 @@ export class PaymentsController {
     res.status(200).json(data);
   };
 
-  manualTransfer = async (req: Request, res: Response): Promise<void> => {
-    const code = String(req.params.code);
-    const data = await this.service.submitManualPrexTransfer(req.user!.id, code, {
-      receiptStorageKey:
-        typeof req.body.receiptStorageKey === 'string' ? req.body.receiptStorageKey : undefined,
-      receiptDataUrl:
-        typeof req.body.receiptDataUrl === 'string' ? req.body.receiptDataUrl : undefined,
-      receiptFileName:
-        typeof req.body.receiptFileName === 'string' ? req.body.receiptFileName : undefined,
-    });
-    res.status(201).json(data);
-  };
-
   release = async (req: Request, res: Response): Promise<void> => {
     const code = String(req.params.code);
     const data = await this.service.releaseEscrow(req.user!.id, code);
@@ -108,30 +95,6 @@ export class PaymentsController {
     res.status(200).json(data);
   };
 
-  listManualPrexTransfers = async (req: Request, res: Response): Promise<void> => {
-    const limit = req.query.limit ? Number(req.query.limit) : 15;
-    const page = req.query.page ? Number(req.query.page) : 1;
-    const data = await this.service.listManualPrexTransfersForAdmin({ page, limit });
-    res.status(200).json(data);
-  };
-
-  getManualPrexTransfer = async (req: Request, res: Response): Promise<void> => {
-    const paymentId = String(req.params.paymentId);
-    const data = await this.service.getManualPrexTransferForAdmin(paymentId);
-    res.status(200).json(data);
-  };
-
-  setManualPrexAdminConfirmation = async (req: Request, res: Response): Promise<void> => {
-    const paymentId = String(req.params.paymentId);
-    const confirmed = Boolean(req.body.confirmed);
-    const data = await this.service.setManualPrexAdminConfirmation(
-      req.user!.id,
-      paymentId,
-      confirmed,
-    );
-    res.status(200).json(data);
-  };
-
   mpConnectionStatus = async (req: Request, res: Response): Promise<void> => {
     const data = await this.mpOAuth.getConnection(req.user!.id);
     res.status(200).json(data);
@@ -175,5 +138,4 @@ export class PaymentsController {
     const data = await this.mpOAuth.disconnect(req.user!.id);
     res.status(200).json(data);
   };
-
 }

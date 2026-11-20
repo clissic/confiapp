@@ -11,6 +11,7 @@ import type {
   CheckoutResult,
   PaymentLookup,
   PaymentProvider,
+  RefundAuthorization,
   RefundResult,
   WebhookSignatureParams,
 } from './payment-provider';
@@ -41,7 +42,11 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
     return this.client.verifyWebhookSignature(params);
   }
 
-  async refundPayment(paymentId: string, amountCents?: number): Promise<RefundResult> {
+  async refundPayment(
+    paymentId: string,
+    amountCents?: number,
+    authorization?: RefundAuthorization,
+  ): Promise<RefundResult> {
     if (this.isMock() || paymentId.startsWith('MOCK-')) {
       logger.info('payment provider mock refund', { paymentId, amountCents });
       return {
@@ -52,9 +57,9 @@ export class MercadoPagoPaymentProvider implements PaymentProvider {
       };
     }
 
-    if (!env.MERCADOPAGO_ENABLE_REFUNDS) {
+    if (authorization?.via !== 'admin_dispute') {
       throw new ValidationError(
-        'Refunds Mercado Pago no están habilitados en esta cuenta (MERCADOPAGO_ENABLE_REFUNDS).',
+        'Los reembolsos solo se ejecutan cuando un administrador los activa al resolver una disputa.',
       );
     }
 

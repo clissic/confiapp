@@ -15,7 +15,7 @@ Plataforma de **intermediación segura** (encuentro físico + control digital): 
 
 - **Operaciones** con invite, checklist de entrega y flujo de estados hasta contratación del Agente / progreso / cierre.
 - **Tres roles en cada op:** Comprador, Vendedor y Agente — flujos detallados con diagramas en [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md).
-- **Pagos (modo vigente):** solo la **contratación del Agente** (UYU $500, `AGENT_FEE_ONLY`) vía Prex o Mercado Pago (`PAYMENTS_CHECKOUT_MODE`). El **precio del producto** se acuerda y se paga **fuera** de ConfiApp. Wallet de comisiones del Agente (hold 14 días + liquidación admin 1–10).
+- **Pagos (modo vigente):** solo la **contratación del Agente** (UYU $500, `AGENT_FEE_ONLY`) vía **Mercado Pago** (Checkout Pro; MOCK si no hay token). El **precio del producto** se acuerda y se paga **fuera** de ConfiApp. Wallet de comisiones del Agente (hold 14 días + liquidación admin 1–10).
 - **Agentes intermediarios:** onboarding, búsqueda, trabajos abiertos, ofertas de asignación; **suspender / cerrar agencia** y **solicitar salida** de una operación (la contratación del Agente no se mueve; se busca reemplazo).
 - **Chat** y **notificaciones** in-app en tiempo real.
 - **KYC** (review admin por fotos), **reputación** y **auditoría** (admin).
@@ -96,7 +96,7 @@ No se envían datos de usuario, cookies ni bodies, y `beforeSend` filtra headers
 | [`docs/WEB_APP.md`](./docs/WEB_APP.md) | Estado del producto web (rutas, UI, estados internos) |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Estructura del monorepo y módulos |
 | [`docs/SYSTEM_ARCHITECTURE.md`](./docs/SYSTEM_ARCHITECTURE.md) | Diseño SaaS (pagos, realtime, escala) |
-| [`docs/FINANCE_MVP_NOTES.md`](./docs/FINANCE_MVP_NOTES.md) | Cobro Prex/MP, comisiones, OAuth agentes |
+| [`docs/FINANCE_MVP_NOTES.md`](./docs/FINANCE_MVP_NOTES.md) | Cobro Mercado Pago, comisiones, OAuth agentes |
 | [`docs/ID_DIGITAL_AGENTS.md`](./docs/ID_DIGITAL_AGENTS.md) | ID Digital Abitab — onboarding agente + aceptar trabajo |
 | [`docs/BACKEND_BOOTSTRAP.md`](./docs/BACKEND_BOOTSTRAP.md) | Snapshot histórico del bootstrap Express |
 | [`docs/DEMO_PUBLICO.md`](./docs/DEMO_PUBLICO.md) | Demo público con túnel Cloudflare |

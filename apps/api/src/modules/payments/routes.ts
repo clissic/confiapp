@@ -17,9 +17,6 @@ import {
   paymentIdParamsSchema,
   paymentLogsQuerySchema,
   paymentTransactionCodeParamsSchema,
-  manualPrexTransferBodySchema,
-  adminManualTransfersQuerySchema,
-  manualPrexAdminConfirmationBodySchema,
   syncCheckoutReturnBodySchema,
 } from './validation';
 
@@ -35,33 +32,6 @@ paymentsRoutes.get(
   requireRoles(PlatformRole.ADMIN),
   validateRequest({ query: paymentLogsQuerySchema }),
   asyncHandler(controller.listLogs),
-);
-
-paymentsRoutes.get(
-  '/admin/manual-transfers',
-  authenticate,
-  requireRoles(PlatformRole.ADMIN),
-  validateRequest({ query: adminManualTransfersQuerySchema }),
-  asyncHandler(controller.listManualPrexTransfers),
-);
-
-paymentsRoutes.get(
-  '/admin/manual-transfers/:paymentId',
-  authenticate,
-  requireRoles(PlatformRole.ADMIN),
-  validateRequest({ params: paymentIdParamsSchema }),
-  asyncHandler(controller.getManualPrexTransfer),
-);
-
-paymentsRoutes.patch(
-  '/admin/manual-transfers/:paymentId/confirmation',
-  authenticate,
-  requireRoles(PlatformRole.ADMIN),
-  validateRequest({
-    params: paymentIdParamsSchema,
-    body: manualPrexAdminConfirmationBodySchema,
-  }),
-  asyncHandler(controller.setManualPrexAdminConfirmation),
 );
 
 paymentsRoutes.get(
@@ -88,16 +58,6 @@ paymentsRoutes.post(
     body: syncCheckoutReturnBodySchema,
   }),
   asyncHandler(controller.syncCheckoutReturn),
-);
-
-paymentsRoutes.post(
-  '/transactions/:code/manual-transfer',
-  authenticate,
-  validateRequest({
-    params: paymentTransactionCodeParamsSchema,
-    body: manualPrexTransferBodySchema,
-  }),
-  asyncHandler(controller.manualTransfer),
 );
 
 paymentsRoutes.post(

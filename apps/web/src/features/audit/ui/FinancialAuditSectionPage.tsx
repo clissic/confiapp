@@ -5,7 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/api/client';
 import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
 
-import { labelFinancialAuditAction } from '../model/labels';
+import {
+  describeFinancialAuditAction,
+  labelFinancialAuditAction,
+  labelFinancialStatus,
+} from '../model/labels';
 import { AUDIT_PAGE_SIZE } from '../model/types';
 import { getAuditSection } from '../model/sections';
 import { AuditPager } from './AuditPager';
@@ -19,8 +23,13 @@ type FinancialAuditItem = {
   newStatus?: string;
   agentId?: string;
   operationId?: string;
+  paymentId?: string;
+  commissionId?: string;
   payoutId?: string;
   payoutBatchId?: string;
+  actorId?: string;
+  actorRole?: string;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 };
 
@@ -46,6 +55,34 @@ async function fetchFinancialAudit(params: {
     },
   });
   return data;
+}
+
+function truncateId(id: string): string {
+  return `…${String(id).slice(-8)}`;
+}
+
+function summarizeFinancial(item: FinancialAuditItem): string {
+  const bits: string[] = [];
+  if (typeof item.amountCents === 'number') {
+    bits.push(formatOperationMoney(item.amountCents, item.currency ?? 'UYU'));
+  }
+  if (item.previousStatus && item.newStatus) {
+    bits.push(
+      `${labelFinancialStatus(item.previousStatus)} → ${labelFinancialStatus(item.newStatus)}`,
+    );
+  }
+  if (item.agentId) bits.push(`Agente ${truncateId(item.agentId)}`);
+  if (item.operationId) bits.push(`Op. ${truncateId(item.operationId)}`);
+  return bits.join(' · ');
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="ca-audit-detail__row">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
+  );
 }
 
 /** Registros de auditoría financiera (comisiones, liquidaciones). */
@@ -156,50 +193,105 @@ export function FinancialAuditSectionPage() {
           </p>
         ) : (
           <>
-            <ul className="ca-audit-list">
-              {items.map((item) => (
-                <li key={item._id} className="ca-audit-item">
-                  <div className="ca-audit-item__row">
-                    <span className="ca-audit-item__action">
-                      {labelFinancialAuditAction(item.action)}
-                    </span>
-                    {item.newStatus ? (
-                      <span className="ca-audit-badge ca-audit-badge--ok">{item.newStatus}</span>
-                    ) : null}
-                    <span className="ca-audit-item__meta ms-auto">
-                      {formatDateTime(item.createdAt)}
-                    </span>
-                  </div>
-                  <div className="ca-audit-item__meta">
-                    {typeof item.amountCents === 'number' ? (
-                      <>
-                        {formatOperationMoney(item.amountCents, item.currency ?? 'UYU')}
-                        {' · '}
-                      </>
-                    ) : null}
-                    {item.previousStatus && item.newStatus ? (
-                      <>
-                        {item.previousStatus} → {item.newStatus}
-                        {' · '}
-                      </>
-                    ) : null}
-                    {item.agentId ? (
-                      <span className="ca-audit-item__code">
-                        Agente …{String(item.agentId).slice(-8)}
-                      </span>
-                    ) : null}
-                    {item.operationId ? (
-                      <>
-                        {' · '}
-                        <span className="ca-audit-item__code">
-                          Op. …{String(item.operationId).slice(-8)}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <Accordion alwaysOpen className="ca-audit-events">
+              {items.map((item) => {
+                const summary = summarizeFinancial(item);
+                const statusLabel = item.newStatus
+                  ? labelFinancialStatus(item.newStatus)
+                  : null;
+                return (
+                  <Accordion.Item
+                    key={item._id}
+                    eventKey={item._id}
+                    className="ca-audit-events__item"
+                  >
+                    <Accordion.Header>
+                      <div className="ca-audit-events__head">
+                        <div className="ca-audit-item__row">
+                          <span className="ca-audit-item__action">
+                            {labelFinancialAuditAction(item.action)}
+                          </span>
+                          {statusLabel ? (
+                            <span className="ca-audit-badge ca-audit-badge--ok">
+                              {statusLabel}
+                            </span>
+                          ) : null}
+                          <span className="ca-audit-item__meta ms-auto">
+                            {formatDateTime(item.createdAt)}
+                          </span>
+                        </div>
+                        {summary ? (
+                          <div className="ca-audit-item__meta ca-audit-events__summary">
+                            {summary}
+                          </div>
+                        ) : null}
+                      </div>
+                    </Accordion.Header>
+                    <Accordion.Body>
+                      <p className="ca-audit-detail__description">
+                        {describeFinancialAuditAction(item.action)}
+                      </p>
+                      <dl className="ca-audit-detail">
+                        <DetailRow
+                          label="Acción"
+                          value={labelFinancialAuditAction(item.action)}
+                        />
+                        <DetailRow label="Fecha" value={formatDateTime(item.createdAt)} />
+                        {typeof item.amountCents === 'number' ? (
+                          <DetailRow
+                            label="Monto"
+                            value={formatOperationMoney(
+                              item.amountCents,
+                              item.currency ?? 'UYU',
+                            )}
+                          />
+                        ) : null}
+                        {item.previousStatus || item.newStatus ? (
+                          <DetailRow
+                            label="Estado"
+                            value={
+                              item.previousStatus && item.newStatus
+                                ? `${labelFinancialStatus(item.previousStatus)} → ${labelFinancialStatus(item.newStatus)}`
+                                : labelFinancialStatus(
+                                    item.newStatus ?? item.previousStatus ?? '',
+                                  )
+                            }
+                          />
+                        ) : null}
+                        {item.operationId ? (
+                          <DetailRow label="Operación" value={String(item.operationId)} />
+                        ) : null}
+                        {item.agentId ? (
+                          <DetailRow label="Agente" value={String(item.agentId)} />
+                        ) : null}
+                        {item.paymentId ? (
+                          <DetailRow label="Pago" value={String(item.paymentId)} />
+                        ) : null}
+                        {item.commissionId ? (
+                          <DetailRow label="Comisión" value={String(item.commissionId)} />
+                        ) : null}
+                        {item.payoutId ? (
+                          <DetailRow label="Pago a agente" value={String(item.payoutId)} />
+                        ) : null}
+                        {item.payoutBatchId ? (
+                          <DetailRow
+                            label="Lote de liquidación"
+                            value={String(item.payoutBatchId)}
+                          />
+                        ) : null}
+                        {item.actorId ? (
+                          <DetailRow label="Actor" value={String(item.actorId)} />
+                        ) : null}
+                        {item.actorRole ? (
+                          <DetailRow label="Rol del actor" value={item.actorRole} />
+                        ) : null}
+                        <DetailRow label="ID del evento" value={item._id} />
+                      </dl>
+                    </Accordion.Body>
+                  </Accordion.Item>
+                );
+              })}
+            </Accordion>
 
             <AuditPager
               total={total}

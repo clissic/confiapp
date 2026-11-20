@@ -7,26 +7,13 @@ Flujos de operación (roles, pagos, plazos): [`OPERATION_FLOWS.md`](./OPERATION_
 
 ## Cobro al comprador (modo actual)
 
-| Modo | Env | Comportamiento |
-|---|---|---|
-| **`mercadopago`** | `PAYMENTS_CHECKOUT_MODE=mercadopago` | Checkout Pro / MOCK. En `AGENT_FEE_ONLY` el monto es **UYU $500** (contratación del Agente). Webhook + `sync-checkout` al volver. |
-| **`manual_prex`** | `PAYMENTS_CHECKOUT_MODE=manual_prex` | UI Prex + upload → hold `REQUIRES_ACTION` → admin en `/admin/pagos` → `FUNDED`. |
+Solo **Mercado Pago** (Checkout Pro). Sin `MERCADOPAGO_ACCESS_TOKEN` → MOCK local.
 
-Cuenta Prex plataforma (configurable):
+En `AGENT_FEE_ONLY` el monto es **UYU $500** (contratación del Agente). Confirmación por webhook + `POST .../sync-checkout` al volver. Tras pago aprobado → `FUNDED` (UI «Agente contratado») sin intervención admin.
 
-- `PAYMENTS_PREX_ACCOUNT_NAME` (default `Ignacio La Cava`)
-- `PAYMENTS_PREX_ACCOUNT_NUMBER` (default `1065233`)
+Eventos de pago: Auditoría → `/auditoria/pagos` (paginado).
 
-En **fee-only**, el comprador paga solo la contratación fija; no el precio del producto.
-
-Al subir comprobante (Prex):
-
-- Operación queda pendiente de confirmación admin (no `FUNDED` todavía)
-- Email a `PLATFORM_NOTIFY_EMAIL` (o `MAIL_FROM` / `SMTP_USER`) con adjunto y link a `/admin/pagos`
-- Admin confirma con switch en `/admin/pagos` → `PATCH .../confirmation` → `FUNDED` + agentes ven el trabajo
-- API admin: `GET /payments/admin/manual-transfers?page=&limit=` (paginado, default 15)
-- UI admin: `/admin/pagos` — listado minimalista + preview/descarga de comprobante
-- Eventos de pago (incl. Prex): Auditoría → `/auditoria/pagos` (paginado)
+La vía Prex / `PAYMENTS_CHECKOUT_MODE` / `/admin/pagos` fue **retirada**.
 
 ## Piezas clave
 
@@ -37,7 +24,7 @@ Al subir comprobante (Prex):
 | Modelos | `AgentCommission`, `PayoutBatch`, `AgentPayout`, `FinancialAuditEvent` |
 | Módulo API | `apps/api/src/modules/finance` |
 | PaymentProvider | `apps/api/src/infrastructure/payments/payment-provider.ts` |
-| Manual Prex | `PaymentsService.submitManualPrexTransfer` + UI `PrexTransferPanel` |
+| Checkout MP | `PaymentsService.createBuyerCheckout` + UI `TransactionPayPage` |
 | ManualPayoutProvider | `apps/api/src/infrastructure/payments/payout-provider.ts` |
 | Job AVAILABLE | timer en `server.ts` + `POST /finance/jobs/release-commissions` |
 | Admin UI | `/admin/finanzas` |
@@ -62,4 +49,4 @@ Vinculación por usuario (sin split 1:N aún).
 | API | `GET/DELETE /payments/mercadopago/connection`, `GET .../oauth/start`, `GET .../oauth/callback` |
 | UI | Configuración → `MercadoPagoConnectSection` |
 
-Env: `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_OAUTH_REDIRECT_URI` (URL de la **web** `/oauth/mercadopago/callback`, local ≠ Railway), `MERCADOPAGO_TOKEN_ENCRYPTION_KEY`. PKCE solo con `MERCADOPAGO_OAUTH_USE_PKCE=true` y el switch habilitado en el panel MP. El `MERCADOPAGO_ACCESS_TOKEN` de plataforma sirve para Checkout Pro cuando el modo sea `mercadopago`.
+Env: `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_OAUTH_REDIRECT_URI` (URL de la **web** `/oauth/mercadopago/callback`, local ≠ Railway), `MERCADOPAGO_TOKEN_ENCRYPTION_KEY`. PKCE solo con `MERCADOPAGO_OAUTH_USE_PKCE=true` y el switch habilitado en el panel MP. El `MERCADOPAGO_ACCESS_TOKEN` de plataforma sirve para Checkout Pro.

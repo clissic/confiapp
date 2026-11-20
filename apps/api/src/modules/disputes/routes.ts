@@ -24,6 +24,8 @@ disputesRoutes.post(
     body: z.object({
       reason: z.string().trim().min(3).max(500),
       category: z.nativeEnum(DisputeCategory).optional(),
+      /** Solo fotos (storageKey). Sin video/audio. */
+      photoStorageKeys: z.array(z.string().trim().min(3).max(512)).max(5).optional(),
     }),
   }),
   asyncHandler(controller.open),

@@ -14,9 +14,14 @@ import { ChevronLeft, ChevronRight, Filter, Info, X } from 'lucide-react';
 import { AGENT_COMMISSION_HOLD_DAYS, isWithinAgentPayoutWindow } from '@confiapp/shared';
 
 import { apiClient, getApiErrorMessage } from '@/shared/api/client';
-import { formatDateTime, formatOperationMoney } from '@/shared/lib/money';
+import { formatDateTime, formatMoney, formatOperationMoney } from '@/shared/lib/money';
 import { useAppToast } from '@/shared/ui';
 import { MaskedAccountNumber } from '@/features/profile/ui/MaskedAccountNumber';
+import {
+  completeWithdrawalAsAdmin,
+  fetchAdminPendingWithdrawals,
+} from '@/features/wallet/api/wallet.api';
+import { WALLET_WITHDRAWAL_STATUS_LABELS } from '@/features/wallet/model/types';
 import '../styles/admin-finance.css';
 
 const PAGE_SIZE = 10;
@@ -267,6 +272,22 @@ export function AdminFinancePage() {
     },
   });
 
+  const retirosPendientesQuery = useQuery({
+    queryKey: ['wallet', 'admin', 'withdrawals'],
+    queryFn: fetchAdminPendingWithdrawals,
+  });
+
+  const completarRetiro = useMutation({
+    mutationFn: completeWithdrawalAsAdmin,
+    onSuccess: () => {
+      toast.success('Retiro marcado como transferido.');
+      void qc.invalidateQueries({ queryKey: ['wallet', 'admin', 'withdrawals'] });
+    },
+    onError: (err) => {
+      setError(getApiErrorMessage(err, 'No se pudo completar el retiro.'));
+    },
+  });
+
   const liquidaciones = liquidacionesQuery.data?.items ?? [];
   const totalPages = liquidacionesQuery.data?.totalPages ?? 0;
   const total = liquidacionesQuery.data?.total ?? 0;
@@ -360,6 +381,60 @@ export function AdminFinancePage() {
       </section>
 
       {error ? <Alert variant="danger">{error}</Alert> : null}
+
+      <section className="ca-admin-fin-panel">
+        <div className="ca-admin-fin-panel__head">
+          <PanelTitle
+            title="Retiros de wallet"
+            helpId="admin-fin-withdrawals"
+            helpTitle="Retiros de wallet"
+          >
+            <p className="mb-0">
+              El usuario solo solicita el retiro. Vos transferís al método de cobro y recién
+              entonces marcás “Completado”. No puede auto-confirmarse.
+            </p>
+          </PanelTitle>
+        </div>
+        {retirosPendientesQuery.isLoading ? (
+          <div className="ca-admin-fin__loading">
+            <Spinner animation="border" size="sm" /> Cargando retiros…
+          </div>
+        ) : (retirosPendientesQuery.data?.items.length ?? 0) === 0 ? (
+          <p className="ca-admin-fin__empty mb-0">No hay retiros pendientes.</p>
+        ) : (
+          <ul className="ca-admin-fin-withdrawals list-unstyled mb-0">
+            {retirosPendientesQuery.data?.items.map((retiro) => (
+              <li key={retiro.id} className="ca-admin-fin-withdrawals__item">
+                <div>
+                  <strong>{formatMoney(retiro.amountCents, retiro.currency)}</strong>
+                  <Badge bg="warning" text="dark" className="ms-2">
+                    {WALLET_WITHDRAWAL_STATUS_LABELS[retiro.status] ?? retiro.status}
+                  </Badge>
+                  <div className="ca-admin-fin-withdrawals__meta">
+                    {retiro.userName || 'Usuario'}
+                    {retiro.userEmail ? ` · ${retiro.userEmail}` : ''}
+                  </div>
+                  <div className="ca-admin-fin-withdrawals__meta">
+                    Destino: {retiro.destinationHint || 'Sin hint'} ·{' '}
+                    {formatDateTime(retiro.requestedAt)}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  className="ca-btn-cta"
+                  disabled={completarRetiro.isPending}
+                  onClick={() => {
+                    setError(null);
+                    completarRetiro.mutate(retiro.id);
+                  }}
+                >
+                  {completarRetiro.isPending ? 'Confirmando…' : 'Marcar transferido'}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="ca-admin-fin-panel">
         <div className="ca-admin-fin-panel__head">

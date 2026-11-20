@@ -243,7 +243,19 @@ export async function fetchWalletWithdrawals(): Promise<{
     const { data } = await apiClient.get<{ items: WalletWithdrawal[] }>('/wallet/withdrawals');
     return { items: data.items ?? [], source: 'api' };
   } catch {
-    return { items: [], source: 'demo' };
+    return {
+      items: [
+        {
+          id: 'w1',
+          amountCents: 64_000,
+          currency: 'UYU',
+          status: 'PENDING',
+          destinationHint: 'Alias demo',
+          requestedAt: new Date().toISOString(),
+        },
+      ],
+      source: 'demo',
+    };
   }
 }
 
@@ -258,9 +270,26 @@ export async function requestWithdrawal(input: {
   return data;
 }
 
-export async function completeWithdrawal(id: string): Promise<unknown> {
-  if (!hasApiAuth()) return { demo: true };
+/** Solo ADMIN: confirma que la transferencia del retiro ya se realizó. */
+export async function completeWithdrawalAsAdmin(id: string): Promise<unknown> {
   const { data } = await apiClient.post(`/wallet/withdrawals/${id}/complete`);
+  return data;
+}
+
+export async function fetchAdminPendingWithdrawals(): Promise<{
+  items: Array<{
+    id: string;
+    userId: string;
+    userEmail?: string;
+    userName?: string;
+    amountCents: number;
+    currency: string;
+    status: string;
+    destinationHint?: string;
+    requestedAt: string;
+  }>;
+}> {
+  const { data } = await apiClient.get('/wallet/admin/withdrawals');
   return data;
 }
 

@@ -34,7 +34,8 @@ export const HELP_SECTIONS: HelpSection[] = [
       'ConfiApp solo cobra/gestiona el fee del Agente; el precio del producto lo acuerdan las partes por fuera.',
       'Al completar, la comisión del Agente queda pendiente 14 días en su wallet y luego pasa a disponible.',
       'La liquidación del saldo disponible la hace un administrador entre el 1 y el 10 de cada mes.',
-      'Si algo sale mal, el comprador puede abrir un reclamo para revisión de ConfiApp.',
+      'Si cancelás o rechazás el producto sin disputa, la contratación del Agente no se reembolsa: el Agente ya se considera contratado.',
+      'Si creés que corresponde devolverte ese dinero, abrí una disputa antes de cancelar sin reclamo.',
     ],
   },
   {
@@ -74,6 +75,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     title: 'Reclamos y disputas',
     paragraphs: [
       'Si no recibiste el producto, reportalo dentro de las 72 horas desde la primera confirmación de entrega o arribo. Para otros problemas graves, abrí un reclamo desde la operación. El equipo de ConfiApp revisa el caso y puede reanudar, cancelar o reembolsar según corresponda. Una disputa puede bloquear la comisión del Agente mientras se resuelve.',
+      'Cancelar o rechazar el producto sin disputa no reembolsa la contratación del Agente: se entiende contratado y la app no puede medir cuánto tiempo dedicó. Si pedís devolución, abrí disputa. El detalle está en Términos y Condiciones (Pagos y contratación del Agente).',
     ],
   },
   {

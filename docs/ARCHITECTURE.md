@@ -55,7 +55,7 @@ infrastructure ───────┘
 | `auth` | Registro, login, verify email, reset password. **ID Digital Abitab** para Agentes (onboarding + accept job): [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md) |
 | `users` | Perfil, KYC (review admin), preferencias, payout methods |
 | `transactions` | Ciclo de vida de la operación + invites + checklist + plazos 21d/72h — ver [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) |
-| `payments` | Cobro de la **contratación del Agente** (Prex / MP), hold, webhooks, sync return, OAuth agentes; `ESCROW_FULL` deshabilitado por flag |
+| `payments` | Cobro de la **contratación del Agente** (Mercado Pago), hold, webhooks, sync return, OAuth agentes; `ESCROW_FULL` deshabilitado por flag |
 | `wallet` | Saldos y comisiones del Agente (hold 14d + liquidación admin), export |
 | `notifications` | Inbox + `NotificationsService.notify` + gating prefs |
 | `chats` | Mensajería + realtime |
@@ -64,7 +64,7 @@ infrastructure ───────┘
 | `audit` | Append-only log de actividad |
 | `health` | Healthcheck |
 | `media` | Presign/confirm/signed-url hacia Railway Bucket (`AWS_*`); cuotas anti-abuso |
-| `evidence` | Stub (`/status`) — dominio preparado, UX pendiente |
+| `evidence` | Expediente de disputa (snapshots al abrir + fotos opcionales; sin video/audio) |
 | `disputes` | Disputas de entrega / no recepción (comprador); resolución admin |
 
 Infra relevante: `infrastructure/redis` (rate limits opc.), `infrastructure/storage` (S3), Turnstile en auth. Detalle ops: [`SECURITY_COST_HARDENING.md`](./SECURITY_COST_HARDENING.md).
@@ -165,8 +165,8 @@ Modelo de datos: [`packages/database/ARCHITECTURE.md`](../packages/database/ARCH
 ## Próximos pasos naturales
 
 1. Completar cableado de eventos de notificación restantes (P0–P2 en skill `notifications/reference.md`).
-2. Verificación de teléfono real (hoy stub UI + limpieza de `phoneVerified` al cambiar número).
-3. UI/API reales de **evidence** y **disputes** (hoy stubs `/status`).
+2. Verificación de teléfono real (UI OTP lista, flag `PHONE_OTP_IN_IMPLEMENTATION`; limpieza de `phoneVerified` al cambiar número).
+3. ~~UI/API reales de evidence/disputes~~ (expediente al abrir disputa + panel admin; sin video/audio).
 4. **Step-up Identidad Digital Abitab** para Agentes en cada login (diseño en [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md); aún sin código).
 5. Migrar módulos API hacia carpetas Clean Architecture target.
 6. Workers/outbox para email/push reales a escala.

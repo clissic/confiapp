@@ -79,12 +79,7 @@ export function AppBreadcrumbs() {
                         : []),
                     ];
                   })()
-                : pathname.startsWith('/admin/pagos')
-                  ? [
-                      { label: 'Inicio', to: '/inicio' },
-                      { label: 'Pagos entrantes', current: true as const },
-                    ]
-                  : pathname.startsWith('/admin/finanzas')
+                : pathname.startsWith('/admin/finanzas')
                   ? [
                       { label: 'Inicio', to: '/inicio' },
                       { label: 'Pagos a agentes', current: true as const },

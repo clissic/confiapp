@@ -87,7 +87,6 @@ function formatChangeValue(field: string, raw: string): string {
 export function BuyerOperationDetail({
   tx,
   error,
-  pendingPaymentConfirmation,
   buyerTotalCents,
   lookingForAgent,
   showInvitePanel,
@@ -107,7 +106,6 @@ export function BuyerOperationDetail({
 }: {
   tx: Transaction;
   error: string | null;
-  pendingPaymentConfirmation: boolean;
   buyerTotalCents?: number;
   lookingForAgent: boolean;
   showInvitePanel: boolean;
@@ -196,19 +194,7 @@ export function BuyerOperationDetail({
       ) : null}
 
       {tx.status === 'ACCEPTED' ? (
-        pendingPaymentConfirmation ? (
-          <section className="ca-tx-buyer-view__cta">
-            <p className="ca-tx-buyer-view__cta-kicker">
-              <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
-              Contratación del Agente
-            </p>
-            <h2>Esperando confirmación del pago</h2>
-            <p className="mb-0">
-              Ya recibimos tu comprobante. Cuando se verifique, la contratación del Agente queda
-              registrada en ConfiApp.
-            </p>
-          </section>
-        ) : isAgentFeeOnly && !hasAcceptedAgent ? (
+        isAgentFeeOnly && !hasAcceptedAgent ? (
           <section className="ca-tx-buyer-view__cta">
             <p className="ca-tx-buyer-view__cta-kicker">
               <ShieldCheck size={15} strokeWidth={1.75} aria-hidden />
@@ -400,16 +386,10 @@ export function BuyerOperationDetail({
           tx.status === 'CANCELLED' || tx.status === 'DISPUTED' || tx.status === 'COMPLETED'
             ? null
             : tx.status === 'ACCEPTED'
-              ? pendingPaymentConfirmation
-                ? {
-                    title: 'Verificación del pago',
-                    detail:
-                      'Ya pagaste. ConfiApp está confirmando que la transferencia sea correcta.',
-                  }
-                : {
-                    title: 'Pago',
-                    detail: 'Contratá al Agente desde la app para que pueda empezar.',
-                  }
+              ? {
+                  title: 'Pago',
+                  detail: 'Contratá al Agente desde la app para que pueda empezar.',
+                }
               : tx.status === 'FUNDED' || tx.status === 'IN_PROGRESS'
                 ? !tx.agentVerification
                   ? {

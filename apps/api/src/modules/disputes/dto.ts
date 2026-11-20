@@ -44,6 +44,21 @@ export interface DisputeListResponseDto {
   totalPages: number;
 }
 
+export interface DisputeEvidenceItemDto {
+  id: string;
+  kind?: string;
+  type: string;
+  status: string;
+  title: string;
+  description?: string;
+  storageKey?: string;
+  mimeType?: string;
+  payload?: Record<string, unknown>;
+  /** URL firmada temporal para fotos adjuntas. */
+  signedUrl?: string;
+  createdAt: string;
+}
+
 export interface DisputeDetailDto {
   id: string;
   status: DisputeStatus;
@@ -67,4 +82,6 @@ export interface DisputeDetailDto {
     id: string;
     displayName?: string;
   };
+  /** Expediente generado al abrir la disputa. */
+  evidence: DisputeEvidenceItemDto[];
 }

@@ -33,6 +33,10 @@ Primera vez E2E:
 pnpm --filter @confiapp/web exec playwright install chromium
 ```
 
+E2E críticos (sesión demo + mocks, sin Mongo):
+- `e2e/operation-flow.spec.ts` — wizard comprador + modal rechazo sin reembolso / disputa
+- `e2e/wallet-admin.spec.ts` — retiro sin auto-completar + admin marca transferido + TyC §16
+
 ## Estructura
 
 ```

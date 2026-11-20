@@ -61,13 +61,23 @@ export interface RefundResult {
   raw?: unknown;
 }
 
+/** Única vía permitida para ejecutar refunds reales en Mercado Pago. */
+export type RefundAuthorization = { via: 'admin_dispute' };
+
 export interface PaymentProvider {
   readonly name: 'MERCADOPAGO' | 'MOCK';
   isMock(): boolean;
   createCheckout(input: CreateCheckoutInput): Promise<CheckoutResult>;
   getPayment(paymentId: string): Promise<PaymentLookup>;
   verifyWebhookSignature(params: WebhookSignatureParams): boolean;
-  /** MVP: MOCK simula; live puede lanzar si no está habilitado. */
-  refundPayment(paymentId: string, amountCents?: number): Promise<RefundResult>;
+  /**
+   * Reembolso live solo con autorización de disputa admin.
+   * MOCK simula sin exigir `via`.
+   */
+  refundPayment(
+    paymentId: string,
+    amountCents?: number,
+    authorization?: RefundAuthorization,
+  ): Promise<RefundResult>;
   cancelPayment(paymentId: string): Promise<PaymentLookup>;
 }

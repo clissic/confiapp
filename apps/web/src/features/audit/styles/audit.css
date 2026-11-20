@@ -370,3 +370,110 @@
   padding-right: 0;
   text-decoration: none;
 }
+
+/* Eventos de auditoría como acordeón */
+.ca-audit-events {
+  --bs-accordion-border-color: transparent;
+  --bs-accordion-bg: transparent;
+  --bs-accordion-btn-bg: transparent;
+  --bs-accordion-active-bg: transparent;
+  --bs-accordion-btn-focus-box-shadow: none;
+  --bs-accordion-btn-padding-x: 0;
+  --bs-accordion-btn-padding-y: 0.65rem;
+  --bs-accordion-body-padding-x: 0;
+  --bs-accordion-body-padding-y: 0.45rem;
+  display: grid;
+  gap: 0;
+}
+
+.ca-audit-events__item {
+  border: 0 !important;
+  border-bottom: 1px solid var(--ca-border) !important;
+  border-radius: 0 !important;
+  background: transparent;
+}
+
+.ca-audit-events__item:last-child {
+  border-bottom: 0 !important;
+}
+
+.ca-audit-events__item .accordion-button {
+  box-shadow: none;
+  color: var(--text-primary);
+  gap: 0.65rem;
+  align-items: flex-start;
+}
+
+.ca-audit-events__item .accordion-button:not(.collapsed) {
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+.ca-audit-events__item .accordion-button::after {
+  margin-top: 0.35rem;
+  flex-shrink: 0;
+}
+
+.ca-audit-events__head {
+  display: grid;
+  gap: 0.3rem;
+  width: 100%;
+  min-width: 0;
+  padding-right: 0.35rem;
+  text-align: left;
+}
+
+.ca-audit-events__summary {
+  width: 100%;
+}
+
+.ca-audit-detail__description {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--brand-secondary, #01285d) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-secondary, #01285d) 14%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.ca-audit-detail {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+
+.ca-audit-detail__row {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+@media (min-width: 576px) {
+  .ca-audit-detail__row {
+    grid-template-columns: minmax(7.5rem, 10rem) minmax(0, 1fr);
+    column-gap: 0.85rem;
+    align-items: baseline;
+  }
+}
+
+.ca-audit-detail__row dt {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ca-muted);
+}
+
+.ca-audit-detail__row dd {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+[data-theme='dark'] .ca-audit-detail__description {
+  background: color-mix(in srgb, var(--brand-secondary, #55c5b5) 12%, transparent);
+  border-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 20%, transparent);
+}

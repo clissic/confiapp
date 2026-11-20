@@ -2,6 +2,17 @@ import path from 'node:path';
 import { defineConfig, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/**
+ * Si el browser pide HTML (navegación SPA), no proxyar a la API.
+ * Necesario cuando una ruta de página coincide con un prefijo API (p.ej. `/wallet`).
+ */
+function bypassSpaDocument(req: { url?: string; headers: { accept?: string } }): string | undefined {
+  const accept = req.headers.accept ?? '';
+  if (accept.includes('text/html')) {
+    return req.url;
+  }
+}
+
 /** Proxy de desarrollo: misma origen (túnel demo) → API local. */
 const apiProxy: ProxyOptions = {
   target: 'http://127.0.0.1:3000',
@@ -10,6 +21,7 @@ const apiProxy: ProxyOptions = {
   // Register/resend pueden demorar si Mongo/SMTP están fríos; no cortar el proxy antes.
   timeout: 60_000,
   proxyTimeout: 60_000,
+  bypass: bypassSpaDocument,
 };
 
 const API_PROXY_PATHS = [
@@ -95,6 +107,7 @@ export default defineConfig({
           if (pathOnly === '/auditoria' || pathOnly.startsWith('/auditoria/')) {
             return req.url;
           }
+          return bypassSpaDocument(req);
         },
       },
       '/api': {

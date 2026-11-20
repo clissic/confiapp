@@ -436,6 +436,73 @@
   text-decoration: underline;
 }
 
+.ca-admin-disputes__evidence {
+  border-top: 1px solid color-mix(in srgb, var(--border-default) 55%, transparent);
+  padding-top: 0.85rem;
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.ca-admin-disputes__evidence-acc {
+  --bs-accordion-border-color: color-mix(in srgb, var(--border-default) 70%, transparent);
+  --bs-accordion-bg: transparent;
+  --bs-accordion-btn-bg: transparent;
+  --bs-accordion-active-bg: transparent;
+  --bs-accordion-btn-focus-box-shadow: none;
+}
+
+.ca-admin-disputes__evidence-head {
+  display: grid;
+  gap: 0.1rem;
+  text-align: left;
+  min-width: 0;
+}
+
+.ca-admin-disputes__evidence-sub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.ca-admin-disputes__evidence-desc {
+  margin: 0 0 0.65rem;
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ca-admin-disputes__evidence-photo {
+  display: block;
+  margin-bottom: 0.65rem;
+  max-width: 100%;
+}
+
+.ca-admin-disputes__evidence-photo img {
+  display: block;
+  max-width: min(100%, 320px);
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--surface-sunken, #000) 6%, transparent);
+}
+
+.ca-admin-disputes__evidence-json {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--brand-secondary, #01285d) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-secondary, #01285d) 14%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  overflow: auto;
+  max-height: 18rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .ca-admin-disputes__resolve {
   border-top: 1px solid color-mix(in srgb, var(--border-default) 55%, transparent);
   padding-top: 0.85rem;

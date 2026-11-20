@@ -38,12 +38,12 @@ export function PhoneSection({ profile }: { profile: UserProfile }) {
         {profile.phoneVerified ? (
           <Badge className="ca-badge-positive">Verificado</Badge>
         ) : (
-          <Badge bg="warning" text="dark">
-            Sin verificar
-          </Badge>
+          <Badge bg="info">Verificación en implementación</Badge>
         )}
       </h3>
-      <p className="ca-section-lead">Número de contacto asociado a tu cuenta.</p>
+      <p className="ca-section-lead">
+        Número de contacto asociado a tu cuenta. La confirmación por SMS está en camino.
+      </p>
 
       <Form onSubmit={onSubmit}>
         <Form.Group controlId="phone">

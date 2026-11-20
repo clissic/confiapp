@@ -41,7 +41,7 @@ export function TransactionDetailPage() {
     agentAccepted?: boolean;
   } | null;
   const { data, isLoading, isError, refetch } = useTransaction(code);
-  const { data: escrowData, refetch: refetchEscrow } = useEscrow(code ?? null);
+  const { refetch: refetchEscrow } = useEscrow(code ?? null);
   const syncCheckout = useSyncCheckoutReturn(code ?? null);
   const refresh = useRefreshInvite();
   const buyerConfirm = useBuyerConfirmChanges(code);
@@ -192,24 +192,6 @@ export function TransactionDetailPage() {
     tx?.initiatedBy,
   ]);
 
-  const pendingPaymentConfirmation = useMemo(
-    () =>
-      escrowData?.data?.payments?.some(
-        (payment) =>
-          payment.provider === 'MANUAL_PREX' && payment.status === 'REQUIRES_ACTION',
-      ) ?? false,
-    [escrowData?.data?.payments],
-  );
-
-  useEffect(() => {
-    if (!pendingPaymentConfirmation) return;
-    const id = window.setInterval(() => {
-      void refetch();
-      void refetchEscrow();
-    }, 8000);
-    return () => window.clearInterval(id);
-  }, [pendingPaymentConfirmation, refetch, refetchEscrow]);
-
   if (isLoading) {
     return (
       <div className="ca-tx ca-tx--loading">
@@ -354,7 +336,6 @@ export function TransactionDetailPage() {
       <BuyerOperationDetail
         tx={tx}
         error={error}
-        pendingPaymentConfirmation={pendingPaymentConfirmation}
         buyerTotalCents={buyerTotalCents}
         lookingForAgent={lookingForAgent && !isAssignedAgent}
         showInvitePanel={showInvitePanel}
@@ -380,7 +361,6 @@ export function TransactionDetailPage() {
       <SellerOperationDetail
         tx={tx}
         error={error}
-        pendingPaymentConfirmation={pendingPaymentConfirmation}
         lookingForAgent={lookingForAgent && !isAssignedAgent}
         showInvitePanel={showInvitePanel}
         shareUrl={shareUrl}

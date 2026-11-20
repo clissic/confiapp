@@ -1,3 +1,10 @@
+/**
+ * SMS/OTP real aún no tiene proveedor. La UI de verificación permanece
+ * (flujo listo) pero marcada como “en implementación”.
+ * Cuando exista el servicio, poner en `false` y cablear el backend.
+ */
+export const PHONE_OTP_IN_IMPLEMENTATION = true;
+
 const LOCAL_VERIFIED_KEY = 'confiapp.phone.localVerified';
 
 type LocalVerifiedPayload = {

@@ -4,7 +4,7 @@
 **Estado:** Implementación MVP (parcial respecto a escrow de producto)  
 **Moneda operativa:** UYU  
 **Proveedor de pagos (objetivo):** Mercado Pago  
-**Cobro comprador (transitorio MVP):** transferencia manual a cuenta Prex de la plataforma + comprobante (`PAYMENTS_CHECKOUT_MODE=manual_prex`). El flujo Checkout Pro / webhooks / OAuth permanece en el código y se reactiva con `PAYMENTS_CHECKOUT_MODE=mercadopago`.  
+**Cobro comprador (MVP vigente):** solo **Mercado Pago** Checkout Pro / webhooks / sync-return (MOCK si `MERCADOPAGO_ACCESS_TOKEN` vacío). La vía Prex manual fue retirada.  
 **Payouts de Agentes:** Manuales (ventana 1–10)  
 **Período de disponibilidad:** 14 días  
 

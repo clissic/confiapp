@@ -1,6 +1,6 @@
 import { apiClient } from '@/shared/api/client';
 
-export type MediaPurpose = 'chat' | 'kyc' | 'product' | 'receipt' | 'profile';
+export type MediaPurpose = 'chat' | 'kyc' | 'product' | 'receipt' | 'profile' | 'evidence';
 
 type PresignResponse = {
   storageKey: string;

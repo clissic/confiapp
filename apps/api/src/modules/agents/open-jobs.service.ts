@@ -33,12 +33,6 @@ import { notificationsService } from '../notifications/service';
 import { ACTIVE_AGENT_JOB_STATUSES } from './agent-jobs';
 import { advanceToInProgressOnAgentAccept } from './advance-on-accept';
 import { AgentAssignmentService } from './assignment.service';
-import {
-  isEscrowVisibleToAgents,
-  loadManualPrexEscrowGate,
-  loadManualPrexEscrowGates,
-} from '../payments/manual-prex-gate';
-
 /** Normaliza checklist legacy (string[] | items) al shape de la política de salida. */
 function toWithdrawChecklistItems(
   checklist: unknown,
@@ -368,16 +362,9 @@ export class OpenJobsService {
       return !hasAgent;
     });
 
-    const escrowGates = await loadManualPrexEscrowGates(
-      candidateTxs.map((tx) => String(tx._id)),
-    );
-    const gatedCandidates = candidateTxs.filter((tx) =>
-      isEscrowVisibleToAgents(escrowGates.get(String(tx._id))),
-    );
-
     const allUserIds = [
       ...new Set(
-        gatedCandidates.flatMap((tx) => {
+        candidateTxs.flatMap((tx) => {
           const counter = tx.participants.find(
             (p) => p.role === ParticipantRole.COUNTERPARTY,
           );
@@ -397,7 +384,7 @@ export class OpenJobsService {
 
     const jobs: OpenJobDto[] = [];
 
-    for (const tx of gatedCandidates) {
+    for (const tx of candidateTxs) {
       const creatorId = String(tx.createdBy);
       const counterparty = tx.participants.find(
         (p) => p.role === ParticipantRole.COUNTERPARTY,
@@ -505,13 +492,6 @@ export class OpenJobsService {
 
     if (!isOpenJobStatusForFundingMode(tx)) {
       throw new ValidationError('Este trabajo ya no está abierto');
-    }
-
-    const escrowGate = await loadManualPrexEscrowGate(String(tx._id));
-    if (!isEscrowVisibleToAgents(escrowGate)) {
-      throw new ValidationError(
-        'Este trabajo todavía no está disponible: el pago Prex está pendiente de confirmación',
-      );
     }
 
     if (hasAcceptedIntermediary(tx)) {

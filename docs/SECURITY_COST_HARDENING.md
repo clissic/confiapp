@@ -15,7 +15,7 @@ Estado de la defensa contra abuso de requests / storage / APIs externas que infl
 | Checkout | Reutiliza preference `REQUIRES_ACTION` existente |
 | Crons | `RUN_CRONS` + locks Mongo (`jobs_locks`) |
 | Jobs HTTP | `TRANSACTIONS_JOB_SECRET` obligatorio; `limit` capado |
-| Media | Presign S3 Railway (`AWS_*`); KYC/Prex/chat/product pueden subir al bucket |
+| Media | Presign S3 Railway (`AWS_*`); KYC/chat/product/comprobantes pueden subir al bucket |
 | KYC email | Sin `fetch` HTTP arbitrario (anti-SSRF) |
 | Listados | Sin `receiptDataUrl` en gates/list admin; caps `page` / finds |
 

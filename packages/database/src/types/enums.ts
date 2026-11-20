@@ -105,6 +105,22 @@ export enum EvidenceType {
   OTHER = 'OTHER',
 }
 
+/**
+ * Clasificación de piezas del expediente de disputa.
+ * Los snapshots se generan al abrir; PHOTO_ATTACHMENT son fotos opcionales del comprador (sin video/audio).
+ */
+export enum EvidenceKind {
+  PARTICIPANTS = 'PARTICIPANTS',
+  OPERATION = 'OPERATION',
+  CHAT = 'CHAT',
+  PAYMENT = 'PAYMENT',
+  MEDIA = 'MEDIA',
+  IDENTITY = 'IDENTITY',
+  STATUS_HISTORY = 'STATUS_HISTORY',
+  OPENING = 'OPENING',
+  PHOTO_ATTACHMENT = 'PHOTO_ATTACHMENT',
+}
+
 export enum EvidenceStatus {
   SUBMITTED = 'SUBMITTED',
   APPROVED = 'APPROVED',
@@ -121,6 +137,9 @@ export enum DisputeStatus {
 
 export enum DisputeCategory {
   NON_DELIVERY = 'NON_DELIVERY',
+  PRODUCT_MISMATCH = 'PRODUCT_MISMATCH',
+  FRAUD_SUSPECTED = 'FRAUD_SUSPECTED',
+  AGENT_CONDUCT = 'AGENT_CONDUCT',
   OTHER = 'OTHER',
 }
 
@@ -219,7 +238,7 @@ export enum PaymentProvider {
   MOCK = 'MOCK',
   STRIPE = 'STRIPE',
   MERCADOPAGO = 'MERCADOPAGO',
-  /** MVP: transferencia manual a cuenta Prex de la plataforma (sin PSP). */
+  /** Histórico: transferencia manual (vía Prex retirada). Solo registros legacy. */
   MANUAL_PREX = 'MANUAL_PREX',
 }
 

@@ -13,6 +13,8 @@ import { ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
 import {
   DISPUTE_CATEGORY_LABELS,
   DISPUTE_STATUS_LABELS,
+  EVIDENCE_KIND_LABELS,
+  type DisputeEvidenceItem,
   type DisputeStatus,
 } from '@/features/disputes/api/disputes.api';
 import { useDispute, useDisputes, useResolveDispute } from '@/features/disputes/hooks/useDisputes';
@@ -349,6 +351,59 @@ export function AdminDisputesPage() {
                 <p className="ca-admin-disputes__op-link">
                   <Link to={`/operaciones/${detail.transaction.code}`}>Ver operación completa</Link>
                 </p>
+
+                <section className="ca-admin-disputes__evidence" aria-label="Expediente de evidencia">
+                  <h3 className="ca-admin-disputes__resolve-title">Expediente</h3>
+                  <p className="ca-admin-disputes__resolve-lead">
+                    Snapshot automático al abrir la disputa (participantes, identidad del Agente,
+                    operación, chats, pago y media). Sin video ni audio.
+                  </p>
+                  {(detail.evidence ?? []).length === 0 ? (
+                    <p className="ca-admin-disputes__empty mb-0">
+                      No hay piezas de evidencia registradas para esta disputa.
+                    </p>
+                  ) : (
+                    <Accordion alwaysOpen className="ca-admin-disputes__evidence-acc">
+                      {(detail.evidence ?? []).map((item: DisputeEvidenceItem) => (
+                        <Accordion.Item eventKey={item.id} key={item.id}>
+                          <Accordion.Header>
+                            <span className="ca-admin-disputes__evidence-head">
+                              <strong>
+                                {EVIDENCE_KIND_LABELS[item.kind ?? ''] ?? item.title}
+                              </strong>
+                              <span className="ca-admin-disputes__evidence-sub">
+                                {item.title}
+                              </span>
+                            </span>
+                          </Accordion.Header>
+                          <Accordion.Body>
+                            {item.description ? (
+                              <p className="ca-admin-disputes__evidence-desc">{item.description}</p>
+                            ) : null}
+                            {item.signedUrl ? (
+                              <a
+                                href={item.signedUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="ca-admin-disputes__evidence-photo"
+                              >
+                                <img src={item.signedUrl} alt={item.title} />
+                              </a>
+                            ) : null}
+                            {item.payload ? (
+                              <pre className="ca-admin-disputes__evidence-json">
+                                {JSON.stringify(item.payload, null, 2)}
+                              </pre>
+                            ) : null}
+                            {!item.payload && !item.signedUrl ? (
+                              <p className="ca-admin-disputes__empty mb-0">Sin detalle adicional.</p>
+                            ) : null}
+                          </Accordion.Body>
+                        </Accordion.Item>
+                      ))}
+                    </Accordion>
+                  )}
+                </section>
 
                 {canResolve ? (
                   <div className="ca-admin-disputes__resolve">

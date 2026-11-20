@@ -122,3 +122,11 @@ export interface WalletWithdrawal {
   processedAt?: string;
   failureReason?: string;
 }
+
+export const WALLET_WITHDRAWAL_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendiente de transferencia',
+  PROCESSING: 'En proceso',
+  COMPLETED: 'Completado',
+  REJECTED: 'Rechazado',
+  CANCELLED: 'Cancelado',
+};

@@ -11,7 +11,7 @@ const HISTORY_NOTE_LABELS: Record<string, string> = {
   'Contratación del Agente confirmada con Mercado Pago':
     'Servicio del Agente pagado con Mercado Pago',
   'Pago protegido por transferencia Prex (MVP) — comprobante cargado':
-    'Servicio del Agente pagado por transferencia Prex',
+    'Servicio del Agente pagado por transferencia manual',
   'Pago protegido confirmado por admin tras revisar comprobante Prex':
     'Servicio del Agente confirmado tras revisar el comprobante',
   'Servicio del Agente confirmado por admin tras revisar comprobante Prex':
@@ -19,7 +19,7 @@ const HISTORY_NOTE_LABELS: Record<string, string> = {
   'Comprador envió el comprobante de transferencia — pendiente de verificación':
     'El comprador ya pagó. ConfiApp está revisando el comprobante de la transferencia',
   'Admin marcó la transferencia Prex como no confirmada':
-    'ConfiApp pidió revisar de nuevo el comprobante de la transferencia',
+    'ConfiApp pidió revisar de nuevo el comprobante',
   'ConfiApp pidió revisar de nuevo el comprobante de la transferencia':
     'ConfiApp pidió revisar de nuevo el comprobante de la transferencia',
   'Comprador aceptó la compra — acuerdo cerrado, pendiente de fondeo':

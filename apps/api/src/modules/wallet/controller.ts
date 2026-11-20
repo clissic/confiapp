@@ -47,6 +47,12 @@ export class WalletController {
     res.status(200).json(data);
   };
 
+  adminPendingWithdrawals = async (req: Request, res: Response): Promise<void> => {
+    const limit = req.query.limit ? Number(req.query.limit) : 50;
+    const data = await this.service.listPendingWithdrawalsForAdmin(limit);
+    res.status(200).json(data);
+  };
+
   requestWithdrawal = async (req: Request, res: Response): Promise<void> => {
     const body = req.body as WalletWithdrawBody;
     const amountCents = Math.round(body.amount * 100);
@@ -57,6 +63,7 @@ export class WalletController {
     res.status(201).json(data);
   };
 
+  /** Solo ADMIN: confirma que la transferencia ya se hizo. */
   completeWithdrawal = async (req: Request, res: Response): Promise<void> => {
     const id = String(req.params.id);
     const data = await this.service.completeWithdrawal(req.user!.id, id);

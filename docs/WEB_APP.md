@@ -31,7 +31,7 @@ Reglas Cursor: `.cursor/rules/frontend-bootstrap.mdc`, `.cursor/rules/web-aesthe
 |------|---------|--------|
 | `/inicio` | Home / placeholder workspace | Accesos Comprar / Vender / Mi Agencia / Mensajes |
 | `/perfil` | Perfil | Tabs: Perfil, Historial, Calificaciones, Wallet; settings vía `?tab=settings` |
-| `/perfil/verificar-telefono` | Verificación OTP (stub UI) | 6 dígitos; reenvío con countdown 120s; **sin backend** aún |
+| `/perfil/verificar-telefono` | Verificación OTP | UI lista; marcada **en implementación** (`PHONE_OTP_IN_IMPLEMENTATION`) hasta conectar SMS |
 | `/agente` | Onboarding + panel de agencia | Suspender / reactivar / cerrar; listado de ops activas como intermediario |
 | `/agente/buscar` | Búsqueda de agentes | |
 | `/agente/trabajos` | Open jobs + mapa | Guard `RequireAgent` |
@@ -43,14 +43,14 @@ Reglas Cursor: `.cursor/rules/frontend-bootstrap.mdc`, `.cursor/rules/web-aesthe
 | `/operaciones/nueva/comprador` | Crear como comprador | Hero con `/landing/Shopping.png` |
 | `/operaciones/nueva/vendedor` | Crear como vendedor | Hero con `/landing/Sale.png` |
 | `/operaciones/unirse/:token` | Join por invite | |
-| `/operaciones/:code` | Detalle | Vista por rol (buyer/seller/agent); checklist; disputa; salida agente |
-| `/operaciones/:code/pagar` | Pago de la **contratación del Agente** (Prex o MP) | No cobra el precio del producto |
-| `/operaciones/:code/pagar/simular` | Mock de pago MP | Solo con `PAYMENTS_CHECKOUT_MODE=mercadopago` + MOCK |
+| `/operaciones/:code` | Detalle | Vista por rol (buyer/seller/agent); checklist; disputa (expediente automático + fotos opcionales, sin video/audio); salida agente |
+| `/admin/disputas` | Disputas admin | Detalle + expediente (participantes, ID Digital agente, chat, pago, historial, media) |
+| `/operaciones/:code/pagar` | Pago de la **contratación del Agente** (Mercado Pago) | No cobra el precio del producto |
+| `/operaciones/:code/pagar/simular` | Mock de pago MP | Solo en no-prod con token MP vacío (MOCK) |
 | `/mensajes` | Chat | Composer **excluido** de reglas de botones full-width |
 | `/pagos` | Seguimiento de la contratación del Agente | Desglose fee-only (20/80); sin “vendedor recibe” en modo vigente |
-| `/wallet` | Saldos y comisiones | Agentes: pendiente 14d → disponible → liquidación admin 1–10; sin retiro self-service de comisiones |
-| `/admin/pagos` | Transferencias Prex entrantes (admin) | Comprobantes + detalle |
-| `/auditoria/pagos` | Auditoría de pagos (paginado) | Incluye eventos Prex |
+| `/wallet` | Saldos y comisiones | Usuario solicita retiro; **completar** solo admin (`/admin/finanzas`). Agentes: comisiones 14d → liquidación 1–10 |
+| `/auditoria/pagos` | Auditoría de pagos (paginado) | Eventos MP / ledger |
 | `/admin/finanzas` | Liquidaciones a agentes | Solo admin · PayoutBatch 1–10 |
 | `/auditoria` | Audit log paginado | Solo admin (`RequireAdmin`) |
 | `/reputacion` | Reputación | |
@@ -117,7 +117,7 @@ Detalle de diseño a escala: [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md
 - Si el teléfono está **verificado** y el valor no cambió → botón deshabilitado.
 - Si el usuario cambia **código de país o número** → estado UI “sin verificar” y el botón se reactiva; el ícono de estado del header refleja eso en la pestaña settings.
 - Al **guardar** un teléfono distinto → `phoneVerified` se limpia (API + demo profile).
-- Página OTP: stub de sesión (`sessionStorage`); no envía SMS ni valida código en backend todavía.
+- Página OTP: UI conservada; con `PHONE_OTP_IN_IMPLEMENTATION=true` muestra “En implementación” y no envía SMS ni marca verificado. Al activar el proveedor, apagar el flag y cablear API.
 
 Mobile: en Datos personales el CTA “Editar” es **solo ícono** (`Pencil`).
 
@@ -163,14 +163,13 @@ En `apps/web/src/app/styles/global.css`:
 
 ---
 
-## Contratación del Agente (MVP Prex / MP)
+## Contratación del Agente (Mercado Pago)
 
 - Ruta: `/operaciones/:code/pagar` — cobra solo el fee del Agente (UYU $500), no el precio del producto.
-- Default: transferencia a cuenta Prex (`Ignacio La Cava` / `1065233`) + QR + upload de comprobante.
-- API: `POST /payments/transactions/:code/manual-transfer`.
-- Mercado Pago: `PAYMENTS_CHECKOUT_MODE=mercadopago` en la API (código MP intacto).
+- Única vía: Checkout Pro (`POST /payments/transactions/:code/checkout`) + webhook / `sync-checkout`.
+- Sin `MERCADOPAGO_ACCESS_TOKEN`: MOCK local (`/operaciones/:code/pagar/simular`).
 - Tras cobro: estado `FUNDED` → UI «Agente contratado».
-- Admin: `/admin/pagos` — transferencias Prex con comprobante. Eventos en `/auditoria/pagos`.
+- Eventos en `/auditoria/pagos`.
 - Notas: [`FINANCE_MVP_NOTES.md`](./FINANCE_MVP_NOTES.md).
 
 ---
@@ -182,7 +181,6 @@ En `apps/web/src/app/styles/global.css`:
 | `/landing/ConfiApp-logo.png` | Landing, auth, topbar |
 | `/landing/Shopping.png` | Hero “Iniciar como comprador” |
 | `/landing/Sale.png` | Hero “Iniciar como vendedor” |
-| `/landing/QRprex.png` | QR cuenta Prex (pago MVP) |
 | `/landing/Folder.png` | Panel de agencia |
 | `/landing/flow-agents.png`, `cta-lifestyle.png` | Landing |
 

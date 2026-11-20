@@ -54,12 +54,7 @@ En el modelo: `TransactionInitiator` = `BUYER` \| `SELLER`. El agente es `INTERM
 | **Solo pago del Agente** (**vigente**) | `AGENT_FEE_ONLY` | Fijo **UYU $500** (`AGENT_FEE_ONLY_UYU_CENTS`) — “contratación del Agente”. El precio del producto se arregla y se paga **fuera** de ConfiApp. |
 | **Resguardo completo** (próximamente) | `ESCROW_FULL` | Precio + comisión (solo si `FUNDING_ESCROW_FULL_ENABLED=true`; UI deshabilitada) |
 
-**Cobro técnico** (`PAYMENTS_CHECKOUT_MODE`):
-
-| Valor | Comportamiento |
-|-------|----------------|
-| `mercadopago` | Checkout Pro (o MOCK sin token). Confirmación por webhook + sync al volver. |
-| `manual_prex` | Transferencia Prex + comprobante → admin confirma → `FUNDED`. |
+**Cobro técnico:** solo Mercado Pago (Checkout Pro; MOCK sin token). Confirmación por webhook + sync al volver → `FUNDED`.
 
 ---
 
@@ -134,13 +129,9 @@ flowchart TB
 
   subgraph pay ["4. Pago — Contratación del Agente"]
     PAY([Comprador: /operaciones/:code/pagar]):::buyer
-    PAY2{Modo cobro}:::pay
     PAY3[Mercado Pago Checkout Pro<br/>UYU $500]:::pay
-    PAY4[Prex + comprobante → admin]:::pay
     PAY5[Hold CAPTURED<br/>Estado: FUNDED]:::pay
-    PAY --> PAY2
-    PAY2 -->|mercadopago| PAY3 --> PAY5
-    PAY2 -->|manual_prex| PAY4 --> PAY5
+    PAY --> PAY3 --> PAY5
   end
 
   subgraph delivery ["5. Entrega física"]
@@ -282,28 +273,23 @@ sequenceDiagram
   autonumber
   participant C as Comprador
   participant App as ConfiApp API
-  participant MP as Mercado Pago / Prex
+  participant MP as Mercado Pago
   participant Ag as Agente
 
   Note over C,Ag: Estado ACCEPTED + Agente asignado (fee-only)
-  C->>App: POST .../checkout o manual-transfer
-  alt PAYMENTS_CHECKOUT_MODE=mercadopago
-    App->>MP: Preference Checkout Pro ($500)
-    C->>MP: Paga (sandbox o live)
-    MP-->>App: Webhook payment.updated
-    C->>App: Vuelve ?pago=ok → sync-checkout
-  else manual_prex
-    C->>App: Sube comprobante
-    Note over App: Admin confirma en /admin/pagos
-  end
+  C->>App: POST .../checkout
+  App->>MP: Preference Checkout Pro ($500)
+  C->>MP: Paga (sandbox o live)
+  MP-->>App: Webhook payment.updated
+  C->>App: Vuelve ?pago=ok → sync-checkout
   App->>App: Hold CAPTURED · tx FUNDED
   App-->>Ag: Trabajo visible / notificaciones
 ```
 
 | Momento | Quién | Qué ocurre |
 |---------|-------|------------|
-| Checkout | Comprador | Preferencia MP o panel Prex |
-| Confirmación | Sistema / admin | Webhook, sync return, o admin Prex |
+| Checkout | Comprador | Preferencia Mercado Pago |
+| Confirmación | Sistema | Webhook + sync return |
 | `FUNDED` | Sistema | Contratación del Agente cobrada («Agente contratado»); open jobs ven la op |
 | Release | Sistema | Al completar entrega/arribo (o auto 72h) |
 | Comisión | Sistema | `AgentCommission` PENDING → AVAILABLE (+14d) |
@@ -384,9 +370,9 @@ flowchart TB
 
 | Quién | Puede |
 |-------|--------|
-| Comprador | Abrir disputa en `FUNDED` / `IN_PROGRESS` |
+| Comprador | Abrir disputa en `FUNDED` / `IN_PROGRESS`. Rechazar/cancelar sin disputa **no reembolsa** el fee (Agente contratado; aviso previo + TyC §16). Si pide devolución → disputa |
 | Vendedor / Agente | No abren disputa; reciben efectos / notificaciones |
-| Admin | Resolver: reanudar, cancelar, reembolso |
+| Admin | Resolver: reanudar, cancelar, **reembolso** (`COMPLETE_WITH_REFUND` — única vía de refund live MP; casos excepcionales) |
 
 ---
 
@@ -445,7 +431,7 @@ flowchart TB
 |-----|-------|
 | Comprador / Vendedor | `/operaciones`, `/operaciones/nueva/*`, `/operaciones/unirse/:token`, `/operaciones/:code`, `/operaciones/:code/pagar`, `/wallet`, `/mensajes`, `/notificaciones` |
 | Agente | `/agente`, `/agente/trabajos`, `/agente/buscar` (+ mismas ops como intermediario) |
-| Admin | `/admin/pagos`, `/admin/finanzas`, `/admin/disputas`, `/auditoria` |
+| Admin | `/admin/finanzas`, `/admin/disputas`, `/auditoria` |
 
 ---
 
@@ -483,7 +469,7 @@ Legal / ayuda         apps/web/src/features/legal/content/{terms,help}.ts
 ## Ver también
 
 - [`WEB_APP.md`](./WEB_APP.md) — pantallas y copy
-- [`FINANCE_MVP_NOTES.md`](./FINANCE_MVP_NOTES.md) — cobro Prex/MP, OAuth agentes
+- [`FINANCE_MVP_NOTES.md`](./FINANCE_MVP_NOTES.md) — cobro Mercado Pago, OAuth agentes
 - [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md) — spec financiera
 - [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md) — Identidad Digital Abitab
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — monorepo

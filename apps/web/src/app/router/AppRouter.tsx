@@ -97,9 +97,6 @@ const AdminKycReviewPage = lazy(() =>
 const AdminFinancePage = lazy(() =>
   import('@/pages/AdminFinancePage').then((m) => ({ default: m.AdminFinancePage })),
 );
-const AdminPaymentsPage = lazy(() =>
-  import('@/pages/AdminPaymentsPage').then((m) => ({ default: m.AdminPaymentsPage })),
-);
 const AdminDisputesPage = lazy(() =>
   import('@/pages/AdminDisputesPage').then((m) => ({ default: m.AdminDisputesPage })),
 );
@@ -199,7 +196,6 @@ export function AppRouter() {
                   <Route path=":sectionId" element={<AuditSectionRouter />} />
                 </Route>
                 <Route path="admin/finanzas" element={<AdminFinancePage />} />
-                <Route path="admin/pagos" element={<AdminPaymentsPage />} />
                 <Route path="admin/disputas" element={<AdminDisputesPage />} />
                 <Route path="admin/resenas" element={<AdminReviewsPage />} />
                 <Route path="admin/kyc/:token" element={<AdminKycReviewPage />} />

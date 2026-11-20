@@ -1,7 +1,7 @@
 import { Schema, model, type HydratedDocument, type Model } from 'mongoose';
 
 import type { IEvidence } from '../interfaces/evidence.interface';
-import { EvidenceStatus, EvidenceType } from '../types/enums';
+import { EvidenceKind, EvidenceStatus, EvidenceType } from '../types/enums';
 
 export type EvidenceDocument = HydratedDocument<IEvidence>;
 
@@ -11,6 +11,11 @@ const evidenceSchema = new Schema<IEvidence>(
       type: Schema.Types.ObjectId,
       ref: 'Transaction',
       required: true,
+      index: true,
+    },
+    dispute: {
+      type: Schema.Types.ObjectId,
+      ref: 'Dispute',
       index: true,
     },
     uploadedBy: {
@@ -25,6 +30,11 @@ const evidenceSchema = new Schema<IEvidence>(
       required: true,
       index: true,
     },
+    kind: {
+      type: String,
+      enum: Object.values(EvidenceKind),
+      index: true,
+    },
     status: {
       type: String,
       enum: Object.values(EvidenceStatus),
@@ -33,10 +43,11 @@ const evidenceSchema = new Schema<IEvidence>(
     },
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, trim: true, maxlength: 2000 },
-    storageKey: { type: String, required: true, trim: true },
+    storageKey: { type: String, trim: true },
     mimeType: { type: String, trim: true },
     sizeBytes: { type: Number, min: 0 },
     checksum: { type: String, trim: true },
+    payload: { type: Schema.Types.Mixed },
     deletedAt: { type: Date, default: null, index: true },
   },
   {
@@ -47,5 +58,6 @@ const evidenceSchema = new Schema<IEvidence>(
 
 evidenceSchema.index({ transaction: 1, createdAt: -1 });
 evidenceSchema.index({ transaction: 1, status: 1 });
+evidenceSchema.index({ dispute: 1, kind: 1 });
 
 export const EvidenceModel: Model<IEvidence> = model<IEvidence>('Evidence', evidenceSchema);

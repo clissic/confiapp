@@ -17,41 +17,6 @@ export const paymentLogsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
-export const manualPrexTransferBodySchema = z
-  .object({
-    receiptStorageKey: z.string().trim().min(3).max(512).optional(),
-    receiptDataUrl: z
-      .string()
-      .trim()
-      .max(5_500_000)
-      .optional()
-      .refine(
-        (value) =>
-          !value ||
-          /^data:(image\/(jpeg|jpg|png|webp)|application\/pdf);base64,/i.test(value),
-        'El comprobante debe ser imagen JPEG/PNG/WebP o PDF (data URL)',
-      ),
-    receiptFileName: z.string().trim().min(1).max(180).optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (!value.receiptStorageKey && !value.receiptDataUrl) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Subí el comprobante (storageKey o data URL)',
-        path: ['receiptStorageKey'],
-      });
-    }
-  });
-
-export const adminManualTransfersQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).optional(),
-  page: z.coerce.number().int().min(1).max(500).optional(),
-});
-
-export const manualPrexAdminConfirmationBodySchema = z.object({
-  confirmed: z.boolean(),
-});
-
 /** Params que MP agrega al volver de Checkout Pro (back_urls). */
 export const syncCheckoutReturnBodySchema = z.object({
   mpPaymentId: z.string().trim().min(1).max(64).optional(),
@@ -63,5 +28,4 @@ export type PaymentTransactionCodeParams = z.infer<
   typeof paymentTransactionCodeParamsSchema
 >;
 export type PaymentIdParams = z.infer<typeof paymentIdParamsSchema>;
-export type ManualPrexTransferBody = z.infer<typeof manualPrexTransferBodySchema>;
 export type SyncCheckoutReturnBody = z.infer<typeof syncCheckoutReturnBodySchema>;

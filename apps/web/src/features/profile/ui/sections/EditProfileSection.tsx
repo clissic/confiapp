@@ -304,9 +304,13 @@ export function EditProfileSection({
                 aria-label={
                   phoneVerifiedUi
                     ? 'Teléfono verificado'
-                    : 'Solicitar verificación de teléfono'
+                    : 'Verificación de teléfono (en implementación)'
                 }
-                title={phoneVerifiedUi ? 'Teléfono verificado' : 'Solicitar verificación'}
+                title={
+                  phoneVerifiedUi
+                    ? 'Teléfono verificado'
+                    : 'Verificación por SMS en implementación'
+                }
                 disabled={phoneVerifiedUi}
                 onClick={() => {
                   if (phoneVerifiedUi) return;

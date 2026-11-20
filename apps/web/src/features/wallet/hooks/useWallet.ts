@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
-  completeWithdrawal,
   exportWalletHistory,
   fetchWalletCommissions,
   fetchWalletMovements,
@@ -48,14 +47,6 @@ export function useRequestWithdrawal() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: requestWithdrawal,
-    onSuccess: () => invalidateAll(queryClient),
-  });
-}
-
-export function useCompleteWithdrawal() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: completeWithdrawal,
     onSuccess: () => invalidateAll(queryClient),
   });
 }

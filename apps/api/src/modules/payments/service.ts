@@ -38,8 +38,6 @@ import { assertNotPastDeadline } from '../transactions/operation-deadline';
 import { walletLedger } from '../wallet/service';
 import { AuditAction, AuditOutcome, auditService } from '../audit';
 import { notificationsService } from '../notifications/service';
-import { sendManualPrexReceiptEmail } from './manual-prex-email';
-import { isManualPrexAdminConfirmed } from './manual-prex-gate';
 import {
   computeEscrowSplit,
   IntermediationFeeError,
@@ -112,14 +110,6 @@ function buyerAmountDueCents(
     cents += tip;
   }
   return cents;
-}
-
-function prexAccountDto() {
-  return {
-    bank: 'Prex',
-    accountName: env.PAYMENTS_PREX_ACCOUNT_NAME,
-    accountNumber: env.PAYMENTS_PREX_ACCOUNT_NUMBER,
-  };
 }
 
 function resolveParties(tx: TransactionDocument): {
@@ -326,14 +316,8 @@ export class PaymentsService {
             }
           : split,
       parties,
-      checkoutMode: env.PAYMENTS_CHECKOUT_MODE,
-      prexAccount: env.PAYMENTS_CHECKOUT_MODE === 'manual_prex' ? prexAccountDto() : undefined,
-      providerMode:
-        env.PAYMENTS_CHECKOUT_MODE === 'manual_prex'
-          ? 'MANUAL_PREX'
-          : paymentProvider.isMock()
-            ? 'MOCK'
-            : 'MERCADOPAGO',
+      checkoutMode: 'mercadopago' as const,
+      providerMode: paymentProvider.isMock() ? 'MOCK' : 'MERCADOPAGO',
       payments: payments.map((p) => toPaymentDto(p)),
     };
   }
@@ -354,12 +338,6 @@ export class PaymentsService {
   async createBuyerCheckout(userId: string, code: string) {
     const tx = await this.loadTxForParticipant(userId, code);
     const fundingMode = resolvePaymentFundingMode(tx.fundingMode);
-
-    if (fundingMode === FundingMode.ESCROW_FULL && env.PAYMENTS_CHECKOUT_MODE === 'manual_prex') {
-      throw new ValidationError(
-        'El cobro MVP es por transferencia Prex. Usá el endpoint de comprobante manual.',
-      );
-    }
 
     const parties = resolveParties(tx);
 
@@ -747,416 +725,6 @@ export class PaymentsService {
     };
   }
 
-  /**
-   * MVP: comprador declara transferencia Prex + sube comprobante.
-   * Queda pendiente de revisión admin antes de pasar a FUNDED y visible para agentes.
-   */
-  async submitManualPrexTransfer(
-    userId: string,
-    code: string,
-    input: {
-      receiptStorageKey?: string;
-      receiptDataUrl?: string;
-      receiptFileName?: string;
-    },
-  ) {
-    if (env.PAYMENTS_CHECKOUT_MODE !== 'manual_prex') {
-      throw new ValidationError(
-        'La transferencia Prex solo está habilitada con PAYMENTS_CHECKOUT_MODE=manual_prex',
-      );
-    }
-
-    const receiptKey = input.receiptStorageKey?.trim();
-    const receipt = input.receiptDataUrl?.trim() ?? '';
-    if (receiptKey) {
-      if (!receiptKey.startsWith(`receipt/${userId}/`)) {
-        throw new ValidationError('storageKey de comprobante inválido');
-      }
-    } else {
-      if (!/^data:(image\/(jpeg|jpg|png|webp)|application\/pdf);base64,/i.test(receipt)) {
-        throw new ValidationError(
-          'El comprobante debe ser storageKey o data URL (JPEG/PNG/WebP/PDF)',
-        );
-      }
-      if (receipt.length > 5_500_000) {
-        throw new ValidationError('El comprobante es demasiado grande (máx. ~4 MB)');
-      }
-    }
-
-    const tx = await this.loadTxForParticipant(userId, code);
-    const parties = resolveParties(tx);
-
-    if (resolvePaymentFundingMode(tx.fundingMode) === FundingMode.AGENT_FEE_ONLY) {
-      throw new ValidationError(
-        'En este modo el comprador paga la contratación del Agente por Mercado Pago, no por Prex.',
-      );
-    }
-
-    if (parties.buyerId !== userId) {
-      throw new ForbiddenError('Solo el comprador puede declarar el pago');
-    }
-    if (tx.status !== TransactionStatus.ACCEPTED) {
-      throw new ValidationError(
-        `La operación debe estar ACCEPTED para pagar (actual: ${tx.status})`,
-      );
-    }
-    assertNotPastDeadline(tx);
-
-    const existingCaptured = await PaymentModel.findOne({
-      transaction: tx._id,
-      type: PaymentType.ESCROW_HOLD,
-      status: { $in: [PaymentStatus.CAPTURED, PaymentStatus.RELEASED] },
-      deletedAt: null,
-    }).exec();
-    if (existingCaptured) {
-      throw new ValidationError('La operación ya tiene el servicio del Agente pagado');
-    }
-
-    const currency = assertAppCurrency(tx.currency ?? defaultCurrency());
-    const split = this.splitForTransaction(tx);
-    const amountDue = buyerAmountDueCents(tx, split);
-    const productCents = split.productCents;
-
-    if (!tx.amountCents || tx.amountCents <= 0) {
-      tx.amountCents = productCents;
-      tx.currency = currency;
-      await tx.save();
-    } else if (!tx.currency) {
-      tx.currency = currency;
-      await tx.save();
-    }
-    if (!tx.feePayer) {
-      tx.feePayer = split.feePayer as ITransaction['feePayer'];
-      await tx.save();
-    }
-
-    const idempotencyKey = `hold:${String(tx._id)}`;
-    let hold = await PaymentModel.findOne({
-      transaction: tx._id,
-      type: PaymentType.ESCROW_HOLD,
-      idempotencyKey,
-      deletedAt: null,
-    }).exec();
-
-    if (!hold) {
-      hold = await PaymentModel.create({
-        transaction: tx._id,
-        payer: new Types.ObjectId(parties.buyerId),
-        payee: new Types.ObjectId(parties.sellerId),
-        type: PaymentType.ESCROW_HOLD,
-        status: PaymentStatus.PENDING,
-        provider: PaymentProvider.MANUAL_PREX,
-        amountCents: amountDue,
-        currency,
-        idempotencyKey,
-        metadata: {
-          split,
-          phase: 'manual_prex_pending',
-          checkoutMode: 'manual_prex',
-        },
-      });
-    } else if (
-      hold.status === PaymentStatus.CAPTURED ||
-      hold.status === PaymentStatus.RELEASED
-    ) {
-      throw new ValidationError('La operación ya tiene el servicio del Agente pagado');
-    } else {
-      hold.amountCents = amountDue;
-      hold.provider = PaymentProvider.MANUAL_PREX;
-    }
-
-    const prex = prexAccountDto();
-    hold.externalId = hold.externalId || `PREX-${tx.code}`;
-    hold.status = PaymentStatus.REQUIRES_ACTION;
-    hold.metadata = {
-      ...(hold.metadata ?? {}),
-      split,
-      phase: 'manual_prex_receipt',
-      checkoutMode: 'manual_prex',
-      prexAccount: prex,
-      receiptFileName: input.receiptFileName?.slice(0, 180),
-      ...(receiptKey
-        ? { receiptStorageKey: receiptKey, receiptDataUrl: undefined }
-        : { receiptDataUrl: receipt }),
-      receiptUploadedAt: new Date().toISOString(),
-      amountDueCents: amountDue,
-      transactionCode: tx.code,
-    };
-    await hold.save();
-
-    await persistLog({
-      source: 'confirm',
-      event: 'manual_prex.receipt_submitted',
-      message: 'Comprobante Prex recibido — pendiente de confirmación admin',
-      transactionId: String(tx._id),
-      paymentId: String(hold._id),
-      externalId: hold.externalId,
-      payload: {
-        code: tx.code,
-        amountCents: amountDue,
-        receiptFileName: input.receiptFileName,
-        prex,
-      },
-    });
-
-    auditService.track({
-      actor: userId,
-      action: AuditAction.PAYMENT_UPDATED,
-      entityType: 'Payment',
-      entityId: String(hold._id),
-      outcome: AuditOutcome.SUCCESS,
-      correlationId: tx.code,
-      metadata: {
-        phase: 'manual_prex_receipt',
-        code: tx.code,
-        amountCents: amountDue,
-        provider: PaymentProvider.MANUAL_PREX,
-        receiptFileName: input.receiptFileName,
-        pendingAdminReview: true,
-        ...feesAuditMeta(split),
-      },
-    });
-
-    const now = new Date();
-    tx.statusHistory.push({
-      status: TransactionStatus.ACCEPTED,
-      changedAt: now,
-      changedBy: new Types.ObjectId(userId),
-      note: 'Comprador envió el comprobante de transferencia — pendiente de verificación',
-    });
-    await tx.save();
-
-    const buyer = await UserModel.findById(parties.buyerId).select('email fullName').lean();
-    setImmediate(() => {
-      void sendManualPrexReceiptEmail({
-        transactionCode: tx.code,
-        transactionTitle: tx.title,
-        amountCents: amountDue,
-        currency,
-        buyerName: buyer?.fullName ?? 'Comprador',
-        buyerEmail: buyer?.email ?? '',
-        receiptDataUrl: receipt || undefined,
-        receiptStorageKey: receiptKey || undefined,
-        receiptFileName: input.receiptFileName,
-        prexAccountName: prex.accountName,
-        prexAccountNumber: prex.accountNumber,
-        paymentId: String(hold._id),
-      });
-    });
-
-    return {
-      payment: toPaymentDto(hold.toObject()),
-      transactionCode: tx.code,
-      transactionStatus: tx.status,
-      split,
-      amountDueCents: amountDue,
-      checkoutMode: 'manual_prex' as const,
-      prexAccount: prex,
-      providerMode: 'MANUAL_PREX' as const,
-      pendingAdminReview: true,
-    };
-  }
-
-  /** Admin confirma o revierte la transferencia Prex tras revisar el comprobante. */
-  async setManualPrexAdminConfirmation(
-    adminUserId: string,
-    paymentId: string,
-    confirmed: boolean,
-  ) {
-    if (!Types.ObjectId.isValid(paymentId)) {
-      throw new NotFoundError('Pago no encontrado');
-    }
-
-    const hold = await PaymentModel.findOne({
-      _id: paymentId,
-      type: PaymentType.ESCROW_HOLD,
-      provider: PaymentProvider.MANUAL_PREX,
-      deletedAt: null,
-    }).exec();
-    if (!hold) throw new NotFoundError('Transferencia Prex no encontrada');
-
-    const tx = await TransactionModel.findById(hold.transaction).exec();
-    if (!tx) throw new NotFoundError('Operación no encontrada');
-
-    const meta = (hold.metadata ?? {}) as Record<string, unknown>;
-    const hasReceiptDataUrl =
-      typeof meta.receiptDataUrl === 'string' && meta.receiptDataUrl.length > 0;
-    const hasReceiptStorageKey =
-      typeof meta.receiptStorageKey === 'string' &&
-      (meta.receiptStorageKey as string).trim().length >= 3;
-    if (!hasReceiptDataUrl && !hasReceiptStorageKey) {
-      throw new ValidationError('No hay comprobante para confirmar en esta transferencia');
-    }
-
-    const currentlyConfirmed = isManualPrexAdminConfirmed(hold.status, meta);
-    if (confirmed === currentlyConfirmed) {
-      return {
-        payment: toPaymentDto(hold.toObject()),
-        transactionCode: tx.code,
-        transactionStatus: tx.status,
-        adminConfirmed: currentlyConfirmed,
-        unchanged: true as const,
-      };
-    }
-
-    if (confirmed) {
-      const result = await this.confirmHold(String(hold._id), {
-        source: 'confirm',
-        externalPaymentId: hold.externalId,
-        note: 'Servicio del Agente confirmado por admin tras revisar comprobante Prex',
-      });
-
-      const refreshed = await PaymentModel.findById(hold._id).exec();
-      if (refreshed) {
-        const now = new Date();
-        refreshed.metadata = {
-          ...(refreshed.metadata ?? {}),
-          adminConfirmedAt: now.toISOString(),
-          adminConfirmedBy: adminUserId,
-          phase: 'manual_prex_admin_confirmed',
-        };
-        await refreshed.save();
-      }
-
-      const updatedTx = await TransactionModel.findById(tx._id).select('status').lean().exec();
-
-      auditService.track({
-        actor: adminUserId,
-        action: AuditAction.PAYMENT_UPDATED,
-        entityType: 'Payment',
-        entityId: String(hold._id),
-        outcome: AuditOutcome.SUCCESS,
-        correlationId: tx.code,
-        metadata: {
-          phase: 'manual_prex_admin_confirmed',
-          code: tx.code,
-          amountCents: hold.amountCents,
-          provider: PaymentProvider.MANUAL_PREX,
-        },
-      });
-
-      await persistLog({
-        source: 'system',
-        event: 'manual_prex.admin_confirmed',
-        message: 'Admin confirmó comprobante Prex — operación disponible para agentes',
-        transactionId: String(tx._id),
-        paymentId: String(hold._id),
-        externalId: hold.externalId,
-        payload: { code: tx.code, adminUserId },
-      });
-
-      return {
-        ...result,
-        payment: toPaymentDto((refreshed ?? hold).toObject()),
-        transactionCode: tx.code,
-        transactionStatus: updatedTx?.status ?? tx.status,
-        adminConfirmed: true,
-      };
-    }
-
-    const hasAgent = tx.participants.some(
-      (p) =>
-        p.role === ParticipantRole.INTERMEDIARY &&
-        (p.status === ParticipantStatus.ACCEPTED ||
-          p.status === ParticipantStatus.INVITED),
-    );
-    if (hasAgent) {
-      throw new ValidationError(
-        'No se puede marcar como no confirmada: ya hay un agente asignado o invitado',
-      );
-    }
-
-    if (
-      hold.status !== PaymentStatus.CAPTURED &&
-      hold.status !== PaymentStatus.RELEASED
-    ) {
-      throw new ValidationError('La transferencia aún no fue confirmada por admin');
-    }
-
-    const parties = resolveParties(tx);
-    const now = new Date();
-
-    await UserModel.updateOne(
-      { _id: parties.sellerId, 'wallet.status': { $ne: WalletStatus.CLOSED } },
-      {
-        $inc: { 'wallet.heldCents': -hold.amountCents },
-        $set: { 'wallet.lastMovementAt': now },
-      },
-    ).exec();
-
-    const sellerAfter = await UserModel.findById(parties.sellerId).select('wallet').lean();
-    await walletLedger.record({
-      userId: parties.sellerId,
-      type: WalletMovementType.ESCROW_HOLD,
-      direction: WalletMovementDirection.DEBIT,
-      amountCents: hold.amountCents,
-      currency: hold.currency,
-      description: `Reversión contratación · ${tx.code} (admin desconfirmó Prex)`,
-      paymentId: String(hold._id),
-      transactionId: String(tx._id),
-      balanceAfter: sellerAfter
-        ? {
-            availableCents: sellerAfter.wallet?.availableCents ?? 0,
-            pendingCents: sellerAfter.wallet?.pendingCents ?? 0,
-            heldCents: sellerAfter.wallet?.heldCents ?? 0,
-          }
-        : undefined,
-    });
-
-    hold.status = PaymentStatus.REQUIRES_ACTION;
-    hold.set('capturedAt', undefined);
-    hold.set('authorizedAt', undefined);
-    const nextMeta = { ...meta, phase: 'manual_prex_receipt' } as Record<string, unknown>;
-    delete nextMeta.adminConfirmedAt;
-    delete nextMeta.adminConfirmedBy;
-    hold.metadata = nextMeta;
-    await hold.save();
-
-    if (tx.status === TransactionStatus.FUNDED) {
-      tx.status = TransactionStatus.ACCEPTED;
-      tx.fundedAt = undefined;
-      tx.statusHistory.push({
-        status: TransactionStatus.ACCEPTED,
-        changedAt: now,
-        changedBy: new Types.ObjectId(adminUserId),
-        note: 'ConfiApp pidió revisar de nuevo el comprobante de la transferencia',
-      });
-      await tx.save();
-    }
-
-    auditService.track({
-      actor: adminUserId,
-      action: AuditAction.PAYMENT_UPDATED,
-      entityType: 'Payment',
-      entityId: String(hold._id),
-      outcome: AuditOutcome.SUCCESS,
-      correlationId: tx.code,
-      metadata: {
-        phase: 'manual_prex_admin_unconfirmed',
-        code: tx.code,
-        amountCents: hold.amountCents,
-        provider: PaymentProvider.MANUAL_PREX,
-      },
-    });
-
-    await persistLog({
-      source: 'system',
-      event: 'manual_prex.admin_unconfirmed',
-      message: 'Admin marcó transferencia Prex como no confirmada',
-      transactionId: String(tx._id),
-      paymentId: String(hold._id),
-      externalId: hold.externalId,
-      payload: { code: tx.code, adminUserId },
-    });
-
-    return {
-      payment: toPaymentDto(hold.toObject()),
-      transactionCode: tx.code,
-      transactionStatus: tx.status,
-      adminConfirmed: false,
-    };
-  }
-
   /** Confirmación MOCK (dev) o llamada interna post-webhook aprobado. */
   async confirmHold(
     paymentId: string,
@@ -1191,12 +759,9 @@ export class PaymentsService {
     hold.authorizedAt = hold.authorizedAt ?? now;
     hold.capturedAt = now;
     if (opts.externalPaymentId) {
-      const isManualPrex = hold.provider === PaymentProvider.MANUAL_PREX;
       hold.metadata = {
         ...(hold.metadata ?? {}),
-        ...(isManualPrex
-          ? { prexReference: opts.externalPaymentId }
-          : { mpPaymentId: opts.externalPaymentId }),
+        mpPaymentId: opts.externalPaymentId,
         phase: 'retained',
       };
       hold.externalId = hold.externalId || opts.externalPaymentId;
@@ -2137,30 +1702,43 @@ export class PaymentsService {
   }
 
   /**
-   * Reembolso total del hold + cancelación de la operación
-   * (p. ej. comprador rechaza el producto tras la verificación del Agente).
+   * Comprador rechaza el producto tras verificación del Agente:
+   * cancela la operación **sin reembolso MP** y acredita la comisión del Agente
+   * (trabajo ya realizado: viaje / verificación).
    */
-  async refundEscrowAndCancel(userId: string, code: string, note?: string) {
+  async settleAgentFeeAndCancelOnBuyerReject(userId: string, code: string, note?: string) {
     const tx = await this.loadTxForParticipant(userId, code);
     if (
       tx.status !== TransactionStatus.FUNDED &&
       tx.status !== TransactionStatus.IN_PROGRESS
     ) {
       throw new ValidationError(
-        `Solo se puede reembolsar con servicio del Agente pagado o en curso (actual: ${tx.status})`,
+        `Solo se puede cancelar con Agente contratado o en curso (actual: ${tx.status})`,
       );
     }
     assertNotPastDeadline(tx);
     assertTransition(tx.status, TransactionStatus.CANCELLED);
 
+    if (resolvePaymentFundingMode(tx.fundingMode) !== FundingMode.AGENT_FEE_ONLY) {
+      throw new ValidationError(
+        'Este cierre sin reembolso aplica al modo de contratación del Agente.',
+      );
+    }
+
     const parties = resolveParties(tx);
+    if (!parties.agentId) {
+      throw new ValidationError('No hay Agente asignado para acreditar la comisión');
+    }
+
     const hold = await PaymentModel.findOne({
       transaction: tx._id,
       type: PaymentType.ESCROW_HOLD,
       status: PaymentStatus.CAPTURED,
       deletedAt: null,
     }).exec();
-    if (!hold) throw new ValidationError('No hay contratación del Agente para reembolsar');
+    if (!hold) {
+      throw new ValidationError('No hay contratación del Agente capturada para liquidar');
+    }
 
     const alreadyReleased = await PaymentModel.findOne({
       transaction: tx._id,
@@ -2169,89 +1747,154 @@ export class PaymentsService {
       deletedAt: null,
     }).lean();
     if (alreadyReleased) {
-      throw new ValidationError('La comisión ya fue liquidada; no se puede reembolsar así');
+      throw new ValidationError('La comisión del Agente ya fue liquidada');
     }
 
+    const meta = (hold.metadata ?? {}) as Record<string, unknown>;
+    const buyerPays = hold.amountCents || AGENT_FEE_ONLY_UYU_CENTS;
+    const platformFee =
+      typeof meta.platformFeeCents === 'number'
+        ? Math.max(0, meta.platformFeeCents)
+        : Math.floor((buyerPays * env.PAYMENTS_PLATFORM_FEE_BPS) / 10_000);
+    const agentFee =
+      typeof meta.agentFeeCents === 'number'
+        ? Math.max(0, meta.agentFeeCents)
+        : Math.max(0, buyerPays - platformFee);
+    const currency = hold.currency || 'UYU';
     const now = new Date();
+    const provider = hold.provider;
+    const split = {
+      fundingMode: FundingMode.AGENT_FEE_ONLY,
+      productCents: 0,
+      commissionCents: buyerPays,
+      buyerPaysCents: buyerPays,
+      sellerNetCents: 0,
+      platformFeeCents: platformFee,
+      agentFeeCents: agentFee,
+      currency,
+      feePayer: 'BUYER' as const,
+    };
 
-    if (hold.externalId && hold.provider !== PaymentProvider.MANUAL_PREX) {
-      try {
-        await paymentProvider.refundPayment(hold.externalId);
-      } catch (error) {
-        logger.error('refundPayment failed', { error, code: tx.code, externalId: hold.externalId });
-        throw new ValidationError(
-          'No se pudo procesar el reembolso con el proveedor de pagos. Intentá de nuevo o contactá soporte.',
-        );
-      }
-    }
-
-    await UserModel.updateOne(
-      { _id: parties.sellerId, 'wallet.status': { $ne: WalletStatus.CLOSED } },
-      {
-        $inc: { 'wallet.heldCents': -hold.amountCents },
-        $set: { 'wallet.lastMovementAt': now },
+    const fee = await PaymentModel.create({
+      transaction: tx._id,
+      payer: hold.payer,
+      type: PaymentType.PLATFORM_FEE,
+      status: PaymentStatus.CAPTURED,
+      provider,
+      amountCents: Math.max(1, platformFee || 1),
+      currency,
+      idempotencyKey: `fee:${String(tx._id)}`,
+      capturedAt: now,
+      metadata: {
+        split,
+        bps: env.PAYMENTS_PLATFORM_FEE_BPS,
+        fundingMode: FundingMode.AGENT_FEE_ONLY,
+        reason: 'buyer_rejected_product',
       },
-    ).exec();
-
-    const sellerAfter = await UserModel.findById(parties.sellerId).select('wallet').lean();
-    await walletLedger.record({
-      userId: parties.sellerId,
-      type: WalletMovementType.REFUND,
-      direction: WalletMovementDirection.DEBIT,
-      amountCents: hold.amountCents,
-      currency: hold.currency,
-      description: `Reembolso contratación · ${tx.code}`,
-      paymentId: String(hold._id),
-      transactionId: String(tx._id),
-      balanceAfter: sellerAfter
-        ? {
-            availableCents: sellerAfter.wallet?.availableCents ?? 0,
-            pendingCents: sellerAfter.wallet?.pendingCents ?? 0,
-            heldCents: sellerAfter.wallet?.heldCents ?? 0,
-          }
-        : undefined,
     });
 
-    hold.status = PaymentStatus.REFUNDED;
-    hold.refundedAt = now;
+    const agentPayment = await PaymentModel.create({
+      transaction: tx._id,
+      payer: hold.payer,
+      payee: new Types.ObjectId(parties.agentId),
+      type: PaymentType.AGENT_PAYOUT,
+      status: PaymentStatus.CAPTURED,
+      provider,
+      amountCents: agentFee,
+      currency,
+      idempotencyKey: `agent:${String(tx._id)}`,
+      capturedAt: now,
+      metadata: {
+        split,
+        bps: env.PAYMENTS_AGENT_FEE_BPS,
+        holdDays: AGENT_COMMISSION_HOLD_DAYS,
+        accounting: 'PENDING_COMMISSION',
+        fundingMode: FundingMode.AGENT_FEE_ONLY,
+        reason: 'buyer_rejected_product',
+      },
+    });
+
+    await agentCommissionService.recordOnCompleted({
+      transactionId: String(tx._id),
+      transactionCode: tx.code,
+      agentId: parties.agentId,
+      commissionCents: buyerPays,
+      agentShareCents: agentFee,
+      platformShareCents: platformFee,
+      currency,
+      completedAt: now,
+      paymentId: String(agentPayment._id),
+      actorId: userId,
+      metadata: { split, reason: 'buyer_rejected_product' },
+    });
+
+    const release = await PaymentModel.create({
+      transaction: tx._id,
+      payer: hold.payer,
+      payee: new Types.ObjectId(parties.agentId),
+      type: PaymentType.ESCROW_RELEASE,
+      status: PaymentStatus.RELEASED,
+      provider,
+      amountCents: Math.max(1, agentFee || 1),
+      currency,
+      idempotencyKey: `release:${String(tx._id)}`,
+      releasedAt: now,
+      capturedAt: now,
+      metadata: {
+        split,
+        fromHoldId: String(hold._id),
+        fundingMode: FundingMode.AGENT_FEE_ONLY,
+        reason: 'buyer_rejected_product',
+      },
+    });
+
+    hold.status = PaymentStatus.RELEASED;
+    hold.releasedAt = now;
     hold.metadata = {
       ...(hold.metadata ?? {}),
-      phase: 'refunded',
-      refundReason: 'buyer_rejected_product',
-      refundedBy: userId,
-      manualPrex:
-        hold.provider === PaymentProvider.MANUAL_PREX
-          ? 'Reembolso manual pendiente (Prex)'
-          : undefined,
+      phase: 'released_on_buyer_reject',
+      split,
+      noRefund: true,
     };
     await hold.save();
 
-    try {
-      await agentCommissionService.reverseForTransaction(String(tx._id), 'REFUND_TOTAL');
-    } catch (error) {
-      logger.error('reverseForTransaction on buyer reject failed', { error, code: tx.code });
-    }
+    await financialAudit.record({
+      action: 'ESCROW_RELEASED',
+      idempotencyKey: `fa:release-reject:${String(tx._id)}`,
+      operationId: String(tx._id),
+      paymentId: String(agentPayment._id),
+      agentId: parties.agentId,
+      actorId: userId,
+      amountCents: agentFee,
+      currency,
+      newStatus: TransactionStatus.CANCELLED,
+      metadata: { reason: 'buyer_rejected_product', noRefund: true },
+    });
 
     tx.status = TransactionStatus.CANCELLED;
+    tx.cancelledAt = now;
     tx.statusHistory.push({
       status: TransactionStatus.CANCELLED,
       changedAt: now,
       changedBy: new Types.ObjectId(userId),
-      note: note ?? 'Comprador rechazó el producto y canceló la compra',
+      note:
+        note ??
+        'Comprador rechazó el producto. Contratación del Agente no reembolsada (trabajo realizado).',
     });
     await tx.save();
 
     await persistLog({
       source: 'system',
-      event: 'escrow.refunded',
-      message: 'Servicio del Agente reembolsado tras rechazo del comprador',
+      event: 'escrow.settled_on_buyer_reject',
+      message: 'Rechazo comprador: comisión Agente acreditada, sin reembolso MP',
       transactionId: String(tx._id),
-      paymentId: String(hold._id),
+      paymentId: String(release._id),
       payload: {
         code: tx.code,
-        refundedBy: userId,
-        provider: hold.provider,
-        amountCents: hold.amountCents,
+        cancelledBy: userId,
+        agentFeeCents: agentFee,
+        platformFeeCents: platformFee,
+        noRefund: true,
       },
     });
 
@@ -2259,14 +1902,17 @@ export class PaymentsService {
       actor: userId,
       action: AuditAction.PAYMENT_UPDATED,
       entityType: 'Payment',
-      entityId: String(hold._id),
+      entityId: String(release._id),
       outcome: AuditOutcome.SUCCESS,
       correlationId: tx.code,
       metadata: {
-        phase: 'escrow_refunded',
+        phase: 'agent_fee_settled_on_buyer_reject',
         code: tx.code,
-        step: 'buyer_rejected_product',
-        amountCents: hold.amountCents,
+        agentFeeCents: agentFee,
+        platformFeeCents: platformFee,
+        feePaymentId: String(fee._id),
+        agentPaymentId: String(agentPayment._id),
+        noRefund: true,
       },
     });
     auditService.track({
@@ -2280,6 +1926,7 @@ export class PaymentsService {
         code: tx.code,
         step: 'buyer_rejected_product',
         to: TransactionStatus.CANCELLED,
+        noRefund: true,
       },
     });
 
@@ -2296,15 +1943,16 @@ export class PaymentsService {
           title: 'Compra cancelada',
           body:
             uid === parties.buyerId
-              ? `Rechazaste el producto de ${tx.code}. Se inició el reembolso de la contratación del Agente.`
+              ? `Rechazaste el producto de ${tx.code}. La contratación del Agente no se reembolsa: el Agente ya realizó el trabajo.`
               : uid === parties.sellerId
                 ? `El comprador rechazó el producto en ${tx.code}. La operación se canceló.`
-                : `El comprador rechazó el producto en ${tx.code}. Coordiná la devolución si corresponde.`,
+                : `El comprador rechazó el producto en ${tx.code}. Tu comisión se acredita; coordiná la devolución al vendedor si corresponde.`,
           data: {
             href,
             code: tx.code,
             status: TransactionStatus.CANCELLED,
             step: 'buyer_rejected_product',
+            noRefund: true,
           },
           entityType: 'Transaction',
           entityId: String(tx._id),
@@ -2316,7 +1964,19 @@ export class PaymentsService {
     return {
       transactionStatus: tx.status,
       payment: toPaymentDto(hold.toObject()),
+      agentPayout: toPaymentDto(agentPayment.toObject()),
+      platformFee: toPaymentDto(fee.toObject()),
     };
+  }
+
+  /**
+   * Bloqueado: los reembolsos live solo se ejecutan desde resolución admin de disputa
+   * (`COMPLETE_WITH_REFUND`).
+   */
+  async refundEscrowAndCancel(_userId: string, _code: string, _note?: string) {
+    throw new ValidationError(
+      'Los reembolsos solo los ejecuta un administrador al resolver una disputa.',
+    );
   }
 
   async listEventLogs(limit = 50) {
@@ -2338,178 +1998,6 @@ export class PaymentsService {
         payload: row.payload,
         createdAt: row.createdAt.toISOString(),
       })),
-    };
-  }
-
-  /** Admin: transferencias Prex declaradas por compradores (sin payload pesado del comprobante). */
-  async listManualPrexTransfersForAdmin(opts?: { page?: number; limit?: number }) {
-    const limit = Math.min(Math.max(opts?.limit ?? 15, 1), 200);
-    const page = Math.max(opts?.page ?? 1, 1);
-    const filter = {
-      provider: PaymentProvider.MANUAL_PREX,
-      type: PaymentType.ESCROW_HOLD,
-      deletedAt: null,
-    };
-
-    const [total, payments] = await Promise.all([
-      PaymentModel.countDocuments(filter).exec(),
-      PaymentModel.find(filter)
-        .select(
-          'transaction payer status amountCents currency externalId capturedAt createdAt metadata.receiptFileName metadata.receiptUploadedAt metadata.receiptStorageKey metadata.adminConfirmedAt metadata.transactionCode',
-        )
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean()
-        .exec(),
-    ]);
-
-    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-
-    const txIds = [...new Set(payments.map((p) => String(p.transaction)))];
-    const payerIds = [...new Set(payments.map((p) => String(p.payer)))];
-
-    const [transactions, payers] = await Promise.all([
-      TransactionModel.find({ _id: { $in: txIds } })
-        .select('code title status currency')
-        .lean()
-        .exec(),
-      UserModel.find({ _id: { $in: payerIds } })
-        .select('email fullName')
-        .lean()
-        .exec(),
-    ]);
-
-    const txById = new Map(transactions.map((tx) => [String(tx._id), tx]));
-    const payerById = new Map(payers.map((u) => [String(u._id), u]));
-
-    return {
-      checkoutMode: env.PAYMENTS_CHECKOUT_MODE,
-      prexAccount: prexAccountDto(),
-      items: payments.map((p) => {
-        const meta = (p.metadata ?? {}) as Record<string, unknown>;
-        const tx = txById.get(String(p.transaction));
-        const payer = payerById.get(String(p.payer));
-        const hasReceipt = Boolean(
-          meta.receiptStorageKey ||
-            meta.receiptFileName ||
-            meta.receiptUploadedAt ||
-            (typeof meta.receiptDataUrl === 'string' && meta.receiptDataUrl.length > 0),
-        );
-        return {
-          id: String(p._id),
-          transactionId: String(p.transaction),
-          transactionCode: tx?.code ?? (meta.transactionCode as string | undefined),
-          transactionTitle: tx?.title,
-          transactionStatus: tx?.status,
-          status: p.status,
-          amountCents: p.amountCents,
-          currency: p.currency,
-          externalId: p.externalId,
-          capturedAt: p.capturedAt?.toISOString(),
-          createdAt: p.createdAt.toISOString(),
-          buyer: payer
-            ? { id: String(payer._id), email: payer.email, fullName: payer.fullName }
-            : { id: String(p.payer) },
-          receiptFileName:
-            typeof meta.receiptFileName === 'string' ? meta.receiptFileName : undefined,
-          receiptUploadedAt:
-            typeof meta.receiptUploadedAt === 'string' ? meta.receiptUploadedAt : undefined,
-          hasReceipt,
-          adminConfirmed: isManualPrexAdminConfirmed(p.status, meta),
-        };
-      }),
-      total,
-      page,
-      limit,
-      totalPages,
-    };
-  }
-
-  /** Admin: detalle con comprobante (data URL) para revisión. */
-  async getManualPrexTransferForAdmin(paymentId: string) {
-    if (!Types.ObjectId.isValid(paymentId)) {
-      throw new NotFoundError('Pago no encontrado');
-    }
-    const payment = await PaymentModel.findOne({
-      _id: paymentId,
-      provider: PaymentProvider.MANUAL_PREX,
-      type: PaymentType.ESCROW_HOLD,
-      deletedAt: null,
-    })
-      .lean()
-      .exec();
-    if (!payment) throw new NotFoundError('Transferencia Prex no encontrada');
-
-    const [tx, payer] = await Promise.all([
-      TransactionModel.findById(payment.transaction)
-        .select('code title status currency amountCents')
-        .lean()
-        .exec(),
-      UserModel.findById(payment.payer).select('email fullName phone').lean().exec(),
-    ]);
-
-    const meta = (payment.metadata ?? {}) as Record<string, unknown>;
-    let receiptDataUrl =
-      typeof meta.receiptDataUrl === 'string' ? meta.receiptDataUrl : undefined;
-    const receiptStorageKey =
-      typeof meta.receiptStorageKey === 'string' ? meta.receiptStorageKey : undefined;
-    if (!receiptDataUrl && receiptStorageKey) {
-      try {
-        const { createPresignedGet, isObjectStorageConfigured } = await import(
-          '../../infrastructure/storage/object-storage'
-        );
-        if (isObjectStorageConfigured()) {
-          receiptDataUrl = await createPresignedGet(receiptStorageKey, 15 * 60);
-        }
-      } catch {
-        /* leave undefined */
-      }
-    }
-
-    return {
-      payment: {
-        id: String(payment._id),
-        status: payment.status,
-        amountCents: payment.amountCents,
-        currency: payment.currency,
-        externalId: payment.externalId,
-        capturedAt: payment.capturedAt?.toISOString(),
-        createdAt: payment.createdAt.toISOString(),
-        receiptFileName:
-          typeof meta.receiptFileName === 'string' ? meta.receiptFileName : undefined,
-        receiptUploadedAt:
-          typeof meta.receiptUploadedAt === 'string' ? meta.receiptUploadedAt : undefined,
-        receiptStorageKey,
-        receiptDataUrl,
-        prexAccount:
-          meta.prexAccount && typeof meta.prexAccount === 'object'
-            ? meta.prexAccount
-            : prexAccountDto(),
-        adminConfirmed: isManualPrexAdminConfirmed(payment.status, meta),
-        adminConfirmedAt:
-          typeof meta.adminConfirmedAt === 'string' ? meta.adminConfirmedAt : undefined,
-        adminConfirmedBy:
-          typeof meta.adminConfirmedBy === 'string' ? meta.adminConfirmedBy : undefined,
-      },
-      transaction: tx
-        ? {
-            id: String(tx._id),
-            code: tx.code,
-            title: tx.title,
-            status: tx.status,
-            currency: tx.currency,
-            amountCents: tx.amountCents,
-          }
-        : null,
-      buyer: payer
-        ? {
-            id: String(payer._id),
-            email: payer.email,
-            fullName: payer.fullName,
-            phone: payer.phone,
-          }
-        : { id: String(payment.payer) },
     };
   }
 

@@ -17,14 +17,12 @@ import { useAppToast } from '@/shared/ui';
 import {
   useEscrow,
   useStartCheckout,
-  useSubmitManualPrexTransfer,
   useSyncCheckoutReturn,
 } from '@/features/payments/hooks/usePayments';
 
 import { useTransaction } from '../hooks/useTransactions';
 import { STATUS_LABELS } from '../model/types';
 import { ConfiAnzaMark } from './ConfiAnzaBonusFields';
-import { PrexTransferPanel } from './PrexTransferPanel';
 import '../styles/transactions.css';
 
 export function TransactionPayPage() {
@@ -38,21 +36,10 @@ export function TransactionPayPage() {
   const { data: escrowData } = useEscrow(code);
   const checkout = useStartCheckout(code);
   const syncCheckout = useSyncCheckoutReturn(code);
-  const manualTransfer = useSubmitManualPrexTransfer(code);
   const tx = data?.data;
   const escrow = escrowData?.data;
 
-  const checkoutMode = escrow?.checkoutMode ?? 'manual_prex';
-  const isManualPrex = checkoutMode === 'manual_prex';
   const isAgentFeeOnly = (tx?.fundingMode ?? 'AGENT_FEE_ONLY') === 'AGENT_FEE_ONLY';
-  const pendingAdminReview = useMemo(
-    () =>
-      escrow?.payments?.some(
-        (payment) =>
-          payment.provider === 'MANUAL_PREX' && payment.status === 'REQUIRES_ACTION',
-      ) ?? false,
-    [escrow?.payments],
-  );
 
   const hasAcceptedAgent = Boolean(
     tx?.participants.some((p) => p.role === 'INTERMEDIARY' && p.status === 'ACCEPTED'),
@@ -200,28 +187,6 @@ export function TransactionPayPage() {
     }
   };
 
-  const onSubmitPrexReceipt = async (payload: {
-    receiptDataUrl?: string;
-    receiptStorageKey?: string;
-    receiptFileName: string;
-  }) => {
-    setError(null);
-    try {
-      await manualTransfer.mutateAsync(payload);
-      toast.success(
-        'Comprobante enviado. Verificaremos la transferencia y te avisaremos cuando se verifique.',
-      );
-      navigate(`/operaciones/${tx.code}`, { replace: true });
-    } catch (err) {
-      setError(
-        getApiErrorMessage(
-          err,
-          'No se pudo registrar el comprobante. Revisá el archivo y que la operación siga aceptada.',
-        ),
-      );
-    }
-  };
-
   const agentFeePlatform = Math.floor(
     (AGENT_FEE_ONLY_UYU_CENTS * DEFAULT_PLATFORM_COMMISSION_BPS) / 10_000,
   );
@@ -259,9 +224,8 @@ export function TransactionPayPage() {
         </p>
         <h1 className="ca-tx-pay-hero__title">Resumen del pago</h1>
         <p className="ca-tx-pay-hero__lead">
-          {isManualPrex
-            ? 'Pagás en ConfiApp solo la contratación del Agente. Transferí el monto, subí el comprobante. El precio del producto se acuerda y se paga por fuera.'
-            : 'Pagás en ConfiApp solo la contratación del Agente. El precio del producto se acuerda y se paga por fuera.'}
+          Pagás en ConfiApp solo la contratación del Agente. El precio del producto se acuerda y se
+          paga por fuera.
         </p>
         <div className="ca-tx-pay-hero__meta">
           <Badge bg="primary">{STATUS_LABELS[tx.status]}</Badge>
@@ -350,83 +314,49 @@ export function TransactionPayPage() {
         </div>
       </section>
 
-      {isManualPrex ? (
-        pendingAdminReview ? (
-          <section className="ca-tx-panel ca-tx-pay-cta">
-            <Alert variant="info" className="mb-0">
-              Ya recibimos tu comprobante. Estamos verificando la transferencia; cuando se
-              confirme, la contratación del Agente quedará registrada en ConfiApp.
-            </Alert>
-            <div className="ca-tx-pay-cta__actions mt-3">
-              <Link to={`/operaciones/${tx.code}`} className="btn btn-primary">
-                Volver a la operación
-              </Link>
-            </div>
-          </section>
-        ) : (
-          <PrexTransferPanel
-            amountLabel={amountLabel}
-            operationCode={tx.code}
-            account={escrow?.prexAccount}
-            disabled={manualTransfer.isPending}
-            isPending={manualTransfer.isPending}
-            onSubmit={onSubmitPrexReceipt}
-          />
-        )
-      ) : (
-        <section className="ca-tx-panel ca-tx-pay-cta">
-          <div className="ca-tx-pay-cta__copy">
-            <h2 className="ca-tx-pay-cta__title">Último paso</h2>
-            <p className="ca-tx-pay-cta__lead mb-0">
-              Vas a pagar <strong>{amountLabel}</strong> a ConfiApp vía Mercado Pago. Si estás en
-              modo prueba (sin credenciales), se simula la pasarela.
-            </p>
-          </div>
-          <div className="ca-tx-pay-cta__actions">
-            <Button
-              className="ca-btn-cta"
-              disabled={checkout.isPending || syncCheckout.isPending}
-              onClick={() => void onContinueToCheckout()}
-            >
-              {checkout.isPending ? (
-                <>
-                  <Spinner size="sm" animation="border" className="me-2" />
-                  Abriendo pasarela…
-                </>
-              ) : (
-                'Continuar a Mercado Pago'
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="outline-secondary"
-              disabled={checkout.isPending || syncCheckout.isPending}
-              onClick={() => void onVerifyExistingPayment()}
-            >
-              {syncCheckout.isPending ? (
-                <>
-                  <Spinner size="sm" animation="border" className="me-2" />
-                  Verificando…
-                </>
-              ) : (
-                'Ya pagué — verificar'
-              )}
-            </Button>
-            <Link to={`/operaciones/${tx.code}`} className="btn btn-link px-0">
-              Cancelar
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {isManualPrex ? (
-        <p className="ca-tx-pay-standby text-muted mb-0">
-          <Link to={`/operaciones/${tx.code}`}>Cancelar y volver</Link>
-          {' · '}
-          Cobro por transferencia Prex. Para usar Mercado Pago, configurá{' '}
-          <code>PAYMENTS_CHECKOUT_MODE=mercadopago</code> en la API y reiniciala.
-        </p>
-      ) : null}
+      <section className="ca-tx-panel ca-tx-pay-cta">
+        <div className="ca-tx-pay-cta__copy">
+          <h2 className="ca-tx-pay-cta__title">Último paso</h2>
+          <p className="ca-tx-pay-cta__lead mb-0">
+            Vas a pagar <strong>{amountLabel}</strong> a ConfiApp vía Mercado Pago. Si estás en modo
+            prueba (sin credenciales), se simula la pasarela.
+          </p>
+        </div>
+        <div className="ca-tx-pay-cta__actions">
+          <Button
+            className="ca-btn-cta"
+            disabled={checkout.isPending || syncCheckout.isPending}
+            onClick={() => void onContinueToCheckout()}
+          >
+            {checkout.isPending ? (
+              <>
+                <Spinner size="sm" animation="border" className="me-2" />
+                Abriendo pasarela…
+              </>
+            ) : (
+              'Continuar a Mercado Pago'
+            )}
+          </Button>
+          <Button
+            type="button"
+            variant="outline-secondary"
+            disabled={checkout.isPending || syncCheckout.isPending}
+            onClick={() => void onVerifyExistingPayment()}
+          >
+            {syncCheckout.isPending ? (
+              <>
+                <Spinner size="sm" animation="border" className="me-2" />
+                Verificando…
+              </>
+            ) : (
+              'Ya pagué — verificar'
+            )}
+          </Button>
+          <Link to={`/operaciones/${tx.code}`} className="btn btn-link px-0">
+            Cancelar
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

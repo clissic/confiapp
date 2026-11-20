@@ -459,6 +459,54 @@ export class WalletService {
     };
   }
 
+  /** Cola de retiros pendientes para administración (transferencia manual). */
+  async listPendingWithdrawalsForAdmin(limit = 50) {
+    const rows = await WithdrawalModel.find({
+      status: { $in: [WithdrawalStatus.PENDING, WithdrawalStatus.PROCESSING] },
+      deletedAt: null,
+    })
+      .sort({ requestedAt: 1 })
+      .limit(Math.min(Math.max(limit, 1), 100))
+      .populate('user', 'email fullName displayName firstName lastName')
+      .lean()
+      .exec();
+
+    return {
+      items: rows.map((w) => {
+        const user = w.user as
+          | {
+              _id?: Types.ObjectId;
+              email?: string;
+              fullName?: string;
+              displayName?: string;
+              firstName?: string;
+              lastName?: string;
+            }
+          | Types.ObjectId
+          | undefined;
+        const populated = user && typeof user === 'object' && 'email' in user ? user : null;
+        const profileName = populated
+          ? [populated.firstName, populated.lastName].filter(Boolean).join(' ').trim()
+          : '';
+        return {
+          id: String(w._id),
+          userId: populated?._id ? String(populated._id) : String(w.user),
+          userEmail: populated?.email,
+          userName:
+            populated?.displayName?.trim() ||
+            populated?.fullName?.trim() ||
+            profileName ||
+            undefined,
+          amountCents: w.amountCents,
+          currency: w.currency,
+          status: w.status,
+          destinationHint: w.destinationHint,
+          requestedAt: w.requestedAt.toISOString(),
+        };
+      }),
+    };
+  }
+
   async requestWithdrawal(
     userId: string,
     input: { amountCents: number; destinationHint?: string },
@@ -567,10 +615,13 @@ export class WalletService {
     };
   }
 
-  async completeWithdrawal(userId: string, withdrawalId: string) {
+  /**
+   * Completa un retiro tras transferencia real.
+   * Solo administración: el usuario no puede auto-marcar el pago.
+   */
+  async completeWithdrawal(adminId: string, withdrawalId: string) {
     const withdrawal = await WithdrawalModel.findOne({
       _id: withdrawalId,
-      user: userId,
       deletedAt: null,
     }).exec();
     if (!withdrawal) throw new NotFoundError('Retiro no encontrado');
@@ -581,7 +632,8 @@ export class WalletService {
       throw new ValidationError(`El retiro ya está ${withdrawal.status}`);
     }
 
-    const user = await UserModel.findById(userId).exec();
+    const ownerId = String(withdrawal.user);
+    const user = await UserModel.findById(ownerId).exec();
     if (!user?.wallet) throw new NotFoundError('Usuario no encontrado');
 
     const amount = withdrawal.amountCents;
@@ -597,26 +649,44 @@ export class WalletService {
 
     withdrawal.status = WithdrawalStatus.COMPLETED;
     withdrawal.processedAt = now;
+    withdrawal.metadata = {
+      ...(withdrawal.metadata ?? {}),
+      completedByAdminId: adminId,
+    };
     await withdrawal.save();
 
     await walletLedger.record({
-      userId,
+      userId: ownerId,
       type: WalletMovementType.WITHDRAWAL_COMPLETED,
       direction: WalletMovementDirection.DEBIT,
       amountCents: amount,
       currency: withdrawal.currency,
-      description: 'Retiro completado',
+      description: 'Retiro completado (confirmado por administración)',
       withdrawalId: String(withdrawal._id),
       balanceAfter: snapshotFromUser(user),
+      metadata: { completedByAdminId: adminId },
     });
 
     auditService.track({
-      actor: userId,
+      actor: adminId,
+      actorRole: PlatformRole.ADMIN,
       action: AuditAction.WALLET_WITHDRAWAL,
       entityType: 'Withdrawal',
       entityId: String(withdrawal._id),
       outcome: AuditOutcome.SUCCESS,
-      metadata: { status: WithdrawalStatus.COMPLETED, amountCents: amount },
+      metadata: {
+        status: WithdrawalStatus.COMPLETED,
+        amountCents: amount,
+        ownerUserId: ownerId,
+        completedByAdminId: adminId,
+      },
+    });
+
+    logger.info('wallet withdrawal completed by admin', {
+      adminId,
+      ownerUserId: ownerId,
+      withdrawalId: String(withdrawal._id),
+      amountCents: amount,
     });
 
     return {
@@ -624,6 +694,7 @@ export class WalletService {
         id: String(withdrawal._id),
         status: withdrawal.status,
         processedAt: now.toISOString(),
+        userId: ownerId,
       },
       wallet: snapshotFromUser(user),
     };
