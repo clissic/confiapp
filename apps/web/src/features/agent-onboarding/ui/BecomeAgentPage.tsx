@@ -17,7 +17,15 @@ import { CountrySelect } from '@/features/profile/ui/sections/CountryDialSelect'
 import { UruguayCitySelect } from '@/features/profile/ui/sections/UruguayCitySelect';
 import { MercadoPagoConnectSection } from '@/features/profile/ui/sections/MercadoPagoConnectSection';
 import { useMercadoPagoConnection } from '@/features/payments/hooks/usePayments';
-import { AGENT_COMMISSION_HOLD_DAYS } from '@confiapp/shared';
+import {
+  AGENT_COMMISSION_HOLD_DAYS,
+  AGENT_FEE_ONLY_UYU_CENTS,
+  AGENT_PAYOUT_WINDOW_END_DAY,
+  AGENT_PAYOUT_WINDOW_START_DAY,
+  DEFAULT_AGENT_COMMISSION_BPS,
+  DEFAULT_PLATFORM_COMMISSION_BPS,
+} from '@confiapp/shared';
+import { formatOperationMoney } from '@/shared/lib/money';
 
 import {
   useAgentOnboarding,
@@ -64,8 +72,8 @@ const STEPS = [
   {
     id: 4,
     label: 'Tarifa',
-    title: 'Tarifa de intermediación',
-    lead: 'Cómo se calcula y reparte la comisión de ConfiApp.',
+    title: 'Tarifa del Agente',
+    lead: 'Monto fijo que pagan las partes por contratarte, y cómo se reparte.',
   },
   {
     id: 5,
@@ -375,10 +383,10 @@ export function BecomeAgentPage() {
                   currency: 'UYU',
                   draftStep: 5,
                 });
-                toast.success('Esquema de tarifas aceptado.');
+                toast.success('Tarifa de contratación aceptada.');
                 setStep(5);
               } catch {
-                setError('No se pudo guardar la aceptación de tarifas.');
+                setError('No se pudo guardar la aceptación de la tarifa.');
               }
             }}
           />
@@ -1071,55 +1079,67 @@ function RateStep({
       })}
     >
       <div className="ca-rates-copy">
-        <p>La tarifa es dinámica y depende del valor del producto de la operación:</p>
-        <ul className="ca-rates-tiers">
-          <li>
-            <strong>Hasta UYU $8.000</strong> (ocho mil pesos uruguayos): la tarifa para los
-            usuarios será de <strong>UYU $400</strong> (cuatrocientos pesos uruguayos).
-          </li>
-          <li>
-            <strong>De UYU $8.000 a UYU $24.000</strong> (ocho mil a veinticuatro mil pesos
-            uruguayos): la tarifa será de <strong>UYU $600</strong> (seiscientos pesos uruguayos).
-          </li>
-          <li>
-            <strong>De UYU $24.000 a UYU $48.000</strong> (veinticuatro mil a cuarenta y ocho mil
-            pesos uruguayos): la tarifa será de <strong>UYU $800</strong> (ochocientos pesos
-            uruguayos).
-          </li>
-          <li>
-            <strong>De UYU $48.000 a UYU $80.000</strong> (cuarenta y ocho mil a ochenta mil pesos
-            uruguayos): la tarifa será de <strong>UYU $1.000</strong> (mil pesos uruguayos).
-          </li>
-          <li>
-            <strong>De UYU $80.000 en adelante</strong> (ochenta mil pesos uruguayos): la tarifa
-            será de <strong>UYU $1.400</strong> (mil cuatrocientos pesos uruguayos).
-          </li>
-        </ul>
+        <div className="ca-rates-fee-card" aria-label="Tarifa fija de contratación">
+          <span className="ca-rates-fee-card__eyebrow">Contratación del Agente</span>
+          <strong className="ca-rates-fee-card__amount">
+            {formatOperationMoney(AGENT_FEE_ONLY_UYU_CENTS, 'UYU')}
+          </strong>
+          <span className="ca-rates-fee-card__hint">
+            Monto fijo por operación · lo define ConfiApp (vos no lo fijás)
+          </span>
+        </div>
+
         <p>
-          De esa tarifa, el reparto es del <strong>80%</strong> (ochenta por ciento) para el Agente
-          y del <strong>20%</strong> (veinte por ciento) para ConfiApp.
+          Hoy, dentro de ConfiApp solo se cobra ese servicio. El precio del producto se acuerda y
+          se paga por fuera, entre comprador y vendedor.
         </p>
+
+        <div className="ca-rates-split" aria-label="Reparto de la tarifa">
+          <div className="ca-rates-split__chip">
+            <span className="ca-rates-split__pct">
+              {Math.round(DEFAULT_AGENT_COMMISSION_BPS / 100)}%
+            </span>
+            <span className="ca-rates-split__who">Para vos</span>
+            <span className="ca-rates-split__money">
+              ~{formatOperationMoney(
+                Math.floor((AGENT_FEE_ONLY_UYU_CENTS * DEFAULT_AGENT_COMMISSION_BPS) / 10_000),
+                'UYU',
+              )}
+            </span>
+          </div>
+          <div className="ca-rates-split__chip ca-rates-split__chip--platform">
+            <span className="ca-rates-split__pct">
+              {Math.round(DEFAULT_PLATFORM_COMMISSION_BPS / 100)}%
+            </span>
+            <span className="ca-rates-split__who">ConfiApp</span>
+            <span className="ca-rates-split__money">
+              ~{formatOperationMoney(
+                Math.floor((AGENT_FEE_ONLY_UYU_CENTS * DEFAULT_PLATFORM_COMMISSION_BPS) / 10_000),
+                'UYU',
+              )}
+            </span>
+          </div>
+        </div>
+
         <p>
           Tras completar una operación, tu participación queda{' '}
           <strong>pendiente {AGENT_COMMISSION_HOLD_DAYS} días</strong>. Luego pasa a disponible. Las
           transferencias del saldo disponible las realiza un administrador de ConfiApp{' '}
-          <strong>del 1 al 10 de cada mes</strong> (liquidación manual; no hay retiro automático).
+          <strong>
+            del {AGENT_PAYOUT_WINDOW_START_DAY} al {AGENT_PAYOUT_WINDOW_END_DAY} de cada mes
+          </strong>{' '}
+          (liquidación manual; no hay retiro automático).
         </p>
         <p>
-          Todos los impuestos que se generen por el cobro del servicio de ConfiApp serán a cargo de
-          la aplicación y no del Agente.
-        </p>
-        <p>
-          Los usuarios podrán sumar más dinero a los montos mencionados para persuadir a los Agentes
-          a tomar sus intercambios antes que otros. Sobre esos montos adicionales se mantienen los
-          mismos porcentajes de reparto.
+          Los impuestos del cobro del servicio de ConfiApp corren por cuenta de la aplicación, no
+          del Agente.
         </p>
       </div>
 
       <Form.Check
         type="checkbox"
         id="ratesAccepted"
-        label="Entiendo y acepto el esquema de tarifas de intermediación de ConfiApp"
+        label="Entiendo y acepto la tarifa fija de contratación del Agente"
         checked={Boolean(form.watch('ratesAccepted'))}
         disabled={disabled}
         onChange={(event) =>
@@ -1200,7 +1220,7 @@ function PreviewStep({
     {
       label: 'Tarifa',
       value: onboarding.ratesAccepted
-        ? 'Esquema de plataforma (80% agente / 20% ConfiApp)'
+        ? `${formatOperationMoney(AGENT_FEE_ONLY_UYU_CENTS, 'UYU')} fijo · ${Math.round(DEFAULT_AGENT_COMMISSION_BPS / 100)}% agente / ${Math.round(DEFAULT_PLATFORM_COMMISSION_BPS / 100)}% ConfiApp`
         : 'Pendiente',
     },
     {

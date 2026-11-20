@@ -7,8 +7,25 @@ export function mustUseObjectStorage(): boolean {
   return env.STORAGE_REQUIRE_OBJECT_KEYS;
 }
 
+const STORAGE_URL_PREFIX = 'storage://';
+
+export function storageKeyFromUrl(url: string | undefined): string | undefined {
+  if (!url?.startsWith(STORAGE_URL_PREFIX)) return undefined;
+  const key = url.slice(STORAGE_URL_PREFIX.length).trim();
+  return key.length >= 3 ? key : undefined;
+}
+
+function isAllowedMediaUrl(url: string): boolean {
+  return (
+    /^https?:\/\//i.test(url) ||
+    url.startsWith('data:image/') ||
+    url.startsWith('data:application/pdf') ||
+    url.startsWith(STORAGE_URL_PREFIX)
+  );
+}
+
 /**
- * Adjunto: storageKey (preferido) o url http(s)/data: legacy.
+ * Adjunto: storageKey (preferido) o url http(s)/data: legacy / storage://key.
  * Con object storage configurado, data URLs quedan limitadas a 8KB (solo stubs).
  */
 export function attachmentRefSchema(opts?: { maxDataUrlChars?: number }) {
@@ -23,7 +40,8 @@ export function attachmentRefSchema(opts?: { maxDataUrlChars?: number }) {
       alt: z.string().trim().max(200).optional(),
     })
     .superRefine((value, ctx) => {
-      const hasKey = Boolean(value.storageKey);
+      const keyFromUrl = storageKeyFromUrl(value.url);
+      const hasKey = Boolean(value.storageKey || keyFromUrl);
       const hasUrl = Boolean(value.url);
       if (!hasKey && !hasUrl) {
         ctx.addIssue({
@@ -40,26 +58,23 @@ export function attachmentRefSchema(opts?: { maxDataUrlChars?: number }) {
         });
         return;
       }
-      if (value.url) {
-        const ok =
-          /^https?:\/\//i.test(value.url) ||
-          value.url.startsWith('data:image/') ||
-          value.url.startsWith('data:application/pdf');
-        if (!ok) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'URL de media inválida',
-            path: ['url'],
-          });
-        }
+      if (value.url && !isAllowedMediaUrl(value.url)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'URL de media inválida',
+          path: ['url'],
+        });
       }
     })
-    .transform((value) => ({
-      url: value.url ?? (value.storageKey ? `storage://${value.storageKey}` : ''),
-      storageKey: value.storageKey,
-      mimeType: value.mimeType,
-      sizeBytes: value.sizeBytes,
-      fileName: value.fileName,
-      alt: value.alt,
-    }));
+    .transform((value) => {
+      const storageKey = value.storageKey ?? storageKeyFromUrl(value.url);
+      return {
+        url: value.url ?? (storageKey ? `${STORAGE_URL_PREFIX}${storageKey}` : ''),
+        storageKey,
+        mimeType: value.mimeType,
+        sizeBytes: value.sizeBytes,
+        fileName: value.fileName,
+        alt: value.alt,
+      };
+    });
 }

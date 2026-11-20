@@ -236,7 +236,7 @@ export function AgentAgencyPanel({
           <dt>Tarifa</dt>
           <dd>
             {onboarding.ratesAccepted
-              ? 'Esquema de plataforma aceptado (80% agente / 20% ConfiApp)'
+              ? 'Tarifa fija de contratación aceptada (80% agente / 20% ConfiApp)'
               : 'Pendiente'}
           </dd>
         </div>

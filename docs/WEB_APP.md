@@ -7,7 +7,7 @@ La UI de cara al usuario debe usar copy claro; los estados internos de dominio (
 
 > **Flujos de operación (compra / venta / agente)** con diagramas de colores, pagos y plazos:  
 > [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).  
-> **Pagos hoy:** en la app solo se cobra la **contratación del Agente** (`AGENT_FEE_ONLY`, UYU $400). El precio del producto se paga **por fuera**. UI de `FUNDED` = «Agente contratado».
+> **Pagos hoy:** en la app solo se cobra la **contratación del Agente** (`AGENT_FEE_ONLY`, UYU $500). El precio del producto se paga **por fuera**. UI de `FUNDED` = «Agente contratado».
 
 ---
 
@@ -165,7 +165,7 @@ En `apps/web/src/app/styles/global.css`:
 
 ## Contratación del Agente (MVP Prex / MP)
 
-- Ruta: `/operaciones/:code/pagar` — cobra solo el fee del Agente (UYU $400), no el precio del producto.
+- Ruta: `/operaciones/:code/pagar` — cobra solo el fee del Agente (UYU $500), no el precio del producto.
 - Default: transferencia a cuenta Prex (`Ignacio La Cava` / `1065233`) + QR + upload de comprobante.
 - API: `POST /payments/transactions/:code/manual-transfer`.
 - Mercado Pago: `PAYMENTS_CHECKOUT_MODE=mercadopago` en la API (código MP intacto).

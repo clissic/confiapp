@@ -65,3 +65,18 @@ export async function uploadMediaFile(
 export function storageRefUrl(storageKey: string): string {
   return `storage://${storageKey}`;
 }
+
+/** Convierte preview local (`storage://key` / http / data) al payload que espera la API. */
+export function toMediaAttachmentRef(img: {
+  url: string;
+  alt?: string;
+}): { url: string; storageKey?: string; alt?: string } {
+  const key = img.url.startsWith('storage://')
+    ? img.url.slice('storage://'.length).trim()
+    : undefined;
+  return {
+    url: img.url,
+    ...(key ? { storageKey: key } : {}),
+    ...(img.alt ? { alt: img.alt } : {}),
+  };
+}

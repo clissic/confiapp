@@ -70,7 +70,7 @@ export interface CreateSellerTransactionDto {
     category?: ProductCategory;
     price?: number;
     currency?: string;
-    images: Array<{ url: string; alt?: string }>;
+    images: Array<{ url: string; storageKey?: string; alt?: string }>;
   };
 }
 
@@ -83,7 +83,7 @@ export interface ConfirmSaleProductDto {
   currency?: string;
   fundingMode?: FundingMode;
   feePayer?: FeePayer;
-  images: Array<{ url: string; alt?: string }>;
+  images: Array<{ url: string; storageKey?: string; alt?: string }>;
   conditionsSummary: string;
   checklist?: string[];
   meetingLocationMode?: MeetingLocationMode;

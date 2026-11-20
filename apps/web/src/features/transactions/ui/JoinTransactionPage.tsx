@@ -4,6 +4,7 @@ import { Alert, Badge, Button, Form, Spinner } from 'react-bootstrap';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ImagePlus, Tag, Trash2 } from 'lucide-react';
 
+import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 import { useZodForm } from '@/shared/lib/form';
 import {
   defaultPaymentCurrency,
@@ -40,11 +41,14 @@ import {
   createEmptyChecklistItem,
   type ChecklistDraftItem,
 } from './ChecklistEditor';
+import { toMediaAttachmentRef } from '@/shared/media/uploadMedia';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
 import { FeePayerFields } from './FeePayerFields';
 import { FundingModeStep } from './FundingModeStep';
 import { PhotoLightbox } from './PhotoLightbox';
 import '../styles/transactions.css';
+
+type ProductImageDraft = { url: string; alt?: string; previewUrl?: string };
 
 const DEFAULT_DELIVERY: DeliveryLocationValue = { mode: 'MAP' };
 
@@ -688,7 +692,10 @@ function JoinAsBuyerWizard({
                     ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
-                        <dd>UYU $400 (contratación del Agente en ConfiApp)</dd>
+                        <dd>
+                          {formatOperationMoney(AGENT_FEE_ONLY_UYU_CENTS, 'UYU')} (contratación
+                          del Agente en ConfiApp)
+                        </dd>
                       </div>
                     ) : (
                       <>
@@ -783,7 +790,7 @@ function JoinAsSellerWizard({
 
   const [stepIndex, setStepIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [images, setImages] = useState<Array<{ url: string; alt?: string }>>([]);
+  const [images, setImages] = useState<ProductImageDraft[]>([]);
   const [delivery, setDelivery] = useState<DeliveryLocationValue>(DEFAULT_DELIVERY);
   const didPrefill = useRef(false);
 
@@ -896,7 +903,11 @@ function JoinAsSellerWizard({
           const uploaded = await uploadMediaFile(file, 'product');
           setImages((prev) => [
             ...prev,
-            { url: storageRefUrl(uploaded.storageKey), alt: file.name },
+            {
+              url: storageRefUrl(uploaded.storageKey),
+              previewUrl: uploaded.previewUrl,
+              alt: file.name,
+            },
           ]);
           setError(null);
           return;
@@ -1006,7 +1017,7 @@ function JoinAsSellerWizard({
                 feePayer: formValues.feePayer,
               }
             : {}),
-          images,
+          images: images.map((img) => toMediaAttachmentRef(img)),
           conditionsSummary: formValues.conditionsSummary,
           meetingLocationMode: delivery.mode,
           meetingLocation: delivery.mode === 'CHAT' ? undefined : delivery.meetingLocation,
@@ -1141,7 +1152,7 @@ function JoinAsSellerWizard({
                     <ul className="ca-tx-photos__grid">
                       {images.map((img) => (
                         <li key={img.url}>
-                          <img src={img.url} alt={img.alt || 'Foto'} />
+                          <img src={img.previewUrl ?? img.url} alt={img.alt || 'Foto'} />
                           <button
                             type="button"
                             aria-label="Quitar foto"
@@ -1301,7 +1312,7 @@ function JoinAsSellerWizard({
                           <ul className="ca-tx-buyer-review__photos">
                             {images.map((img) => (
                               <li key={img.url}>
-                                <img src={img.url} alt={img.alt || 'Foto'} />
+                                <img src={img.previewUrl ?? img.url} alt={img.alt || 'Foto'} />
                               </li>
                             ))}
                           </ul>
@@ -1333,7 +1344,10 @@ function JoinAsSellerWizard({
                     ) === 'AGENT_FEE_ONLY' ? (
                       <div className="ca-tx-buyer-review__wide">
                         <dt>Contratación del Agente</dt>
-                        <dd>UYU $400 (contratación del Agente en ConfiApp)</dd>
+                        <dd>
+                          {formatOperationMoney(AGENT_FEE_ONLY_UYU_CENTS, 'UYU')} (contratación
+                          del Agente en ConfiApp)
+                        </dd>
                       </div>
                     ) : (
                       <>

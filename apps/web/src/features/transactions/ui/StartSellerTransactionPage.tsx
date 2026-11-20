@@ -4,6 +4,7 @@ import { Alert, Button, Form, OverlayTrigger, Spinner, Tooltip } from 'react-boo
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeftRight, ImagePlus, Trash2 } from 'lucide-react';
 
+import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 import { useZodForm } from '@/shared/lib/form';
 import { getApiErrorMessage } from '@/shared/api/client';
 import {
@@ -30,11 +31,14 @@ import {
   type ProductCategory,
   type ProductCondition,
 } from '../model/types';
+import { toMediaAttachmentRef } from '@/shared/media/uploadMedia';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
 import { FeePayerFields } from './FeePayerFields';
 import { FundingModeStep } from './FundingModeStep';
 import { ConfiAnzaBonusFields, ConfiAnzaMark } from './ConfiAnzaBonusFields';
 import '../styles/transactions.css';
+
+type ProductImageDraft = { url: string; alt?: string; previewUrl?: string };
 
 function isHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
@@ -121,7 +125,7 @@ export function StartSellerTransactionPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [delivery, setDelivery] = useState<DeliveryLocationValue>(DEFAULT_DELIVERY);
-  const [images, setImages] = useState<Array<{ url: string; alt?: string }>>([]);
+  const [images, setImages] = useState<ProductImageDraft[]>([]);
 
   const form = useZodForm(createSellerTransactionSchema, {
     defaultValues: {
@@ -234,7 +238,11 @@ export function StartSellerTransactionPage() {
           const uploaded = await uploadMediaFile(file, 'product');
           setImages((prev) => [
             ...prev,
-            { url: storageRefUrl(uploaded.storageKey), alt: file.name },
+            {
+              url: storageRefUrl(uploaded.storageKey),
+              previewUrl: uploaded.previewUrl,
+              alt: file.name,
+            },
           ]);
           setError(null);
           return;
@@ -335,7 +343,7 @@ export function StartSellerTransactionPage() {
           condition: formValues.condition as ProductCondition,
           category: formValues.category as ProductCategory,
           currency: 'UYU',
-          images,
+          images: images.map((img) => toMediaAttachmentRef(img)),
         },
       });
       navigate(`/operaciones/${result.data.code}`, {
@@ -510,7 +518,7 @@ export function StartSellerTransactionPage() {
                   <ul className="ca-tx-photos__grid">
                     {images.map((img) => (
                       <li key={img.url}>
-                        <img src={img.url} alt={img.alt || 'Foto'} />
+                        <img src={img.previewUrl ?? img.url} alt={img.alt || 'Foto'} />
                         <button
                           type="button"
                           aria-label="Quitar foto"
@@ -744,7 +752,7 @@ export function StartSellerTransactionPage() {
                         <ul className="ca-tx-buyer-review__photos">
                           {images.map((img) => (
                             <li key={img.url}>
-                              <img src={img.url} alt={img.alt || 'Foto'} />
+                              <img src={img.previewUrl ?? img.url} alt={img.alt || 'Foto'} />
                             </li>
                           ))}
                         </ul>
@@ -768,7 +776,10 @@ export function StartSellerTransactionPage() {
                   {values.fundingMode === 'AGENT_FEE_ONLY' ? (
                     <div className="ca-tx-buyer-review__wide">
                       <dt>Contratación del Agente</dt>
-                      <dd>UYU $400 (contratación del Agente en ConfiApp)</dd>
+                      <dd>
+                        {formatOperationMoney(AGENT_FEE_ONLY_UYU_CENTS, 'UYU')} (contratación del
+                        Agente en ConfiApp)
+                      </dd>
                     </div>
                   ) : (
                     <>

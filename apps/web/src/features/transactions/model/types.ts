@@ -227,7 +227,7 @@ export interface ConfirmSaleProductFields {
   category?: ProductCategory;
   price?: number;
   currency?: string;
-  images: Array<{ url: string; alt?: string }>;
+  images: Array<{ url: string; storageKey?: string; alt?: string }>;
 }
 
 export interface ConfirmSalePayload extends ConfirmSaleProductFields {

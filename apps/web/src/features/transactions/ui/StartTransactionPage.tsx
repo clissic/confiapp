@@ -4,6 +4,7 @@ import { Alert, Button, Form, OverlayTrigger, Spinner, Tooltip } from 'react-boo
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeftRight } from 'lucide-react';
 
+import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
 import { useZodForm } from '@/shared/lib/form';
 import { getApiErrorMessage } from '@/shared/api/client';
 import {
@@ -629,7 +630,10 @@ export function StartTransactionPage() {
                       {values.fundingMode === 'AGENT_FEE_ONLY' ? (
                         <div className="ca-tx-buyer-review__wide">
                           <dt>Contratación del Agente</dt>
-                          <dd>UYU $400 (contratación del Agente en ConfiApp)</dd>
+                          <dd>
+                            {formatOperationMoney(AGENT_FEE_ONLY_UYU_CENTS, 'UYU')} (contratación
+                            del Agente en ConfiApp)
+                          </dd>
                         </div>
                       ) : (
                         <>

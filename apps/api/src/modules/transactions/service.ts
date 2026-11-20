@@ -664,6 +664,7 @@ export class TransactionsService {
 
     const images = input.product.images.map((img, index) => ({
       url: img.url.trim(),
+      ...(img.storageKey ? { storageKey: img.storageKey.trim() } : {}),
       alt: img.alt?.trim()?.slice(0, 200),
       sortOrder: index,
     }));
@@ -1825,6 +1826,7 @@ export class TransactionsService {
 
     const images = input.images.map((img, index) => ({
       url: img.url.trim(),
+      ...(img.storageKey ? { storageKey: img.storageKey.trim() } : {}),
       alt: img.alt?.trim(),
       sortOrder: index,
     }));

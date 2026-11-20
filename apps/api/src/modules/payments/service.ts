@@ -554,7 +554,7 @@ export class PaymentsService {
   }
 
   /**
-   * Contratación del Agente (UYU $400) → preferencia a cuenta ConfiApp (retención).
+   * Contratación del Agente (UYU $500) → preferencia a cuenta ConfiApp (retención).
    */
   private async createAgentFeeOnlyCheckout(
     userId: string,

@@ -3,13 +3,13 @@
 Spec histórica / detallada: [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md).  
 Flujos de operación (roles, pagos, plazos): [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).
 
-> **Modo vigente (2026-11):** `AGENT_FEE_ONLY`. En la app solo se cobra la **contratación del Agente** (UYU $400). El precio del producto **no** entra al ledger ni se “libera al vendedor”. `ESCROW_FULL` = roadmap (`FUNDING_ESCROW_FULL_ENABLED`).
+> **Modo vigente (2026-11):** `AGENT_FEE_ONLY`. En la app solo se cobra la **contratación del Agente** (UYU $500). El precio del producto **no** entra al ledger ni se “libera al vendedor”. `ESCROW_FULL` = roadmap (`FUNDING_ESCROW_FULL_ENABLED`).
 
 ## Cobro al comprador (modo actual)
 
 | Modo | Env | Comportamiento |
 |---|---|---|
-| **`mercadopago`** | `PAYMENTS_CHECKOUT_MODE=mercadopago` | Checkout Pro / MOCK. En `AGENT_FEE_ONLY` el monto es **UYU $400** (contratación del Agente). Webhook + `sync-checkout` al volver. |
+| **`mercadopago`** | `PAYMENTS_CHECKOUT_MODE=mercadopago` | Checkout Pro / MOCK. En `AGENT_FEE_ONLY` el monto es **UYU $500** (contratación del Agente). Webhook + `sync-checkout` al volver. |
 | **`manual_prex`** | `PAYMENTS_CHECKOUT_MODE=manual_prex` | UI Prex + upload → hold `REQUIRES_ACTION` → admin en `/admin/pagos` → `FUNDED`. |
 
 Cuenta Prex plataforma (configurable):

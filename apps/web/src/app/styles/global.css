@@ -92,6 +92,39 @@ textarea {
   border-color: var(--border-default);
 }
 
+/*
+ * El color claro de .form-control se hereda al ::file-selector-button;
+ * el botón del browser suele ser fondo claro → texto ilegible en dark.
+ */
+.form-control::file-selector-button {
+  color: var(--text-primary);
+  background-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 16%, var(--surface-raised, #eef2f7));
+  border: 0;
+  border-inline-end: 1px solid var(--border-default);
+  margin-inline-end: 0.75rem;
+  padding: 0.375rem 0.85rem;
+  pointer-events: none;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.form-control:hover:not(:disabled):not([readonly])::file-selector-button {
+  background-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 28%, var(--surface-raised, #eef2f7));
+}
+
+[data-theme='dark'] .form-control::file-selector-button {
+  color: #042f2e;
+  background-color: var(--brand-secondary, #55c5b5);
+  border-inline-end-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 55%, var(--border-default));
+}
+
+[data-theme='dark'] .form-control:hover:not(:disabled):not([readonly])::file-selector-button {
+  background-color: color-mix(in srgb, var(--brand-secondary, #55c5b5) 82%, #ffffff);
+  color: #042f2e;
+}
+
 /* Bootstrap plaintext hereda --bs-body-color; forzar contraste por si el var no llega */
 [data-theme='dark'] .form-control-plaintext {
   color: var(--text-primary);

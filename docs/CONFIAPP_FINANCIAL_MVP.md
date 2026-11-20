@@ -13,7 +13,7 @@
 | Tema | Realidad actual |
 |------|-----------------|
 | Modo de fondeo | **`AGENT_FEE_ONLY`** (UI: “Solo pago del Agente”). `ESCROW_FULL` deshabilitado / próximamente. |
-| Qué se cobra en la app | Solo la **contratación del Agente** (UYU $400). |
+| Qué se cobra en la app | Solo la **contratación del Agente** (UYU $500). |
 | Precio del producto | Se acuerda y se paga **fuera** de ConfiApp. No hay hold/release del producto al vendedor. |
 | Label `FUNDED` en UI | **«Agente contratado»**. |
 | Al completar | Se cierra la operación y se acredita la **comisión del Agente** (PENDING 14d → AVAILABLE → liquidación admin). |

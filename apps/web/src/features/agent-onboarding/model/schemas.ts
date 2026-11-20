@@ -80,7 +80,7 @@ export const areaStepSchema = z
 
 export const rateStepSchema = z.object({
   ratesAccepted: z.boolean().refine((value) => value === true, {
-    message: 'Debés aceptar el esquema de tarifas para continuar',
+    message: 'Debés aceptar la tarifa de contratación para continuar',
   }),
 });
 
