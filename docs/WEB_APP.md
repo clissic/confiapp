@@ -72,7 +72,7 @@ Públicas: `/`, `/ingresar`, `/registro`, `/verificar-email` (alias `/verify-ema
 | **Reactivar** | Vuelve a `ACTIVE` y acepta asignaciones |
 | **Cerrar agencia** | Hard: bloqueado si hay ops activas (`ACTIVE_JOBS`); quita el rol de agente |
 | **Trabajos abiertos** | Tablero geo + filtros; aceptar trabajo |
-| **Solicitar salida** | Desde detalle de op (agente asignado): intermediario `REMOVED`, la contratación del Agente no se mueve, aviso a partes + “Buscando nuevo agente” |
+| **Solicitar salida** | Desde detalle de op (agente asignado, **antes** de iniciar checklist/verificación/entrega): intermediario `REMOVED`, la contratación no se mueve, aviso a partes + “Buscando nuevo agente”. Tras iniciar verificación/custodia: bloqueado (soporte/disputa). |
 
 Estados internos de onboarding: `NONE` → `DRAFT` → `ACTIVE` / `INACTIVE` (y `SUSPENDED` admin). En UI: “en pausa”, no enums crudos.
 

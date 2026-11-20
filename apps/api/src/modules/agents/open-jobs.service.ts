@@ -10,6 +10,9 @@ import {
 } from '@confiapp/database';
 import {
   amountCentsToUyu,
+  agentWithdrawBlockedMessage,
+  canAgentSelfServeWithdraw,
+  getAgentWithdrawBlockReason,
   minProductUyuForMinCommission,
 } from '@confiapp/shared';
 import { Types } from 'mongoose';
@@ -722,6 +725,24 @@ export class OpenJobsService {
     );
     if (!intermediary) {
       throw new ForbiddenError('No sos el agente activo de esta operación');
+    }
+
+    const withdrawInput = {
+      status: tx.status,
+      agentVerification: tx.agentVerification,
+      deliveryConfirmation: tx.deliveryConfirmation,
+      party: tx.party,
+      conditionsChecklist: Array.isArray(tx.conditions?.checklist)
+        ? tx.conditions.checklist.filter(
+            (item): item is { done?: boolean } =>
+              typeof item === 'object' && item !== null,
+          )
+        : undefined,
+    };
+    if (!canAgentSelfServeWithdraw(withdrawInput)) {
+      throw new ValidationError(
+        agentWithdrawBlockedMessage(getAgentWithdrawBlockReason(withdrawInput)),
+      );
     }
 
     const now = new Date();

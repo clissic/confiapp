@@ -257,7 +257,7 @@ export function TransactionDetailPage() {
   const onWithdrawAsAgent = async () => {
     if (!tx?.code) return;
     const ok = window.confirm(
-      '¿Solicitar salida de esta operación? La contratación del Agente permanece en ConfiApp; buscaremos reemplazo.',
+      '¿Solicitar salida de esta operación? Solo es posible si aún no empezaste la verificación. La contratación del Agente permanece en ConfiApp; buscaremos reemplazo.',
     );
     if (!ok) return;
     setError(null);

@@ -1945,9 +1945,29 @@
 }
 
 .ca-tx-agent-view__exit {
-  display: flex;
-  justify-content: center;
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
   padding-top: 0.35rem;
+}
+
+.ca-tx-agent-view__exit--blocked {
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--bs-danger, #dc3545) 28%, var(--border-default));
+  background: color-mix(in srgb, var(--bs-danger, #dc3545) 8%, transparent);
+}
+
+.ca-tx-agent-view__exit-hint {
+  max-width: 28rem;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.ca-tx-agent-view__exit--blocked .ca-tx-agent-view__exit-hint {
+  color: var(--text-secondary);
 }
 
 .ca-tx-agent-view__delivery {

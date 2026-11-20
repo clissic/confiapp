@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { Alert, Badge, Button, Modal, Spinner } from 'react-bootstrap';
 import { CheckCircle2, LogOut, MapPin, Package, PackageCheck } from 'lucide-react';
 
+import {
+  canAgentSelfServeWithdraw,
+  agentWithdrawBlockedMessage,
+  getAgentWithdrawBlockReason,
+} from '@confiapp/shared';
 import { formatOperationMoney } from '@/shared/lib/money';
 import { getApiErrorMessage } from '@/shared/api/client';
 import { ResolvedMediaImage } from '@/shared/media/ResolvedMediaImage';
@@ -76,12 +81,15 @@ export function AgentOperationDetail({
   const canToggle =
     !tx.agentVerification &&
     (tx.status === 'FUNDED' || tx.status === 'IN_PROGRESS');
-  const canWithdraw =
-    tx.status === 'WAITING_PARTICIPANT' ||
-    tx.status === 'ACCEPTED' ||
-    tx.status === 'FUNDED' ||
-    tx.status === 'IN_PROGRESS' ||
-    tx.status === 'DISPUTED';
+  const withdrawPolicyInput = {
+    status: tx.status,
+    agentVerification: tx.agentVerification,
+    deliveryConfirmation: tx.deliveryConfirmation,
+    party: tx.party,
+    conditionsChecklist: tx.conditions?.checklist,
+  };
+  const canWithdraw = canAgentSelfServeWithdraw(withdrawPolicyInput);
+  const withdrawBlockedReason = getAgentWithdrawBlockReason(withdrawPolicyInput);
   const buyerAccepted = tx.agentVerification?.buyerDecision === 'ACCEPTED';
   const agentDeliveryDone = Boolean(tx.deliveryConfirmation?.agentDeliveryConfirmedAt);
   const buyerArrivalDone = Boolean(tx.deliveryConfirmation?.buyerArrivalConfirmedAt);
@@ -355,6 +363,19 @@ export function AgentOperationDetail({
             <LogOut size={15} strokeWidth={1.75} aria-hidden />
             {withdrawing ? 'Procesando…' : 'Solicitar salida'}
           </Button>
+          <p className="ca-tx-agent-view__exit-hint mb-0">
+            Disponible solo hasta empezar la verificación del producto.
+          </p>
+        </div>
+      ) : withdrawBlockedReason &&
+        withdrawBlockedReason !== 'STATUS' &&
+        (tx.status === 'FUNDED' ||
+          tx.status === 'IN_PROGRESS' ||
+          tx.status === 'DISPUTED') ? (
+        <div className="ca-tx-agent-view__exit ca-tx-agent-view__exit--blocked">
+          <p className="ca-tx-agent-view__exit-hint mb-0">
+            {agentWithdrawBlockedMessage(withdrawBlockedReason)}
+          </p>
         </div>
       ) : null}
 

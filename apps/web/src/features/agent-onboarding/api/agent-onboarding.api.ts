@@ -17,7 +17,9 @@ const TERMS_TEXT = `Términos y condiciones del Agente Intermediario — ConfiAp
 3. Declarás disponibilidad real según los horarios configurados.
 4. La contratación del Agente es un monto fijo definido por ConfiApp (hoy UYU $500); el Agente no la fija.
 5. ConfiApp puede suspender el rol ante incumplimiento o disputas graves.
-6. Aceptás que los montos gestionados por ConfiApp (fee del Agente) no son tuyos hasta que estén disponibles en tu wallet.`;
+6. Aceptás que los montos gestionados por ConfiApp (fee del Agente) no son tuyos hasta que estén disponibles en tu wallet.
+7. Salida de una operación aceptada: podés solicitar la salida mientras el trabajo esté asignado y aún no hayas iniciado la verificación del producto ni la confirmación de entrega. La contratación permanece en ConfiApp y se busca reemplazo.
+8. Una vez iniciado el checklist, cerrada la verificación o iniciada la entrega, no podés solicitar salida por tu cuenta: el producto puede estar bajo tu custodia y la evidencia ya está en curso. Emergencias o hallazgos graves: soporte o disputa; ConfiApp podrá reasignar según el caso.`;
 
 function emptyStats(): AgentOnboarding['stats'] {
   return {
@@ -32,7 +34,7 @@ function emptyStats(): AgentOnboarding['stats'] {
 function createDemoOnboarding(): AgentOnboarding {
   return {
     status: 'NONE',
-    termsVersion: '1.0.0',
+    termsVersion: '1.1.0',
     termsText: TERMS_TEXT,
     termsAccepted: false,
     timezone: 'America/Montevideo',

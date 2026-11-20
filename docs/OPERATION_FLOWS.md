@@ -259,7 +259,7 @@ flowchart TB
   W3 --> P1
   P5 --> M1
 
-  X1[Solicitar salida: intermediario REMOVED<br/>contratación intacta · “Buscando nuevo agente”]:::agent
+  X1[Solicitar salida solo antes de verificación<br/>intermediario REMOVED · contratación intacta]:::agent
   W3 -.-> X1
 
   classDef buyer fill:#dbeafe,stroke:#1d4ed8,color:#0f172a

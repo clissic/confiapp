@@ -271,4 +271,41 @@ describe('agents exit safeguards', () => {
       Error,
     );
   });
+
+  it('withdrawFromJob falla si ya empezó el checklist de verificación', async () => {
+    const agentId = new Types.ObjectId().toString();
+    const tx = {
+      _id: new Types.ObjectId(),
+      code: 'CONF-EXIT03',
+      title: 'Salida bloqueada',
+      status: TransactionStatus.IN_PROGRESS,
+      createdBy: new Types.ObjectId(),
+      participants: [
+        {
+          user: new Types.ObjectId(agentId),
+          role: ParticipantRole.INTERMEDIARY,
+          status: ParticipantStatus.ACCEPTED,
+          invitedAt: new Date(),
+          respondedAt: new Date(),
+        },
+      ],
+      party: {
+        buyer: {
+          checklist: [{ id: '1', text: 'Pantalla', done: true }],
+        },
+      },
+      statusHistory: [],
+      save: vi.fn(),
+    };
+
+    vi.mocked(TransactionModel.findOne).mockReturnValue({
+      exec: async () => tx,
+    } as never);
+
+    const openJobs = new OpenJobsService();
+    await expect(openJobs.withdrawFromJob(agentId, 'CONF-EXIT03')).rejects.toBeInstanceOf(
+      Error,
+    );
+    expect(tx.save).not.toHaveBeenCalled();
+  });
 });

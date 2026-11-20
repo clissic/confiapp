@@ -21,6 +21,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'Como comprador podés iniciar una operación o unirte a una oferta del vendedor.',
       'Como vendedor publicás el producto y las condiciones; el comprador contrata al Agente en la app.',
       'Como Agente verificás el producto, lo trasladás y confirmás la entrega; tu comisión se acredita en wallet al completar.',
+      'Si aceptaste un trabajo y aún no empezaste la verificación, podés solicitar salida y se busca reemplazo. Una vez iniciado el checklist o la entrega, ya no: el producto puede estar en tu custodia.',
     ],
   },
   {

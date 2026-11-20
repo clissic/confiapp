@@ -1,6 +1,6 @@
 /** Contenido legal de Términos y Condiciones de uso de ConfiApp. */
 
-export const TERMS_LAST_UPDATED = '30 de agosto de 2026';
+export const TERMS_LAST_UPDATED = '20 de noviembre de 2026';
 
 export type TermsSection = {
   id: string;
@@ -71,6 +71,8 @@ export const TERMS_SECTIONS: TermsSection[] = [
     paragraphs: [
       'Cuando una operación requiera la participación de un agente, éste actuará como prestador independiente, por cuenta y riesgo propio.',
       'El agente podrá aceptar o rechazar solicitudes de manera libre y voluntaria, sujeto a las condiciones de funcionamiento de la Plataforma.',
+      'Una vez aceptada una operación, el Agente podrá solicitar la salida de forma autónoma únicamente mientras no haya iniciado la verificación del producto (ningún ítem del checklist marcado) ni la confirmación de entrega. En ese caso, lo pagado por la contratación del Agente permanece en ConfiApp y la Plataforma podrá buscar un reemplazo.',
+      'Si el Agente ya inició el checklist de verificación, cerró la verificación o comenzó la entrega, no podrá solicitar la salida por su cuenta. Ello se debe a que el bien puede encontrarse bajo su custodia y la evidencia de la operación ya está en curso; un reemplazo no puede continuar ese tramo sin comprometer la cadena de custodia. Ante emergencias, hallazgos graves o situaciones que impidan continuar, el Agente deberá contactar a soporte o utilizar los mecanismos de disputa/escalamiento de la Plataforma; ConfiApp podrá reasignar o intervenir según el caso.',
       'La utilización de la Plataforma no genera por sí misma una relación laboral, de dependencia, representación, agencia, sociedad, asociación, mandato general, franquicia o vínculo de subordinación entre ConfiApp y el agente.',
       'El agente será responsable de organizar y ejecutar autónomamente su actividad, utilizando sus propios medios, herramientas, vehículos, equipos y recursos, cuando corresponda.',
       'El agente será responsable de cumplir con todas las obligaciones legales, fiscales, previsionales, de seguridad, circulación, habilitación y demás requisitos que resulten aplicables a su actividad.',
