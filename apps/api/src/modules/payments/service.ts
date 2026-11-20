@@ -2513,69 +2513,6 @@ export class PaymentsService {
     };
   }
 
-  /**
-   * Preferencia de prueba (UYU $10) para validar credenciales de Mercado Pago.
-   * No crea Payment/Transaction: solo abre Checkout Pro.
-   */
-  async createMercadoPagoCredentialProbe(userId: string) {
-    const amountCents = 1_000; // UYU $10.00
-    const currency = 'UYU';
-    const externalReference = `MP-PROBE-${userId.slice(-8)}-${Date.now()}`;
-    const appBase = env.APP_URL.replace(/\/$/, '');
-    const returnBase = `${appBase}/_lab/mp-probe`;
-    const notificationUrl = `${env.API_PUBLIC_URL.replace(/\/$/, '')}/payments/webhooks/mercadopago`;
-
-    const user = await UserModel.findById(userId).select('email').lean().exec();
-    const preference = await paymentProvider.createCheckout({
-      items: [
-        {
-          title: 'ConfiApp · prueba de credenciales MP',
-          quantity: 1,
-          unitPriceCents: amountCents,
-          currency,
-        },
-      ],
-      externalReference,
-      payerEmail: user?.email,
-      notificationUrl,
-      backUrls: {
-        success: `${returnBase}?status=success`,
-        failure: `${returnBase}?status=failure`,
-        pending: `${returnBase}?status=pending`,
-      },
-      mockBridgeUrl: `${returnBase}?status=success&mock=1&external_reference=${encodeURIComponent(externalReference)}`,
-    });
-
-    await persistLog({
-      source: 'confirm',
-      event: 'mercadopago.credential_probe',
-      message: 'Preferencia de prueba MP creada (UYU $10)',
-      externalId: preference.id,
-      payload: {
-        userId,
-        amountCents,
-        currency,
-        provider: preference.provider,
-        preferenceId: preference.id,
-      },
-    });
-
-    const checkoutUrl =
-      preference.provider === 'MOCK'
-        ? preference.initPoint
-        : preference.initPoint || preference.sandboxInitPoint || '';
-
-    return {
-      amountCents,
-      currency,
-      preferenceId: preference.id,
-      checkoutUrl,
-      providerMode: preference.provider,
-      externalReference,
-      isMock: preference.provider === 'MOCK',
-    };
-  }
-
   private async loadTxForParticipant(userId: string, code: string) {
     const tx = await TransactionModel.findOne({
       code: code.toUpperCase(),

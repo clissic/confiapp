@@ -100,9 +100,6 @@ const AdminFinancePage = lazy(() =>
 const AdminPaymentsPage = lazy(() =>
   import('@/pages/AdminPaymentsPage').then((m) => ({ default: m.AdminPaymentsPage })),
 );
-const MercadoPagoProbePage = lazy(() =>
-  import('@/pages/MercadoPagoProbePage').then((m) => ({ default: m.MercadoPagoProbePage })),
-);
 const AdminDisputesPage = lazy(() =>
   import('@/pages/AdminDisputesPage').then((m) => ({ default: m.AdminDisputesPage })),
 );
@@ -206,8 +203,6 @@ export function AppRouter() {
                 <Route path="admin/disputas" element={<AdminDisputesPage />} />
                 <Route path="admin/resenas" element={<AdminReviewsPage />} />
                 <Route path="admin/kyc/:token" element={<AdminKycReviewPage />} />
-                {/* Oculta: prueba Checkout Pro UYU $10 (credenciales MP). */}
-                <Route path="_lab/mp-probe" element={<MercadoPagoProbePage />} />
               </Route>
               <Route path="*" element={<Navigate to="/inicio" replace />} />
             </Route>
