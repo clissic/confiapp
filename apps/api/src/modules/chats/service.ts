@@ -21,6 +21,7 @@ import {
   publishRealtimeToUser,
 } from '../../infrastructure/realtime/realtime-bus';
 import { chatRoom } from '../../infrastructure/realtime/rooms';
+import { resolveMediaDisplayUrl } from '../../shared/media/resolve-display-url';
 import { notificationsService } from '../notifications/service';
 
 export type ChatDocument = HydratedDocument<IChat>;
@@ -436,16 +437,17 @@ export class ChatsService {
       }),
     );
 
-    return messages
-      .map((m) => {
+    const dtos = await Promise.all(
+      messages.map(async (m) => {
         const info = senderMap.get(String(m.sender));
         return this.toMessageDto(
           m,
           info?.name || 'Usuario',
           Boolean(info?.identityVerified),
         );
-      })
-      .reverse();
+      }),
+    );
+    return dtos.reverse();
   }
 
   async sendMessage(
@@ -481,6 +483,9 @@ export class ChatsService {
           'Adjunto inválido: se espera storageKey, URL http(s), storage:// o data:image',
         );
       }
+      if (att.storageKey && !att.storageKey.startsWith(`chat/${userId}/`)) {
+        throw new ForbiddenError('storageKey de adjunto inválido para este usuario');
+      }
     }
 
     const type =
@@ -514,7 +519,11 @@ export class ChatsService {
     const senderName = sender?.displayName || sender?.fullName || 'Usuario';
     const senderIdentityVerified =
       (sender?.kyc?.status ?? sender?.verification?.identity?.status) === 'VERIFIED';
-    const dto = this.toMessageDto(message.toObject(), senderName, senderIdentityVerified);
+    const dto = await this.toMessageDto(
+      message.toObject(),
+      senderName,
+      senderIdentityVerified,
+    );
 
     publishRealtime(chatRoom(String(chat._id)), 'message:new', dto);
 
@@ -661,7 +670,7 @@ export class ChatsService {
     });
   }
 
-  private toMessageDto(
+  private async toMessageDto(
     m: {
       _id: Types.ObjectId;
       chat: Types.ObjectId;
@@ -674,7 +683,17 @@ export class ChatsService {
     },
     senderName: string,
     senderIdentityVerified = false,
-  ): MessageDto {
+  ): Promise<MessageDto> {
+    const attachments = await Promise.all(
+      (m.attachments ?? []).map(async (att) => ({
+        ...att,
+        url: await resolveMediaDisplayUrl({
+          url: att.url,
+          storageKey: att.storageKey,
+        }),
+        storageKey: att.storageKey,
+      })),
+    );
     return {
       id: String(m._id),
       chatId: String(m.chat),
@@ -683,7 +702,7 @@ export class ChatsService {
       senderIdentityVerified,
       type: m.type,
       body: m.body,
-      attachments: m.attachments ?? [],
+      attachments,
       readBy: (m.readBy ?? []).map((id) => String(id)),
       createdAt: m.createdAt.toISOString(),
     };

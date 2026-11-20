@@ -59,6 +59,31 @@ function formatMoney(cents: number, currency: string): string {
   }
 }
 
+async function storageKeyToAttachment(
+  storageKey: string,
+  baseFilename: string,
+): Promise<EmailAttachment | null> {
+  try {
+    const { getObjectBuffer, isObjectStorageConfigured } = await import(
+      '../../infrastructure/storage/object-storage'
+    );
+    if (!isObjectStorageConfigured()) return null;
+    const object = await getObjectBuffer(storageKey);
+    if (!object.body || object.body.length < 32) return null;
+    const contentType = object.contentType || 'application/octet-stream';
+    const ext = extensionForContentType(contentType);
+    const filename = baseFilename.replace(/\.(jpg|jpeg|png|webp|gif|pdf)$/i, `.${ext}`);
+    return {
+      filename,
+      contentType,
+      content: object.body,
+      contentDisposition: 'attachment',
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Notifica a la plataforma que un comprador declaró una transferencia Prex con comprobante. */
 export async function sendManualPrexReceiptEmail(input: {
   transactionCode: string;
@@ -67,7 +92,8 @@ export async function sendManualPrexReceiptEmail(input: {
   currency: string;
   buyerName: string;
   buyerEmail: string;
-  receiptDataUrl: string;
+  receiptDataUrl?: string;
+  receiptStorageKey?: string;
   receiptFileName?: string;
   prexAccountName: string;
   prexAccountNumber: string;
@@ -80,7 +106,12 @@ export async function sendManualPrexReceiptEmail(input: {
   const receiptName =
     input.receiptFileName?.trim() || `comprobante-${input.transactionCode}.jpg`;
 
-  const attachment = dataUrlToAttachment(input.receiptDataUrl, receiptName);
+  let attachment: EmailAttachment | null = null;
+  if (input.receiptDataUrl?.trim()) {
+    attachment = dataUrlToAttachment(input.receiptDataUrl, receiptName);
+  } else if (input.receiptStorageKey?.trim()) {
+    attachment = await storageKeyToAttachment(input.receiptStorageKey.trim(), receiptName);
+  }
   const attachments: EmailAttachment[] = attachment ? [attachment] : [];
 
   const text = [

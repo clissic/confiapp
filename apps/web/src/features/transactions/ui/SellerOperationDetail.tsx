@@ -12,6 +12,7 @@ import {
 
 import { ReviewFormPanel } from '@/features/reputation';
 import { formatOperationMoney } from '@/shared/lib/money';
+import { ResolvedMediaImage } from '@/shared/media/ResolvedMediaImage';
 import {
   STATUS_LABELS,
   type Transaction,
@@ -326,7 +327,11 @@ export function SellerOperationDetail({
                     onClick={() => onGallery(index)}
                     aria-label={`Ampliar foto ${index + 1}`}
                   >
-                    <img src={img.url} alt={img.alt || `Foto ${index + 1}`} />
+                    <ResolvedMediaImage
+                      src={img.url}
+                      storageKey={img.storageKey}
+                      alt={img.alt || `Foto ${index + 1}`}
+                    />
                   </button>
                 </li>
               ))}

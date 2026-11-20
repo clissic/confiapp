@@ -41,6 +41,7 @@ import {
   createEmptyChecklistItem,
   type ChecklistDraftItem,
 } from './ChecklistEditor';
+import { ResolvedMediaImage } from '@/shared/media/ResolvedMediaImage';
 import { toMediaAttachmentRef } from '@/shared/media/uploadMedia';
 import { DeliveryLocationPicker, hasRegisteredAddress } from './DeliveryLocationPicker';
 import { FeePayerFields } from './FeePayerFields';
@@ -537,7 +538,10 @@ function JoinAsBuyerWizard({
                           onClick={() => setGalleryIndex(index)}
                           aria-label={`Ampliar foto ${index + 1}`}
                         >
-                          <img src={img.url} alt={img.alt || `Foto ${index + 1}`} />
+                          <ResolvedMediaImage
+                            src={img.url}
+                            alt={img.alt || `Foto ${index + 1}`}
+                          />
                         </button>
                       </li>
                     ))}
@@ -1152,7 +1156,11 @@ function JoinAsSellerWizard({
                     <ul className="ca-tx-photos__grid">
                       {images.map((img) => (
                         <li key={img.url}>
-                          <img src={img.previewUrl ?? img.url} alt={img.alt || 'Foto'} />
+                          {img.previewUrl ? (
+                            <img src={img.previewUrl} alt={img.alt || 'Foto'} />
+                          ) : (
+                            <ResolvedMediaImage src={img.url} alt={img.alt || 'Foto'} />
+                          )}
                           <button
                             type="button"
                             aria-label="Quitar foto"
@@ -1312,7 +1320,11 @@ function JoinAsSellerWizard({
                           <ul className="ca-tx-buyer-review__photos">
                             {images.map((img) => (
                               <li key={img.url}>
-                                <img src={img.previewUrl ?? img.url} alt={img.alt || 'Foto'} />
+                                {img.previewUrl ? (
+                                  <img src={img.previewUrl} alt={img.alt || 'Foto'} />
+                                ) : (
+                                  <ResolvedMediaImage src={img.url} alt={img.alt || 'Foto'} />
+                                )}
                               </li>
                             ))}
                           </ul>

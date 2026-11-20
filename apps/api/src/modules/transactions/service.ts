@@ -216,9 +216,42 @@ function toMeetingLocationDto(
   };
 }
 
-function toProductDto(
+function assertOwnedProductMedia(
+  userId: string,
+  img: { url: string; storageKey?: string },
+): void {
+  const key =
+    img.storageKey?.trim() ||
+    (img.url.startsWith('storage://') ? img.url.slice('storage://'.length).trim() : undefined);
+  if (!key) return;
+  if (!key.startsWith(`product/${userId}/`)) {
+    throw new ForbiddenError('storageKey de foto inválido para este usuario');
+  }
+}
+
+async function toProductDto(
   product: HydratedDocument<IProduct> | (IProduct & { _id: unknown }),
-): TransactionProductDto {
+): Promise<TransactionProductDto> {
+  const { resolveMediaDisplayUrl, storageKeyFromMediaRef } = await import(
+    '../../shared/media/resolve-display-url'
+  );
+  const images = await Promise.all(
+    (product.images ?? []).map(async (img, index) => {
+      const storageKey = storageKeyFromMediaRef({
+        url: img.url,
+        storageKey: img.storageKey,
+      });
+      return {
+        url: await resolveMediaDisplayUrl({
+          url: img.url,
+          storageKey,
+        }),
+        ...(storageKey ? { storageKey } : {}),
+        alt: img.alt,
+        sortOrder: img.sortOrder ?? index,
+      };
+    }),
+  );
   return {
     id: String(product._id),
     title: product.title,
@@ -228,11 +261,7 @@ function toProductDto(
     status: product.status,
     estimatedValueCents: product.estimatedValueCents,
     currency: product.currency,
-    images: (product.images ?? []).map((img, index) => ({
-      url: img.url,
-      alt: img.alt,
-      sortOrder: img.sortOrder ?? index,
-    })),
+    images,
   };
 }
 
@@ -510,7 +539,10 @@ async function loadProductsMap(
   })
     .lean()
     .exec();
-  return new Map(products.map((p) => [String(p._id), toProductDto(p)]));
+  const entries = await Promise.all(
+    products.map(async (p) => [String(p._id), await toProductDto(p)] as const),
+  );
+  return new Map(entries);
 }
 
 function buildInvitePair() {
@@ -662,12 +694,15 @@ export class TransactionsService {
     const days = input.inviteExpiresInDays ?? 7;
     const inviteExpiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
-    const images = input.product.images.map((img, index) => ({
-      url: img.url.trim(),
-      ...(img.storageKey ? { storageKey: img.storageKey.trim() } : {}),
-      alt: img.alt?.trim()?.slice(0, 200),
-      sortOrder: index,
-    }));
+    const images = input.product.images.map((img, index) => {
+      assertOwnedProductMedia(userId, img);
+      return {
+        url: img.url.trim(),
+        ...(img.storageKey ? { storageKey: img.storageKey.trim() } : {}),
+        alt: img.alt?.trim()?.slice(0, 200),
+        sortOrder: index,
+      };
+    });
 
     let product;
     try {
@@ -771,7 +806,7 @@ export class TransactionsService {
 
     return toDto(created, {
       shareUrl: buildShareUrl(rawToken),
-      product: toProductDto(product),
+      product: await toProductDto(product),
       viewerUserId: userId,
     });
   }
@@ -1824,12 +1859,15 @@ export class TransactionsService {
       assertFeeAffordable(amountCents, currency, feePayer);
     }
 
-    const images = input.images.map((img, index) => ({
-      url: img.url.trim(),
-      ...(img.storageKey ? { storageKey: img.storageKey.trim() } : {}),
-      alt: img.alt?.trim(),
-      sortOrder: index,
-    }));
+    const images = input.images.map((img, index) => {
+      assertOwnedProductMedia(userId, img);
+      return {
+        url: img.url.trim(),
+        ...(img.storageKey ? { storageKey: img.storageKey.trim() } : {}),
+        alt: img.alt?.trim(),
+        sortOrder: index,
+      };
+    });
     const category = input.category ?? ProductCategory.OTHER;
 
     const buyerSide = tx.party?.buyer;
@@ -1937,7 +1975,7 @@ export class TransactionsService {
     }
 
     return toDto(updated, {
-      product: toProductDto(product),
+      product: await toProductDto(product),
       viewerUserId: userId,
     });
   }

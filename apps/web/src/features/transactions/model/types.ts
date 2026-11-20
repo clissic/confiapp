@@ -59,7 +59,7 @@ export interface TransactionProduct {
   status: ProductStatus;
   estimatedValueCents?: number;
   currency: string;
-  images: Array<{ url: string; alt?: string; sortOrder: number }>;
+  images: Array<{ url: string; storageKey?: string; alt?: string; sortOrder: number }>;
 }
 
 export interface TransactionChecklistItem {

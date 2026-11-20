@@ -70,8 +70,13 @@ export function AdminPaymentsPage() {
   };
 
   const receiptPreview = detail?.payment.receiptDataUrl;
-  const isImageReceipt = receiptPreview?.startsWith('data:image/');
-  const isPdfReceipt = receiptPreview?.startsWith('data:application/pdf');
+  const receiptFileName = detail?.payment.receiptFileName?.toLowerCase() ?? '';
+  const isHttpReceipt = Boolean(receiptPreview && /^https?:\/\//i.test(receiptPreview));
+  const isPdfReceipt =
+    Boolean(receiptPreview?.startsWith('data:application/pdf')) ||
+    (isHttpReceipt && (receiptFileName.endsWith('.pdf') || receiptPreview!.includes('.pdf')));
+  const isImageReceipt =
+    Boolean(receiptPreview?.startsWith('data:image/')) || (isHttpReceipt && !isPdfReceipt);
   const adminConfirmed = detail?.payment.adminConfirmed ?? false;
 
   const handleConfirmationToggle = (confirmed: boolean) => {

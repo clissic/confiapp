@@ -578,6 +578,19 @@ export class UsersService {
       reviewTokenExpiresAt = new Date(Date.now() + KYC_REVIEW_TTL_MS);
     }
 
+    if (input.photos) {
+      for (const photo of input.photos) {
+        const key =
+          photo.storageKey?.trim() ||
+          (photo.url?.startsWith('storage://')
+            ? photo.url.slice('storage://'.length).trim()
+            : undefined);
+        if (key && !key.startsWith(`kyc/${id}/`) && !key.startsWith(`profile/${id}/`)) {
+          throw new ForbiddenError('storageKey de foto inválido para este usuario');
+        }
+      }
+    }
+
     const user = await this.repository.updateById(id, {
       fullName: input.fullName,
       displayName: input.displayName,
@@ -654,16 +667,26 @@ export class UsersService {
     const user = await this.repository.findByKycReviewTokenHash(tokenHash);
     if (!user) throw new NotFoundError('Solicitud de KYC no encontrada o expirada');
 
+    const { resolveMediaDisplayUrl } = await import(
+      '../../shared/media/resolve-display-url'
+    );
+
     const status = user.kyc?.status ?? user.verification?.identity?.status;
-    const photos = (user.photos ?? [])
-      .filter((photo) =>
-        KYC_REVIEW_PHOTO_KINDS.includes(photo.kind as (typeof KYC_REVIEW_PHOTO_KINDS)[number]),
-      )
-      .map((photo) => ({
-        kind: photo.kind,
-        url: photo.url,
-        uploadedAt: photo.uploadedAt?.toISOString?.() ?? new Date().toISOString(),
-      }));
+    const photos = await Promise.all(
+      (user.photos ?? [])
+        .filter((photo) =>
+          KYC_REVIEW_PHOTO_KINDS.includes(photo.kind as (typeof KYC_REVIEW_PHOTO_KINDS)[number]),
+        )
+        .map(async (photo) => ({
+          kind: photo.kind,
+          url: await resolveMediaDisplayUrl({
+            url: photo.url,
+            storageKey: photo.storageKey,
+          }),
+          storageKey: photo.storageKey,
+          uploadedAt: photo.uploadedAt?.toISOString?.() ?? new Date().toISOString(),
+        })),
+    );
 
     return {
       userId: String(user._id),

@@ -2,10 +2,12 @@ import { useEffect, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
+import { ResolvedMediaImage } from '@/shared/media/ResolvedMediaImage';
 import '../styles/photo-lightbox.css';
 
 type GalleryImage = {
   url: string;
+  storageKey?: string;
   alt?: string;
 };
 
@@ -105,8 +107,9 @@ export function PhotoLightbox({
           </button>
         ) : null}
 
-        <img
+        <ResolvedMediaImage
           src={current.url}
+          storageKey={current.storageKey}
           alt={current.alt || 'Foto del producto'}
           className="ca-photo-lightbox__image"
         />

@@ -7,8 +7,14 @@ import {
   type MediaPurpose,
 } from '../../infrastructure/storage/object-storage';
 import { redisIncrWithTtl } from '../../infrastructure/redis/client';
+import {
+  ChatModel,
+  ProductModel,
+  TransactionModel,
+} from '../../database/models';
 import { env } from '../../shared/config/env';
 import { AppError, ForbiddenError, ValidationError } from '../../shared/errors/app-error';
+import { Types } from 'mongoose';
 
 const DAILY_UPLOAD_MAX = 80;
 const memoryDaily = new Map<string, { count: number; resetAt: number }>();
@@ -41,6 +47,81 @@ function assertKeyOwnedByUser(storageKey: string, userId: string): void {
   if (parts.length < 3 || parts[1] !== userId) {
     throw new ForbiddenError('storageKey inválido para este usuario');
   }
+}
+
+function isKeyOwnedByUser(storageKey: string, userId: string): boolean {
+  const parts = storageKey.split('/');
+  return parts.length >= 3 && parts[1] === userId;
+}
+
+/**
+ * Lectura compartida de media de producto si el usuario participa
+ * en una operación vinculada a ese producto (comprador / vendedor / agente).
+ */
+async function canReadSharedProductMedia(
+  userId: string,
+  storageKey: string,
+): Promise<boolean> {
+  if (!storageKey.startsWith('product/') || !Types.ObjectId.isValid(userId)) {
+    return false;
+  }
+
+  const product = await ProductModel.findOne({
+    deletedAt: null,
+    $or: [
+      { 'images.storageKey': storageKey },
+      { 'images.url': `storage://${storageKey}` },
+    ],
+  })
+    .select('_id')
+    .lean()
+    .exec();
+
+  if (!product) return false;
+
+  const tx = await TransactionModel.findOne({
+    deletedAt: null,
+    product: product._id,
+    'participants.user': new Types.ObjectId(userId),
+  })
+    .select('_id')
+    .lean()
+    .exec();
+
+  return Boolean(tx);
+}
+
+/** Lectura de adjuntos de chat entre participantes del mismo chat. */
+async function canReadSharedChatMedia(
+  userId: string,
+  storageKey: string,
+): Promise<boolean> {
+  if (!storageKey.startsWith('chat/') || !Types.ObjectId.isValid(userId)) {
+    return false;
+  }
+  const ownerId = storageKey.split('/')[1];
+  if (!ownerId || !Types.ObjectId.isValid(ownerId)) return false;
+
+  const shared = await ChatModel.findOne({
+    deletedAt: null,
+    participants: {
+      $all: [new Types.ObjectId(userId), new Types.ObjectId(ownerId)],
+    },
+  })
+    .select('_id')
+    .lean()
+    .exec();
+
+  return Boolean(shared);
+}
+
+async function assertCanReadSharedMedia(
+  userId: string,
+  storageKey: string,
+): Promise<void> {
+  if (await canReadSharedProductMedia(userId, storageKey)) return;
+  if (await canReadSharedChatMedia(userId, storageKey)) return;
+  throw new ForbiddenError('storageKey inválido para este usuario');
 }
 
 export class MediaService {
@@ -103,7 +184,9 @@ export class MediaService {
     if (!isObjectStorageConfigured()) {
       throw new AppError(503, 'Object storage no configurado', undefined, 'STORAGE_NOT_CONFIGURED');
     }
-    assertKeyOwnedByUser(storageKey, userId);
+    if (!isKeyOwnedByUser(storageKey, userId)) {
+      await assertCanReadSharedMedia(userId, storageKey);
+    }
     const url = await createPresignedGet(storageKey);
     return { url, expiresInSeconds: 15 * 60 };
   }

@@ -935,7 +935,8 @@ export class PaymentsService {
         currency,
         buyerName: buyer?.fullName ?? 'Comprador',
         buyerEmail: buyer?.email ?? '',
-        receiptDataUrl: receipt,
+        receiptDataUrl: receipt || undefined,
+        receiptStorageKey: receiptKey || undefined,
         receiptFileName: input.receiptFileName,
         prexAccountName: prex.accountName,
         prexAccountNumber: prex.accountNumber,
@@ -978,8 +979,12 @@ export class PaymentsService {
     if (!tx) throw new NotFoundError('Operación no encontrada');
 
     const meta = (hold.metadata ?? {}) as Record<string, unknown>;
-    const hasReceipt = typeof meta.receiptDataUrl === 'string' && meta.receiptDataUrl.length > 0;
-    if (!hasReceipt) {
+    const hasReceiptDataUrl =
+      typeof meta.receiptDataUrl === 'string' && meta.receiptDataUrl.length > 0;
+    const hasReceiptStorageKey =
+      typeof meta.receiptStorageKey === 'string' &&
+      (meta.receiptStorageKey as string).trim().length >= 3;
+    if (!hasReceiptDataUrl && !hasReceiptStorageKey) {
       throw new ValidationError('No hay comprobante para confirmar en esta transferencia');
     }
 

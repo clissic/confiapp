@@ -152,6 +152,7 @@ export function TransactionDetailPage() {
     () =>
       (tx?.product?.images ?? []).map((img) => ({
         url: img.url,
+        storageKey: img.storageKey,
         alt: img.alt || tx?.product?.title || tx?.title,
       })),
     [tx?.product?.images, tx?.product?.title, tx?.title],

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCheck, Handshake, ImagePlus, MessageSquare, Send, ShoppingBag, Store } from 'lucide-react';
 
 import { formatTime } from '@/shared/lib/money';
+import { ResolvedMediaImage } from '@/shared/media/ResolvedMediaImage';
 import { VerifiedName } from '@/shared/ui/VerifiedName';
 import {
   useChatMessages,
@@ -783,9 +784,15 @@ function MessageBubble({ message, mine }: { message: ChatMessage; mine: boolean 
           target="_blank"
           rel="noreferrer"
           className="ca-chat-bubble__image-link"
+          onClick={(event) => {
+            if (att.url.startsWith('storage://')) {
+              event.preventDefault();
+            }
+          }}
         >
-          <img
+          <ResolvedMediaImage
             src={att.url}
+            storageKey={att.storageKey}
             alt={att.fileName || 'Imagen'}
             className="ca-chat-bubble__image"
             loading="lazy"

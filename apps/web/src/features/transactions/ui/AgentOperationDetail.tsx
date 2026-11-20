@@ -4,6 +4,7 @@ import { CheckCircle2, LogOut, MapPin, Package, PackageCheck } from 'lucide-reac
 
 import { formatOperationMoney } from '@/shared/lib/money';
 import { getApiErrorMessage } from '@/shared/api/client';
+import { ResolvedMediaImage } from '@/shared/media/ResolvedMediaImage';
 import { ReviewFormPanel } from '@/features/reputation';
 import { useAppToast } from '@/shared/ui';
 import {
@@ -261,7 +262,11 @@ export function AgentOperationDetail({
                     onClick={() => onGallery(index)}
                     aria-label={`Ampliar foto ${index + 1}`}
                   >
-                    <img src={img.url} alt={img.alt || `Foto ${index + 1}`} />
+                    <ResolvedMediaImage
+                      src={img.url}
+                      storageKey={img.storageKey}
+                      alt={img.alt || `Foto ${index + 1}`}
+                    />
                   </button>
                 </li>
               ))}
