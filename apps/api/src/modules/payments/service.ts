@@ -44,6 +44,7 @@ import {
   type EscrowSplit,
   type FeePayer,
 } from './split';
+import { resolveCheckoutUrl, resolveReusableCheckoutUrl } from './checkout-url';
 
 export type PaymentDocument = HydratedDocument<IPayment>;
 type TransactionDocument = HydratedDocument<ITransaction>;
@@ -432,12 +433,7 @@ export class PaymentsService {
     const meta = (hold.metadata ?? {}) as Record<string, unknown>;
     const reusedPreferenceId =
       typeof meta.preferenceId === 'string' ? meta.preferenceId : undefined;
-    const reusedInitPoint =
-      typeof meta.sandboxInitPoint === 'string' && meta.sandboxInitPoint
-        ? meta.sandboxInitPoint
-        : typeof meta.initPoint === 'string'
-          ? meta.initPoint
-          : undefined;
+    const reusedInitPoint = resolveReusableCheckoutUrl(meta);
     if (
       existingHold &&
       hold.status === PaymentStatus.REQUIRES_ACTION &&
@@ -524,7 +520,7 @@ export class PaymentsService {
 
     return {
       payment: toPaymentDto(hold.toObject()),
-      checkoutUrl: preference.sandboxInitPoint || preference.initPoint,
+      checkoutUrl: resolveCheckoutUrl(preference) ?? preference.initPoint,
       preferenceId: preference.id,
       split,
       providerMode: preference.provider,
@@ -618,12 +614,7 @@ export class PaymentsService {
     const feeMeta = (hold.metadata ?? {}) as Record<string, unknown>;
     const reusedFeePreferenceId =
       typeof feeMeta.preferenceId === 'string' ? feeMeta.preferenceId : undefined;
-    const reusedFeeInitPoint =
-      typeof feeMeta.sandboxInitPoint === 'string' && feeMeta.sandboxInitPoint
-        ? feeMeta.sandboxInitPoint
-        : typeof feeMeta.initPoint === 'string'
-          ? feeMeta.initPoint
-          : undefined;
+    const reusedFeeInitPoint = resolveReusableCheckoutUrl(feeMeta);
     if (
       existingHold &&
       hold.status === PaymentStatus.REQUIRES_ACTION &&
@@ -718,7 +709,7 @@ export class PaymentsService {
 
     return {
       payment: toPaymentDto(hold.toObject()),
-      checkoutUrl: preference.sandboxInitPoint || preference.initPoint,
+      checkoutUrl: resolveCheckoutUrl(preference) ?? preference.initPoint,
       preferenceId: preference.id,
       split: splitMeta,
       providerMode: preference.provider,
