@@ -7,7 +7,10 @@ import * as Sentry from '@sentry/react';
 
 import { App } from './app/App';
 import { AppErrorFallback } from './app/AppErrorFallback';
+import { registerVitePreloadRecovery } from '@/shared/lib/vite-preload-recovery';
 import './app/styles/global.css';
+
+registerVitePreloadRecovery();
 
 const root = document.getElementById('root');
 
