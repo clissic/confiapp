@@ -1,12 +1,17 @@
+import { existsSync, readdirSync, rmSync } from 'node:fs';
 import path from 'node:path';
-import { defineConfig, type ProxyOptions } from 'vite';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite';
 import react from '@vitejs/plugin-react';
 
 /**
  * Si el browser pide HTML (navegación SPA), no proxyar a la API.
  * Necesario cuando una ruta de página coincide con un prefijo API (p.ej. `/wallet`).
  */
-function bypassSpaDocument(req: { url?: string; headers: { accept?: string } }): string | undefined {
+function bypassSpaDocument(req: {
+  url?: string;
+  headers: { accept?: string };
+}): string | undefined {
   const accept = req.headers.accept ?? '';
   if (accept.includes('text/html')) {
     return req.url;
@@ -42,83 +47,143 @@ const API_PROXY_PATHS = [
   '/socket.io',
 ] as const;
 
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@repo': path.resolve(__dirname, '../..'),
+function deleteSourceMaps(dir: string): void {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      deleteSourceMaps(fullPath);
+    } else if (entry.name.endsWith('.map')) {
+      rmSync(fullPath, { force: true });
+    }
+  }
+}
+
+/** Si no hay token de Sentry, borra los .map para que no queden en `dist`. */
+function stripSourceMapsPlugin(distDir: string): Plugin {
+  return {
+    name: 'strip-sourcemaps-without-sentry-token',
+    apply: 'build',
+    closeBundle() {
+      deleteSourceMaps(distDir);
     },
-  },
-  build: {
-    target: 'es2022',
-    cssCodeSplit: true,
-    sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return;
+  };
+}
 
-          // Sentry en su propio chunk (antes de la regla de React: `@sentry/react`
-          // matchea `/react/` y partirlo entre chunks genera un ciclo de inicialización).
-          if (id.includes('@sentry') || id.includes('@sentry-internal')) return 'sentry';
+export default defineConfig(({ mode }) => {
+  // Vite no carga vars sin prefijo VITE_ en process.env al evaluar este archivo.
+  const env = loadEnv(mode, path.resolve(__dirname), '');
+  const sentryAuthToken = (process.env.SENTRY_AUTH_TOKEN || env.SENTRY_AUTH_TOKEN || '').trim();
+  const sentryRelease = (
+    process.env.VITE_SENTRY_RELEASE ||
+    env.VITE_SENTRY_RELEASE ||
+    process.env.SENTRY_RELEASE ||
+    env.SENTRY_RELEASE ||
+    process.env.RAILWAY_GIT_COMMIT_SHA ||
+    env.RAILWAY_GIT_COMMIT_SHA ||
+    ''
+  ).trim();
 
-          // React + react-bootstrap juntos: un chunk "bootstrap" aparte rompe
-          // createContext (React queda undefined al evaluar el chunk).
-          if (
-            id.includes('react-dom') ||
-            id.includes('react-bootstrap') ||
-            id.includes('scheduler') ||
-            /(?:^|[/\\])react(?:[/\\]|$)/.test(id) ||
-            id.includes('/react@') ||
-            id.includes('\\react@')
-          ) {
-            return 'react-vendor';
-          }
+  // Expone el mismo release al SDK (`import.meta.env.VITE_SENTRY_RELEASE`).
+  if (sentryRelease && !process.env.VITE_SENTRY_RELEASE) {
+    process.env.VITE_SENTRY_RELEASE = sentryRelease;
+  }
 
-          if (id.includes('leaflet') || id.includes('react-leaflet')) return 'leaflet';
-          if (id.includes('socket.io-client') || id.includes('engine.io-client')) {
-            return 'socket';
-          }
-          if (id.includes('framer-motion')) return 'motion';
-          if (id.includes('@tanstack')) return 'query';
-          if (id.includes('bootstrap')) return 'bootstrap';
-          if (id.includes('axios') || id.includes('zod')) return 'http-utils';
+  const distDir = path.resolve(__dirname, 'dist');
+
+  return {
+    plugins: [
+      react(),
+      // El plugin solo se activa con token para que el build no falle en local/CI sin Sentry.
+      sentryAuthToken
+        ? sentryVitePlugin({
+            org: 'jpc-5q',
+            project: 'confiapp-web',
+            authToken: sentryAuthToken,
+            release: sentryRelease ? { name: sentryRelease } : undefined,
+            sourcemaps: {
+              filesToDeleteAfterUpload: ['./dist/**/*.map'],
+            },
+          })
+        : stripSourceMapsPlugin(distDir),
+    ],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        '@repo': path.resolve(__dirname, '../..'),
+      },
+    },
+    build: {
+      target: 'es2022',
+      cssCodeSplit: true,
+      // hidden = genera .map sin comentario //# sourceMappingURL (no se exponen al navegador).
+      sourcemap: 'hidden',
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+
+            // Sentry en su propio chunk (antes de la regla de React: `@sentry/react`
+            // matchea `/react/` y partirlo entre chunks genera un ciclo de inicialización).
+            if (id.includes('@sentry') || id.includes('@sentry-internal')) return 'sentry';
+
+            // React + react-bootstrap juntos: un chunk "bootstrap" aparte rompe
+            // createContext (React queda undefined al evaluar el chunk).
+            if (
+              id.includes('react-dom') ||
+              id.includes('react-bootstrap') ||
+              id.includes('scheduler') ||
+              /(?:^|[/\\])react(?:[/\\]|$)/.test(id) ||
+              id.includes('/react@') ||
+              id.includes('\\react@')
+            ) {
+              return 'react-vendor';
+            }
+
+            if (id.includes('leaflet') || id.includes('react-leaflet')) return 'leaflet';
+            if (id.includes('socket.io-client') || id.includes('engine.io-client')) {
+              return 'socket';
+            }
+            if (id.includes('framer-motion')) return 'motion';
+            if (id.includes('@tanstack')) return 'query';
+            if (id.includes('bootstrap')) return 'bootstrap';
+            if (id.includes('axios') || id.includes('zod')) return 'http-utils';
+          },
         },
       },
     },
-  },
-  server: {
-    host: true,
-    port: 3001,
-    // Túneles demo + Railway (Host header público)
-    allowedHosts: ['.trycloudflare.com', '.up.railway.app'],
-    // Importar markdown del monorepo (`@repo/...md?raw`)
-    fs: {
-      allow: [path.resolve(__dirname, '../..')],
-    },
-    proxy: {
-      ...Object.fromEntries(API_PROXY_PATHS.map((p) => [p, apiProxy])),
-      // Prefijo `/audit` también matchea `/auditoria` (SPA): bypassear esa ruta.
-      '/audit': {
-        ...apiProxy,
-        bypass(req) {
-          const pathOnly = (req.url ?? '').split('?')[0] ?? '';
-          if (pathOnly === '/auditoria' || pathOnly.startsWith('/auditoria/')) {
-            return req.url;
-          }
-          return bypassSpaDocument(req);
+    server: {
+      host: true,
+      port: 3001,
+      // Túneles demo + Railway (Host header público)
+      allowedHosts: ['.trycloudflare.com', '.up.railway.app'],
+      // Importar markdown del monorepo (`@repo/...md?raw`)
+      fs: {
+        allow: [path.resolve(__dirname, '../..')],
+      },
+      proxy: {
+        ...Object.fromEntries(API_PROXY_PATHS.map((p) => [p, apiProxy])),
+        // Prefijo `/audit` también matchea `/auditoria` (SPA): bypassear esa ruta.
+        '/audit': {
+          ...apiProxy,
+          bypass(req) {
+            const pathOnly = (req.url ?? '').split('?')[0] ?? '';
+            if (pathOnly === '/auditoria' || pathOnly.startsWith('/auditoria/')) {
+              return req.url;
+            }
+            return bypassSpaDocument(req);
+          },
+        },
+        '/api': {
+          ...apiProxy,
+          rewrite: (p) => p.replace(/^\/api/, ''),
         },
       },
-      '/api': {
-        ...apiProxy,
-        rewrite: (p) => p.replace(/^\/api/, ''),
-      },
     },
-  },
-  preview: {
-    host: true,
-    port: 3001,
-    allowedHosts: ['.trycloudflare.com', '.up.railway.app'],
-  },
+    preview: {
+      host: true,
+      port: 3001,
+      allowedHosts: ['.trycloudflare.com', '.up.railway.app'],
+    },
+  };
 });

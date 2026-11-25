@@ -6,10 +6,14 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 
+import * as Sentry from '@sentry/node';
+
+import { sentryEnabled } from './instrument';
 import {
   errorHandler,
   globalRateLimiter,
   notFoundHandler,
+  stampClientErrorStatus,
 } from './middleware';
 import {
   agentsRoutes,
@@ -33,9 +37,14 @@ import { logRateLimitBackend } from './middleware/rate-limit-store';
 import { logger, morganStream } from './utils/logger';
 import { openApiDocument } from './utils/openapi';
 
-function corsOrigins(): string | string[] | ((origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => void) {
+function corsOrigins():
+  | string
+  | string[]
+  | ((origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => void) {
   const configured = env.CORS_ORIGIN.includes(',')
-    ? env.CORS_ORIGIN.split(',').map((o) => o.trim()).filter(Boolean)
+    ? env.CORS_ORIGIN.split(',')
+        .map((o) => o.trim())
+        .filter(Boolean)
     : [env.CORS_ORIGIN];
 
   // Producción: solo orígenes explícitos.
@@ -56,8 +65,7 @@ function corsOrigins(): string | string[] | ((origin: string | undefined, cb: (e
     try {
       const { hostname, protocol } = new URL(origin);
       const isHttp = protocol === 'http:' || protocol === 'https:';
-      const isLocal =
-        hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+      const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
       const isPrivateLan =
         /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
         /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
@@ -166,6 +174,14 @@ export function createApp(): Express {
   app.use('/media', mediaRoutes);
 
   app.use(notFoundHandler);
+  app.use(stampClientErrorStatus);
+  // SDK v11 captura por expressIntegration (shouldReportToSentry) al lanzar
+  // el error. Este handler cubre los que llegan por `next(err)` (asyncHandler)
+  // y no duplica si la integración ya lo marcó. El default de Sentry respeta
+  // el statusCode que acaba de sellar stampClientErrorStatus.
+  if (sentryEnabled) {
+    Sentry.setupExpressErrorHandler(app);
+  }
   app.use(errorHandler);
 
   logRateLimitBackend();

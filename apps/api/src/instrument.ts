@@ -13,6 +13,7 @@ import {
   parseSampleRate,
   scrubSentryEvent,
 } from './shared/observability/sentry-scrub';
+import { shouldReportToSentry } from './shared/observability/should-report-error';
 
 const dsn = process.env.SENTRY_DSN?.trim();
 
@@ -35,7 +36,20 @@ if (dsn) {
       databaseQueryData: false,
     },
     tracesSampleRate: parseSampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE),
-    beforeSend: (event) => scrubSentryEvent(event),
+    // Reemplaza la integración Express por defecto para no reportar 4xx esperados
+    // (JSON malformado, validación, Mongo 11000, AppError < 500).
+    integrations: (defaults) => [
+      ...defaults.filter((integration) => integration.name !== 'Express'),
+      Sentry.expressIntegration({ shouldHandleError: shouldReportToSentry }),
+    ],
+    beforeSend: (event) => {
+      // Defensa extra: nunca enviar body ni cookies, aunque el SDK las adjunte.
+      if (event.request) {
+        delete event.request.data;
+        delete event.request.cookies;
+      }
+      return scrubSentryEvent(event);
+    },
   });
 }
 

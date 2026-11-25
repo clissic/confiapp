@@ -1,7 +1,7 @@
 export { asyncHandler } from './async-handler';
 export { authenticate, requireAuth } from './authenticate';
 export { authRateLimiter } from './auth-rate-limit';
-export { errorHandler, notFoundHandler } from './error-handler';
+export { errorHandler, notFoundHandler, stampClientErrorStatus } from './error-handler';
 export {
   chatRateLimiter,
   checkoutRateLimiter,

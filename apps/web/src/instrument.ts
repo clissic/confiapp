@@ -14,9 +14,13 @@ const dsn = import.meta.env.VITE_SENTRY_DSN?.trim();
 const tracesSampleRate = parseSampleRate(import.meta.env.VITE_SENTRY_TRACES_SAMPLE_RATE);
 
 if (dsn) {
+  const release = import.meta.env.VITE_SENTRY_RELEASE?.trim() || undefined;
+
   Sentry.init({
     dsn,
     environment: import.meta.env.VITE_SENTRY_ENVIRONMENT?.trim() || import.meta.env.MODE,
+    // Mismo release que sube @sentry/vite-plugin (RAILWAY_GIT_COMMIT_SHA / SENTRY_RELEASE).
+    release,
     // SDK v11: `dataCollection` reemplaza a `sendDefaultPii` (equivalente a sendDefaultPii: false,
     // más estricto): sin datos de usuario, cookies ni bodies; headers sensibles denegados.
     dataCollection: {

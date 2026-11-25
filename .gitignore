@@ -43,3 +43,6 @@ apps/api/test/.mongo-uri
 .cache
 tmp
 temp
+
+# Token local del plugin de Sentry (no commitear)
+.env.sentry-build-plugin
