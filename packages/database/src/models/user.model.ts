@@ -659,6 +659,7 @@ const userSchema = new Schema<IUser>(
     },
     admin: { type: adminProfileSchema },
     deletedAt: { type: Date, default: null, index: true },
+    accountDeletionRequestedAt: { type: Date, default: null, index: true },
   },
   {
     timestamps: true,

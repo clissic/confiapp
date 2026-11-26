@@ -5,9 +5,9 @@
 /**
  * Contratación del Agente cuando `fundingMode=AGENT_FEE_ONLY`.
  * Fijo en UYU; el comprador paga a ConfiApp (retenido hasta el fin de la operación).
- * Reparto vigente: 80% Agente / 20% ConfiApp → UYU $400 / UYU $100.
+ * Reparto vigente: 70% Agente / 30% ConfiApp → UYU $343 / UYU $147.
  */
-export const AGENT_FEE_ONLY_UYU_CENTS = 50_000;
+export const AGENT_FEE_ONLY_UYU_CENTS = 49_000;
 
 /** Días de hold antes de que una comisión PENDING pase a AVAILABLE. */
 export const AGENT_COMMISSION_HOLD_DAYS = 14;

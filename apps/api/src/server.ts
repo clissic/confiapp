@@ -87,6 +87,18 @@ async function bootstrap(): Promise<void> {
     }, 15 * 60_000);
     commissionTimer.unref();
     timers.push(commissionTimer);
+
+    const { UsersService } = await import('./modules/users/service');
+    const usersService = new UsersService();
+    const accountDeletionTimer = setInterval(() => {
+      void withJobLock('cron:purge-account-deletions', 10 * 60_000, () =>
+        usersService.purgeExpiredAccountDeletions(50),
+      ).catch((error) => {
+        logger.error('purge expired account deletions failed', error);
+      });
+    }, 60 * 60_000);
+    accountDeletionTimer.unref();
+    timers.push(accountDeletionTimer);
   } else {
     logger.info('RUN_CRONS=false — in-process job timers disabled');
   }

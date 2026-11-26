@@ -216,7 +216,17 @@ Procesos separados del HTTP server:
 
 - Soft delete en usuarios/operaciones/evidencias para forense.
 - Audit y ledger **nunca** se borran lógicamente.
-- Retención y anonimización gobernadas por política (GDPR-like).
+- Retención y anonimización gobernadas por política (Ley 18.331 / Política de Privacidad).
+
+#### Eliminación de cuenta (usuario)
+
+Flujo implementado (no es hard-delete del `_id`):
+
+1. **`POST /users/me/delete-account`** (`confirmation: "Eliminar"`) → `status=SUSPENDED` + `accountDeletionRequestedAt`; revoca refresh tokens.
+2. **Bloqueos server-side** (409, no bypasseables desde UI): operaciones activas/disputa como comprador/vendedor; trabajos de Agente `ACCEPTED` activos; saldo wallet (`available`+`pending`+`held`); retiros `PENDING`/`PROCESSING`; comisiones de agente abiertas (`PENDING`/`AVAILABLE`/`RESERVED`/`BLOCKED`). Update atómico exige wallet en cero; re-check post-update.
+3. **Gracia 30 días** (`ACCOUNT_DELETION_GRACE_DAYS` en `@confiapp/shared`): login con password válido **restaura** (`ACTIVE`, limpia `accountDeletionRequestedAt`). Suspensión admin (sin pedido de baja) no se recupera así.
+4. **Cron** `cron:purge-account-deletions` (~1 h): si gracia vencida y sin bloqueos → anonimiza PII (`email` → `deleted_<id>@deleted.local`, limpia teléfono/documento/avatar/etc.), setea `deletedAt`. Si hay bloqueos (p. ej. comisión acreditada en gracia), **no** purgea.
+5. Operaciones, pagos, auditoría y evidencias **permanecen** para disputas / ministerio público / obligaciones legales (TyC §17 + Política §10).
 
 ### 5.4 Sharding (cuando haga falta)
 

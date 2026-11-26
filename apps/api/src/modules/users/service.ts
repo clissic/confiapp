@@ -31,6 +31,11 @@ import {
 import { notificationsService } from '../notifications/service';
 import { computeReputationScore } from '../reviews/scoring';
 
+import {
+  purgeExpiredAccountDeletions,
+  requestAccountDeletion,
+  type AccountDeletionResult,
+} from './account-deletion';
 import type { RegisterUserDto, UpdateUserDto, UserPublicDto } from './dto';
 import { sendIdentityChangeRequestEmail, sendKycReviewEmail } from './kyc-email';
 import { UsersRepository, type UserDocument } from './repository';
@@ -874,5 +879,13 @@ export class UsersService {
     }
 
     return { ok: true };
+  }
+
+  async deleteAccount(userId: string, confirmation: string): Promise<AccountDeletionResult> {
+    return requestAccountDeletion(userId, confirmation);
+  }
+
+  async purgeExpiredAccountDeletions(limit?: number): Promise<number> {
+    return purgeExpiredAccountDeletions(limit);
   }
 }

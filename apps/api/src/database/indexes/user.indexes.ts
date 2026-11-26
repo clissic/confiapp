@@ -7,6 +7,7 @@ export function applyUserIndexes(schema: Schema<IUser>): void {
   schema.index({ role: 1 });
   schema.index({ roles: 1 });
   schema.index({ deletedAt: 1 });
+  schema.index({ accountDeletionRequestedAt: 1, status: 1, deletedAt: 1 });
   schema.index({ phone: 1 }, { sparse: true });
   schema.index({ createdAt: -1 });
 

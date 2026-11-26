@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { PlatformRole, UserStatus, NotificationChannel, NotificationType, type IUser } from '@confiapp/database';
+import { isAccountDeletionWithinGrace } from '@confiapp/shared';
 import type { HydratedDocument } from 'mongoose';
 import type { CookieOptions, Request, Response } from 'express';
 
@@ -197,17 +198,26 @@ export class AuthService {
       throw invalid();
     }
 
-    if (user.status === UserStatus.SUSPENDED) {
+    const deletionPending = Boolean(user.accountDeletionRequestedAt);
+    const deletionWithinGrace = isAccountDeletionWithinGrace(user.accountDeletionRequestedAt);
+
+    if (user.status === UserStatus.SUSPENDED && !(deletionPending && deletionWithinGrace)) {
       auditService.track({
         actor: String(user._id),
         action: AuditAction.LOGIN_FAILED,
         entityType: 'User',
         entityId: String(user._id),
         outcome: AuditOutcome.FAILURE,
-        metadata: { reason: 'suspended' },
+        metadata: {
+          reason: deletionPending ? 'account_deletion_grace_expired' : 'suspended',
+        },
         ...meta,
       });
-      throw new ForbiddenError('Cuenta suspendida');
+      throw new ForbiddenError(
+        deletionPending
+          ? 'Esta cuenta fue eliminada y ya no puede recuperarse.'
+          : 'Cuenta suspendida',
+      );
     }
 
     if (isLocked(user)) {
@@ -242,6 +252,22 @@ export class AuthService {
         ...meta,
       });
       throw invalid();
+    }
+
+    if (deletionPending && deletionWithinGrace) {
+      user.status = UserStatus.ACTIVE;
+      user.accountDeletionRequestedAt = null;
+      await this.repository.saveUser(user);
+      auditService.track({
+        actor: String(user._id),
+        action: AuditAction.STATUS_CHANGE,
+        entityType: 'User',
+        entityId: String(user._id),
+        outcome: AuditOutcome.SUCCESS,
+        metadata: { reason: 'account_deletion_restored_on_login' },
+        ...meta,
+      });
+      logger.info('account.deletion_restored', { userId: String(user._id) });
     }
 
     if (!user.emailVerifiedAt) {

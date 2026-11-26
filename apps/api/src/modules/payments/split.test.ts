@@ -14,8 +14,8 @@ describe('payments/split', () => {
     expect(split.commissionCents).toBe(2_500);
     expect(split.buyerPaysCents).toBe(152_500);
     expect(split.sellerNetCents).toBe(150_000);
-    expect(split.platformFeeCents).toBe(500); // 20%
-    expect(split.agentFeeCents).toBe(2_000); // 80%
+    expect(split.platformFeeCents).toBe(750); // 30%
+    expect(split.agentFeeCents).toBe(1_750); // 70%
   });
 
   it('vendedor asume la comisión → comprador paga precio, vendedor recibe precio − comisión', () => {

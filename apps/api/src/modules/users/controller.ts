@@ -73,4 +73,10 @@ export class UsersController {
     );
     res.status(200).json(data);
   };
+
+  deleteAccount = async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as { confirmation: string };
+    const data = await this.service.deleteAccount(req.user!.id, body.confirmation);
+    res.status(200).json(data);
+  };
 }

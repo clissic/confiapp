@@ -13,7 +13,7 @@ Estado de la defensa contra abuso de requests / storage / APIs externas que infl
 | Email cooldown | Forgot/resend por email (Redis o memoria) |
 | Webhook MP | Rate limit; no loguea body pre-firma; payload truncado; TTL 90d en logs |
 | Checkout | Reutiliza preference `REQUIRES_ACTION` existente |
-| Crons | `RUN_CRONS` + locks Mongo (`jobs_locks`) |
+| Crons | `RUN_CRONS` + locks Mongo (`jobs_locks`): ofertas, plazos, auto-delivery, comisiones, **purge de cuentas** (`cron:purge-account-deletions`) |
 | Jobs HTTP | `TRANSACTIONS_JOB_SECRET` obligatorio; `limit` capado |
 | Media | Presign S3 Railway (`AWS_*`); KYC/chat/product/comprobantes pueden subir al bucket |
 | KYC email | Sin `fetch` HTTP arbitrario (anti-SSRF) |

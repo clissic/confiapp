@@ -721,6 +721,7 @@ export const userSchema = new Schema<IUser>(
     },
     admin: { type: adminProfileSchema },
     deletedAt: { type: Date, default: null },
+    accountDeletionRequestedAt: { type: Date, default: null },
   },
   {
     timestamps: true,

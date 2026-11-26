@@ -13,7 +13,8 @@
 | Tema | Realidad actual |
 |------|-----------------|
 | Modo de fondeo | **`AGENT_FEE_ONLY`** (UI: “Solo pago del Agente”). `ESCROW_FULL` deshabilitado / próximamente. |
-| Qué se cobra en la app | Solo la **contratación del Agente** (UYU $500). |
+| Qué se cobra en la app | Solo la **contratación del Agente** (UYU $490). |
+| Reparto de esa contratación | **70% Agente (UYU $343) / 30% ConfiApp (UYU $147)**. |
 | Precio del producto | Se acuerda y se paga **fuera** de ConfiApp. No hay hold/release del producto al vendedor. |
 | Label `FUNDED` en UI | **«Agente contratado»**. |
 | Al completar | Se cierra la operación y se acredita la **comisión del Agente** (PENDING 14d → AVAILABLE → liquidación admin). |
@@ -65,9 +66,9 @@ La plataforma combina:
 
 El Agente actúa como intermediario de la operación.
 
-Cuando una operación finaliza exitosamente, el Agente recibe económicamente el 80% de la **contratación/comisión** cobrada por ConfiApp (el 20% es fee de plataforma).
+Cuando una operación finaliza exitosamente, el Agente recibe económicamente el 70% de la **contratación/comisión** cobrada por ConfiApp (el 30% es fee de plataforma).
 
-ConfiApp conserva el 20%.
+ConfiApp conserva el 30%.
 
 ---
 
@@ -146,15 +147,15 @@ La comisión corresponde a ConfiApp.
 La distribución económica interna es:
 
 ```text
-Agente      = 80%
-ConfiApp    = 20%
+Agente      = 70%
+ConfiApp    = 30%
 ```
 
 Fórmulas:
 
 ```text
-agentShare = commission × 0.80
-platformShare = commission × 0.20
+agentShare = commission × 0.70
+platformShare = commission × 0.30
 ```
 
 Debe cumplirse siempre:
@@ -342,7 +343,7 @@ Conceptualmente:
           ▼                     ▼
       VENDEDOR              CONFIAPP
                                 │
-                                │ 80%
+                                │ 70%
                                 ▼
                          AGENT LEDGER
 ```
@@ -351,9 +352,9 @@ El dinero correspondiente al producto pertenece al vendedor.
 
 La comisión pertenece a ConfiApp.
 
-El 80% correspondiente al Agente se registra contablemente dentro del sistema.
+El 70% correspondiente al Agente se registra contablemente dentro del sistema.
 
-No realizar transferencia automática del 80% al Agente.
+No realizar transferencia automática del 70% al Agente.
 
 ---
 
@@ -941,8 +942,8 @@ Probar además:
 La implementación se considera correcta únicamente si:
 
 - las comisiones coinciden exactamente con la tabla
-- el Agente recibe contablemente 80%
-- ConfiApp conserva 20%
+- el Agente recibe contablemente 70%
+- ConfiApp conserva 30%
 - el precio del producto no se diluye
 - el fee payer funciona correctamente
 - las ganancias quedan PENDING durante 14 días
@@ -1058,7 +1059,7 @@ MERCADO PAGO
     │
     └──────────────► CONFIAPP
                            │
-                           │ 80%
+                           │ 70%
                            ▼
                     AGENT LEDGER
                            │

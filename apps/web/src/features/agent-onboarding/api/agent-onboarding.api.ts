@@ -15,7 +15,7 @@ const TERMS_TEXT = `Términos y condiciones del Agente Intermediario — ConfiAp
 1. Actuás como intermediario imparcial entre comprador y vendedor.
 2. Protegés la confidencialidad de las partes y la evidencia de la operación.
 3. Declarás disponibilidad real según los horarios configurados.
-4. La contratación del Agente es un monto fijo definido por ConfiApp (hoy UYU $500); el Agente no la fija.
+4. La contratación del Agente es un monto fijo definido por ConfiApp (hoy UYU $490); el Agente no la fija. De ese monto, el 70% corresponde al Agente y el 30% a ConfiApp.
 5. ConfiApp puede suspender el rol ante incumplimiento o disputas graves.
 6. Aceptás que los montos gestionados por ConfiApp (fee del Agente) no son tuyos hasta que estén disponibles en tu wallet.
 7. Salida de una operación aceptada: podés solicitar la salida mientras el trabajo esté asignado y aún no hayas iniciado la verificación del producto ni la confirmación de entrega. La contratación permanece en ConfiApp y se busca reemplazo.
@@ -34,7 +34,7 @@ function emptyStats(): AgentOnboarding['stats'] {
 function createDemoOnboarding(): AgentOnboarding {
   return {
     status: 'NONE',
-    termsVersion: '1.1.0',
+    termsVersion: '1.2.0',
     termsText: TERMS_TEXT,
     termsAccepted: false,
     timezone: 'America/Montevideo',

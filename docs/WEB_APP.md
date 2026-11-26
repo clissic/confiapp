@@ -3,11 +3,11 @@
 Documento orientado a **desarrolladores y producto**.  
 La UI de cara al usuario debe usar copy claro; los estados internos de dominio (p. ej. `WAITING_PARTICIPANT`) viven **aquí** y en la API, no en pantallas de uso cotidiano.
 
-Última actualización: **2026-11-19**.
+Última actualización: **2026-11-25**.
 
 > **Flujos de operación (compra / venta / agente)** con diagramas de colores, pagos y plazos:  
 > [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).  
-> **Pagos hoy:** en la app solo se cobra la **contratación del Agente** (`AGENT_FEE_ONLY`, UYU $500). El precio del producto se paga **por fuera**. UI de `FUNDED` = «Agente contratado».
+> **Pagos hoy:** en la app solo se cobra la **contratación del Agente** (`AGENT_FEE_ONLY`, UYU $490). El precio del producto se paga **por fuera**. UI de `FUNDED` = «Agente contratado».
 
 ---
 
@@ -30,7 +30,7 @@ Reglas Cursor: `.cursor/rules/frontend-bootstrap.mdc`, `.cursor/rules/web-aesthe
 | Ruta | Feature | Notas |
 |------|---------|--------|
 | `/inicio` | Home / placeholder workspace | Accesos Comprar / Vender / Mi Agencia / Mensajes |
-| `/perfil` | Perfil | Tabs: Perfil, Historial, Calificaciones, Wallet; settings vía `?tab=settings` |
+| `/perfil` | Perfil | Tabs: Perfil, Historial, Calificaciones, Wallet; settings vía `?tab=settings`. En **Perfil**, debajo de Datos personales: **Zona de peligro** → eliminar cuenta |
 | `/perfil/verificar-telefono` | Verificación OTP | UI lista; marcada **en implementación** (`PHONE_OTP_IN_IMPLEMENTATION`) hasta conectar SMS |
 | `/agente` | Onboarding + panel de agencia | Suspender / reactivar / cerrar; listado de ops activas como intermediario |
 | `/agente/buscar` | Búsqueda de agentes | |
@@ -158,14 +158,31 @@ En `apps/web/src/app/styles/global.css`:
 
 - Topbar: menú usuario + notificaciones; en compacto, paneles fixed full-width.
 - Bottom nav + menú: operaciones, mensajes, wallet, reputación; auditoría solo admin.
-- **Footer** desktop-only (`d-none d-lg-block`): Términos, Privacidad, Ayuda (placeholders) + © ConfiApp.
+- **Footer** desktop-only (`d-none d-lg-block`): Términos, Privacidad, Ayuda + © ConfiApp.
+- **Privacidad:** `/privacidad` (Ley 18.331; incluye conservación, eliminación de cuenta, URCDP, DPD). Registro: un checkbox acepta TyC + Política, con links a ambos.
+- **Términos:** `/terminos` (incluye § eliminación de cuenta: gracia 30 días, bloqueos wallet/ops/agente).
 - Breadcrumbs según ruta.
+
+---
+
+## Eliminación de cuenta (UI)
+
+| Pieza | Comportamiento |
+|-------|----------------|
+| Ubicación | `/perfil` → tab **Perfil** → **Zona de peligro** |
+| Confirmación | Modal: escribir exactamente `Eliminar` |
+| Tras OK | Toast de aviso → logout → `/ingresar` |
+| Gracia | 30 días suspendida; un login válido restaura la cuenta |
+| Definitivo | Tras 30 días sin login: anonimización del perfil (API cron) |
+| Bloqueos (mensaje API 409) | Ops comprador/vendedor en curso o disputa; trabajos de Agente aceptados; saldo wallet; retiros abiertos; comisiones de agente abiertas |
+
+Detalle API / modelo: [`ARCHITECTURE.md`](./ARCHITECTURE.md) (módulo `users`) y [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) §5.3.
 
 ---
 
 ## Contratación del Agente (Mercado Pago)
 
-- Ruta: `/operaciones/:code/pagar` — cobra solo el fee del Agente (UYU $500), no el precio del producto.
+- Ruta: `/operaciones/:code/pagar` — cobra solo el fee del Agente (UYU $490), no el precio del producto.
 - Única vía: Checkout Pro (`POST /payments/transactions/:code/checkout`) + webhook / `sync-checkout`.
 - Sin `MERCADOPAGO_ACCESS_TOKEN`: MOCK local (`/operaciones/:code/pagar/simular`).
 - Tras cobro: estado `FUNDED` → UI «Agente contratado».

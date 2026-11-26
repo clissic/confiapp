@@ -61,4 +61,17 @@ export async function requestIdentityChange(
   });
 }
 
+export type DeleteAccountResult = {
+  ok: true;
+  graceDays: number;
+  deletionEffectiveAt: string;
+};
+
+export async function deleteMyAccount(confirmation: string): Promise<DeleteAccountResult> {
+  const { data } = await apiClient.post<DeleteAccountResult>('/users/me/delete-account', {
+    confirmation,
+  });
+  return data;
+}
+
 export { formatMoney } from '@/shared/lib/money';

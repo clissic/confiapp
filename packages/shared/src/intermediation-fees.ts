@@ -20,8 +20,8 @@ export const FEE_PAYER_LABELS: Record<FeePayer, string> = {
 };
 
 /** BPS sobre la comisión (no sobre el precio del producto). */
-export const DEFAULT_PLATFORM_COMMISSION_BPS = 2000; // 20 %
-export const DEFAULT_AGENT_COMMISSION_BPS = 8000; // 80 %
+export const DEFAULT_PLATFORM_COMMISSION_BPS = 3000; // 30 %
+export const DEFAULT_AGENT_COMMISSION_BPS = 7000; // 70 %
 
 export interface IntermediationFeesInput {
   productCents: number;

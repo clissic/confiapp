@@ -12,7 +12,7 @@ Documento de producto y desarrollo. Describe **cómo se vive una operación** se
 
 **Última actualización:** 2026-11-19.
 
-> **Modo vigente:** `AGENT_FEE_ONLY`. En la app el comprador paga **UYU $500** (contratación del Agente). El precio del producto **no** se custodia ni se libera en ConfiApp. Label UI de `FUNDED` = **«Agente contratado»**.
+> **Modo vigente:** `AGENT_FEE_ONLY`. En la app el comprador paga **UYU $490** (contratación del Agente). El precio del producto **no** se custodia ni se libera en ConfiApp. Label UI de `FUNDED` = **«Agente contratado»**.
 
 **Fuente de código:**  
 `packages/database` (enums) · `apps/api/src/modules/transactions` · `payments` · `agents` · `disputes` · `finance` · `apps/web/src/features/transactions`.
@@ -41,7 +41,7 @@ En Mermaid, los nodos usan `classDef` con esos roles.
 |-----|----------|-------------------------------|
 | **Comprador** | Parte que adquiere el producto | Crear op (o unirse), pagar la **contratación del Agente** (modo default), aceptar/rechazar producto, confirmar **arribo**, abrir **disputa** si hace falta |
 | **Vendedor** | Parte que ofrece el producto | Crear op (o unirse), confirmar venta / condiciones, esperar que el comprador pague la contratación del Agente, coordinar retiro; cobro del producto por fuera |
-| **Agente** | Intermediario independiente | Onboarding + ID Digital, tomar trabajo, checklist, verificación, **confirmar entrega**, comisión 80 % tras COMPLETED |
+| **Agente** | Intermediario independiente | Onboarding + ID Digital, tomar trabajo, checklist, verificación, **confirmar entrega**, comisión 70 % tras COMPLETED |
 
 En el modelo: `TransactionInitiator` = `BUYER` \| `SELLER`. El agente es `INTERMEDIARY` con `ACCEPTED`.
 
@@ -51,7 +51,7 @@ En el modelo: `TransactionInitiator` = `BUYER` \| `SELLER`. El agente es `INTERM
 
 | Modo | Código | Qué paga el comprador en la app |
 |------|--------|----------------------------------|
-| **Solo pago del Agente** (**vigente**) | `AGENT_FEE_ONLY` | Fijo **UYU $500** (`AGENT_FEE_ONLY_UYU_CENTS`) — “contratación del Agente”. El precio del producto se arregla y se paga **fuera** de ConfiApp. |
+| **Solo pago del Agente** (**vigente**) | `AGENT_FEE_ONLY` | Fijo **UYU $490** (`AGENT_FEE_ONLY_UYU_CENTS`) — “contratación del Agente”. El precio del producto se arregla y se paga **fuera** de ConfiApp. |
 | **Resguardo completo** (próximamente) | `ESCROW_FULL` | Precio + comisión (solo si `FUNDING_ESCROW_FULL_ENABLED=true`; UI deshabilitada) |
 
 **Cobro técnico:** solo Mercado Pago (Checkout Pro; MOCK sin token). Confirmación por webhook + sync al volver → `FUNDED`.
@@ -129,7 +129,7 @@ flowchart TB
 
   subgraph pay ["4. Pago — Contratación del Agente"]
     PAY([Comprador: /operaciones/:code/pagar]):::buyer
-    PAY3[Mercado Pago Checkout Pro<br/>UYU $500]:::pay
+    PAY3[Mercado Pago Checkout Pro<br/>UYU $490]:::pay
     PAY5[Hold CAPTURED<br/>Estado: FUNDED]:::pay
     PAY --> PAY3 --> PAY5
   end
@@ -173,7 +173,7 @@ flowchart TB
 | Unirse | — | Abre enlace, confirma venta | — |
 | Reconfirm | Si hay diffs: acepta/rechaza | Espera | — |
 | Agente | Puede buscar / esperar open job | Idem | Acepta trabajo (ID Digital) |
-| Pagar | Paga **$500** contratación | Espera “Agente contratado” | Aparece trabajo con fee cobrado |
+| Pagar | Paga **$490** contratación | Espera “Agente contratado” | Aparece trabajo con fee cobrado |
 | Producto | Acepta / rechaza verificación | Coordina retiro | Checklist + finalize |
 | Entrega | Confirma **arribo** | — | Confirma **entrega** |
 | Disputa | Puede abrir disputa | Informado | Comisión puede bloquearse |
@@ -278,7 +278,7 @@ sequenceDiagram
 
   Note over C,Ag: Estado ACCEPTED + Agente asignado (fee-only)
   C->>App: POST .../checkout
-  App->>MP: Preference Checkout Pro ($500)
+  App->>MP: Preference Checkout Pro ($490)
   C->>MP: Paga (sandbox o live)
   MP-->>App: Webhook payment.updated
   C->>App: Vuelve ?pago=ok → sync-checkout
@@ -383,7 +383,7 @@ flowchart TB
   subgraph Comprador
     direction TB
     c1[Crear o unirse]:::buyer
-    c2[Pagar contratación $500]:::pay
+    c2[Pagar contratación $490]:::pay
     c3[Aceptar producto]:::buyer
     c4[Confirmar arribo]:::buyer
     c5[Abrir disputa si hace falta]:::dispute
@@ -459,7 +459,7 @@ Pagos                 apps/api/src/modules/payments/service.ts
 Agentes               apps/api/src/modules/agents/*
 Disputas              apps/api/src/modules/disputes/service.ts
 Comisiones            apps/api/src/modules/finance/commission.service.ts
-Constantes $500/14d   packages/shared/src/finance-constants.ts
+Constantes $490/14d   packages/shared/src/finance-constants.ts
 UI detalle por rol    apps/web/src/features/transactions/ui/*OperationDetail.tsx
 Legal / ayuda         apps/web/src/features/legal/content/{terms,help}.ts
 ```

@@ -47,6 +47,13 @@ export {
 } from './finance-constants.js';
 
 export {
+  ACCOUNT_DELETION_GRACE_DAYS,
+  ACCOUNT_DELETION_CONFIRMATION,
+  addAccountDeletionGraceDays,
+  isAccountDeletionWithinGrace,
+} from './account-constants.js';
+
+export {
   AGENT_WITHDRAW_ALLOWED_STATUSES,
   canAgentSelfServeWithdraw,
   getAgentWithdrawBlockReason,

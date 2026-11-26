@@ -1,6 +1,6 @@
 /** Contenido legal de Términos y Condiciones de uso de ConfiApp. */
 
-export const TERMS_LAST_UPDATED = '20 de noviembre de 2026';
+export const TERMS_LAST_UPDATED = '25 de noviembre de 2026';
 
 export type TermsSection = {
   id: string;
@@ -20,7 +20,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
     title: 'Identificación y aceptación',
     paragraphs: [
       'Los presentes Términos y Condiciones regulan el acceso y utilización de la plataforma digital ConfiApp (en adelante, la “Plataforma”), así como los servicios tecnológicos y de intermediación puestos a disposición de sus usuarios.',
-      'La utilización, registro o acceso a la Plataforma implica la lectura, comprensión y aceptación expresa de estos Términos y Condiciones, así como de las políticas y documentos que eventualmente se incorporen a ellos.',
+      'La utilización, registro o acceso a la Plataforma implica la lectura, comprensión y aceptación expresa de estos Términos y Condiciones, de la Política de Privacidad y de las políticas y documentos que eventualmente se incorporen a ellos.',
       'En caso de no estar de acuerdo con cualquiera de las disposiciones aquí establecidas, el usuario deberá abstenerse de utilizar la Plataforma.',
       'ConfiApp podrá actualizar estos Términos y Condiciones cuando resulte necesario, comunicando las modificaciones conforme a los mecanismos disponibles en la Plataforma.',
     ],
@@ -209,17 +209,17 @@ export const TERMS_SECTIONS: TermsSection[] = [
       'En operaciones con confirmación dual de entrega (comprador y agente), la liquidación de la contratación del Agente y el cierre de la operación se producirán cuando ambas confirmaciones queden registradas o cuando opere la confirmación automática prevista en estos Términos.',
       'Desde que una de las partes confirma la entrega o el arribo, el comprador dispone de un plazo de setenta y dos (72) horas para confirmar el arribo del producto o reportar a través de la Plataforma que no lo recibió. Vencido dicho plazo sin acción del comprador, ConfiApp podrá registrar automáticamente la recepción y proceder con la liquidación de la contratación del Agente y el cierre de la operación conforme a las reglas aplicables.',
       'El comprador reconoce que la confirmación automática produce los mismos efectos operativos que una confirmación manual de arribo, sin perjuicio de los reclamos o disputas que pudieran formularse conforme a estos Términos dentro de los plazos aplicables.',
-      'Completada la operación, la participación del Agente (monto de intermediación menos la comisión de ConfiApp informada en la Plataforma) se acredita en su wallet en estado pendiente por catorce (14) días. Transcurrido ese plazo sin bloqueo por disputa u otra medida prevista, la comisión pasa a disponible. La liquidación del saldo disponible hacia el medio de cobro del Agente se realiza en la ventana mensual informada (días 1 al 10 de cada mes, o la que ConfiApp comunique).',
+      'Completada la operación, la participación del Agente (monto de intermediación menos la comisión de ConfiApp) se acredita en su wallet en estado pendiente por catorce (14) días. Transcurrido ese plazo sin bloqueo por disputa u otra medida prevista, la comisión pasa a disponible. La liquidación del saldo disponible hacia el medio de cobro del Agente se realiza en la ventana mensual informada (días 1 al 10 de cada mes, o la que ConfiApp comunique).',
       'Una disputa u otro reclamo abierto conforme a estos Términos podrá bloquear, demorar o revertir la comisión del Agente según el resultado de la mediación y las reglas de la Plataforma.',
-      'La comisión de ConfiApp se descuenta del monto de intermediación en el porcentaje informado en la operación o en la documentación de la Plataforma.',
-      'Cancelación sin disputa y no reembolso de la contratación del Agente. Una vez que el comprador abona la contratación del Agente y existe Agente asignado, el Agente se considera contratado para esa operación. ConfiApp no puede determinar ni asumir cuánto tiempo, traslado u otras gestiones dedicó el Agente a la operación. Por lo tanto, si el comprador cancela la operación o rechaza el producto sin abrir una disputa, lo pagado por la contratación del Agente no será reembolsado y podrá liquidarse a favor del Agente (y de ConfiApp en la proporción que corresponda) como contraprestación del servicio de intermediación ya iniciado o realizado.',
+      'La comisión de ConfiApp es del treinta por ciento (30%) del monto de intermediación o de la contratación del Agente abonada en la Plataforma. El setenta por ciento (70%) restante corresponde al Agente. En el modo vigente de solo contratación del Agente por el monto fijo informado (por ejemplo UYU $490), ello equivale a UYU $147 para ConfiApp y UYU $343 para el Agente, sin perjuicio de actualizaciones del monto fijo que ConfiApp comunique en la operación o en la documentación de la Plataforma.',
+      'Cancelación sin disputa y no reembolso de la contratación del Agente. Una vez que el comprador abona la contratación del Agente y existe Agente asignado, el Agente se considera contratado para esa operación. ConfiApp no puede determinar ni asumir cuánto tiempo, traslado u otras gestiones dedicó el Agente a la operación. Por lo tanto, si el comprador cancela la operación o rechaza el producto sin abrir una disputa, lo pagado por la contratación del Agente no será reembolsado y podrá liquidarse a favor del Agente (y de ConfiApp en la proporción 70/30 indicada) como contraprestación del servicio de intermediación ya iniciado o realizado.',
       'Si el comprador considera que corresponde la devolución total o parcial de lo abonado por la contratación del Agente, deberá abrir una disputa a través de los canales de la Plataforma antes de cancelar sin reclamo, a fin de que ConfiApp evalúe el caso con la evidencia disponible. La sola cancelación o el rechazo del producto sin disputa implica aceptación de que no habrá reembolso automático de dicha contratación.',
       'Los reembolsos de la contratación del Agente, cuando procedan, solo podrán disponerse como resultado de la resolución de una disputa por parte de ConfiApp (o de la autoridad competente), conforme a estos Términos y a las reglas del procesador de pagos. El comprador declara haber sido informado de esta política de forma previa a la cancelación sin disputa.',
     ],
   },
   {
     id: '17',
-    title: 'Suspensión y cancelación de cuentas',
+    title: 'Suspensión, cancelación y eliminación de cuentas',
     paragraphs: [
       'ConfiApp podrá suspender, limitar o cancelar una cuenta cuando existan elementos objetivos que indiquen:',
     ],
@@ -237,6 +237,9 @@ export const TERMS_SECTIONS: TermsSection[] = [
     ],
     afterItems: [
       'Cuando corresponda, ConfiApp podrá solicitar información adicional antes de adoptar una decisión definitiva.',
+      'El usuario podrá solicitar la eliminación de su propia cuenta desde Mi perfil → pestaña Perfil → Zona de peligro, confirmando la operación mediante la escritura de la palabra «Eliminar». Al confirmar, la cuenta quedará suspendida por treinta (30) días. Si el titular inicia sesión nuevamente dentro de ese período, la cuenta se recuperará automáticamente. Transcurridos los treinta (30) días sin recuperación, la eliminación de la cuenta será definitiva.',
+      'La solicitud de eliminación será rechazada —y no podrá forzarse ni omitirse desde la aplicación— cuando existan: (a) operaciones en curso o en disputa en las que el usuario participe como comprador o vendedor; (b) trabajos de Agente aceptados y aún activos; (c) saldo en la wallet (disponible, pendiente o retenido); (d) retiros de fondos pendientes o en proceso; y/o (e) comisiones de Agente pendientes, disponibles, reservadas o bloqueadas. Dichas validaciones se aplican en los sistemas de ConfiApp.',
+      'La eliminación definitiva de la cuenta no implica la eliminación completa de todos los datos personales asociados de la base de datos. ConfiApp podrá conservar la información necesaria para resolver disputas, atender investigaciones requeridas por el ministerio público u otras autoridades competentes, y cumplir obligaciones legales, contables, de auditoría, evidencias y seguridad, conforme a la Política de Privacidad y a la normativa aplicable.',
     ],
   },
   {
@@ -371,7 +374,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
     id: '31',
     title: 'Aceptación',
     paragraphs: [
-      'Al registrarse, acceder o utilizar ConfiApp, el usuario declara haber leído, comprendido y aceptado estos Términos y Condiciones.',
+      'Al registrarse, acceder o utilizar ConfiApp, el usuario declara haber leído, comprendido y aceptado estos Términos y Condiciones y la Política de Privacidad.',
       'El usuario reconoce especialmente que:',
     ],
     bullets: [
@@ -382,10 +385,12 @@ export const TERMS_SECTIONS: TermsSection[] = [
       'El agente es responsable de la actividad material que realiza;',
       'La utilización de ConfiApp no constituye un seguro sobre los bienes;',
       'Las operaciones entre usuarios pueden implicar riesgos;',
-      'Cada participante debe cumplir las obligaciones legales que le correspondan.',
+      'Cada participante debe cumplir las obligaciones legales que le correspondan;',
+      'El tratamiento de datos personales se rige por la Política de Privacidad y la Ley N° 18.331;',
+      'La eliminación de cuenta tiene un período de gracia de treinta (30) días y está sujeta a las restricciones de operaciones, trabajos de Agente y saldos descriptas en estos Términos.',
     ],
     afterItems: [
-      'Al seleccionar “Acepto”, el usuario manifiesta su aceptación expresa de los presentes Términos y Condiciones.',
+      'Al seleccionar la casilla de aceptación en el registro, el usuario manifiesta su aceptación expresa de los presentes Términos y Condiciones y de la Política de Privacidad.',
     ],
   },
 ];

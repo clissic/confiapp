@@ -3,13 +3,13 @@
 Spec histórica / detallada: [`CONFIAPP_FINANCIAL_MVP.md`](./CONFIAPP_FINANCIAL_MVP.md).  
 Flujos de operación (roles, pagos, plazos): [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md).
 
-> **Modo vigente (2026-11):** `AGENT_FEE_ONLY`. En la app solo se cobra la **contratación del Agente** (UYU $500). El precio del producto **no** entra al ledger ni se “libera al vendedor”. `ESCROW_FULL` = roadmap (`FUNDING_ESCROW_FULL_ENABLED`).
+> **Modo vigente (2026-11):** `AGENT_FEE_ONLY`. En la app solo se cobra la **contratación del Agente** (UYU $490). El precio del producto **no** entra al ledger ni se “libera al vendedor”. `ESCROW_FULL` = roadmap (`FUNDING_ESCROW_FULL_ENABLED`).
 
 ## Cobro al comprador (modo actual)
 
 Solo **Mercado Pago** (Checkout Pro). Sin `MERCADOPAGO_ACCESS_TOKEN` → MOCK local.
 
-En `AGENT_FEE_ONLY` el monto es **UYU $500** (contratación del Agente). Confirmación por webhook + `POST .../sync-checkout` al volver. Tras pago aprobado → `FUNDED` (UI «Agente contratado») sin intervención admin.
+En `AGENT_FEE_ONLY` el monto es **UYU $490** (contratación del Agente). Reparto al cerrar: **70% Agente (UYU $343) / 30% ConfiApp (UYU $147)**. Confirmación por webhook + `POST .../sync-checkout` al volver. Tras pago aprobado → `FUNDED` (UI «Agente contratado») sin intervención admin.
 
 Eventos de pago: Auditoría → `/auditoria/pagos` (paginado).
 
@@ -19,7 +19,7 @@ La vía Prex / `PAYMENTS_CHECKOUT_MODE` / `/admin/pagos` fue **retirada**.
 
 | Pieza | Ubicación |
 |---|---|
-| Franjas UYU + 80/20 | `packages/shared` (`agent-fee-tiers`, `intermediation-fees`) |
+| Franjas UYU + 70/30 (Agente / ConfiApp) | `packages/shared` (`agent-fee-tiers`, `intermediation-fees`) |
 | Hold **14 días** / ventana 1–10 | `packages/shared/finance-constants.ts` |
 | Modelos | `AgentCommission`, `PayoutBatch`, `AgentPayout`, `FinancialAuditEvent` |
 | Módulo API | `apps/api/src/modules/finance` |

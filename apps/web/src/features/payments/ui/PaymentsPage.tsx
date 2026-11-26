@@ -234,8 +234,8 @@ export function PaymentsPage() {
                 <div>
                   <span>
                     {isAgentFeeOnly
-                      ? 'ConfiApp (20% de la contratación)'
-                      : 'ConfiApp (20% de la comisión)'}
+                      ? 'ConfiApp (30% de la contratación)'
+                      : 'ConfiApp (30% de la comisión)'}
                   </span>
                   <strong>
                     {formatOperationMoney(escrow.split.platformFeeCents, escrow.currency)}
@@ -244,8 +244,8 @@ export function PaymentsPage() {
                 <div>
                   <span>
                     {isAgentFeeOnly
-                      ? 'Agente (80% de la contratación)'
-                      : 'Agente (80% de la comisión)'}
+                      ? 'Agente (70% de la contratación)'
+                      : 'Agente (70% de la comisión)'}
                   </span>
                   <strong>
                     {formatOperationMoney(escrow.split.agentFeeCents, escrow.currency)}

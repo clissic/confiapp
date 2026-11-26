@@ -32,7 +32,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
     bullets: [
       'ConfiApp solo cobra/gestiona el fee del Agente; el precio del producto lo acuerdan las partes por fuera.',
-      'Al completar, la comisión del Agente queda pendiente 14 días en su wallet y luego pasa a disponible.',
+      'De la contratación del Agente (p. ej. UYU $490), el 70% es para el Agente y el 30% para ConfiApp. Al completar, la comisión del Agente queda pendiente 14 días en su wallet y luego pasa a disponible.',
       'La liquidación del saldo disponible la hace un administrador entre el 1 y el 10 de cada mes.',
       'Si cancelás o rechazás el producto sin disputa, la contratación del Agente no se reembolsa: el Agente ya se considera contratado.',
       'Si creés que corresponde devolverte ese dinero, abrí una disputa antes de cancelar sin reclamo.',
@@ -83,6 +83,7 @@ export const HELP_SECTIONS: HelpSection[] = [
     title: 'Contacto',
     paragraphs: [
       'Para dudas urgentes sobre una operación en curso, usá el chat de esa operación o el canal de soporte indicado en notificaciones. Para temas de cuenta o verificación, revisá la sección de perfil y KYC.',
+      'Para ejercer derechos sobre tus datos personales (acceso, rectificación, supresión, etc.) o consultas de privacidad, escribinos a privacidad@confiapp.app. El detalle está en la Política de Privacidad.',
     ],
   },
 ];

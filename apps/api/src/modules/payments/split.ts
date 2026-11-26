@@ -1,5 +1,5 @@
 /**
- * Split de escrow: comisión fija por franja + reparto 20/80 sobre la comisión.
+ * Split de escrow: comisión fija por franja + reparto 30/70 sobre la comisión.
  */
 
 import {

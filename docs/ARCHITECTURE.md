@@ -52,8 +52,8 @@ infrastructure ───────┘
 
 | Módulo | Rol |
 |--------|-----|
-| `auth` | Registro, login, verify email, reset password. **ID Digital Abitab** para Agentes (onboarding + accept job): [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md) |
-| `users` | Perfil, KYC (review admin), preferencias, payout methods |
+| `auth` | Registro, login, verify email, reset password. Login **restaura** cuenta en gracia de eliminación (30d). **ID Digital Abitab** para Agentes (onboarding + accept job): [`ID_DIGITAL_AGENTS.md`](./ID_DIGITAL_AGENTS.md) |
+| `users` | Perfil, KYC (review admin), preferencias, payout methods. **`POST /users/me/delete-account`**: suspensión 30d + bloqueos (ops, jobs agente, wallet, retiros, comisiones); cron `purge-account-deletions` anonimiza tras gracia |
 | `transactions` | Ciclo de vida de la operación + invites + checklist + plazos 21d/72h — ver [`OPERATION_FLOWS.md`](./OPERATION_FLOWS.md) |
 | `payments` | Cobro de la **contratación del Agente** (Mercado Pago), hold, webhooks, sync return, OAuth agentes; `ESCROW_FULL` deshabilitado por flag |
 | `wallet` | Saldos y comisiones del Agente (hold 14d + liquidación admin), export |

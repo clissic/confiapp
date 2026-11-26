@@ -340,6 +340,11 @@ export interface IUser {
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
+  /**
+   * Momento en que el titular solicitó eliminar la cuenta.
+   * Mientras esté dentro de la gracia, un login válido restaura la cuenta.
+   */
+  accountDeletionRequestedAt?: Date | null;
 }
 
 export type UserId = Types.ObjectId | string;

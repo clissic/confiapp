@@ -1,4 +1,8 @@
-import { AGENT_FEE_ONLY_UYU_CENTS } from '@confiapp/shared';
+import {
+  AGENT_FEE_ONLY_UYU_CENTS,
+  DEFAULT_AGENT_COMMISSION_BPS,
+  DEFAULT_PLATFORM_COMMISSION_BPS,
+} from '@confiapp/shared';
 
 import { apiClient } from '@/shared/api/client';
 
@@ -15,7 +19,7 @@ function hasApiAuth(): boolean {
 /** Demo alineado al modo vigente: solo contratación del Agente. */
 function demoEscrow(code: string): EscrowView {
   const buyerPays = AGENT_FEE_ONLY_UYU_CENTS;
-  const platformFeeCents = Math.floor((buyerPays * 2_000) / 10_000);
+  const platformFeeCents = Math.floor((buyerPays * DEFAULT_PLATFORM_COMMISSION_BPS) / 10_000);
   const agentFeeCents = buyerPays - platformFeeCents;
   const split = {
     productCents: 0,
@@ -28,8 +32,8 @@ function demoEscrow(code: string): EscrowView {
     currency: 'UYU' as const,
     grossCents: buyerPays,
     sellerCents: 0,
-    platformCommissionBps: 2_000,
-    agentCommissionBps: 8_000,
+    platformCommissionBps: DEFAULT_PLATFORM_COMMISSION_BPS,
+    agentCommissionBps: DEFAULT_AGENT_COMMISSION_BPS,
   };
   return {
     transactionId: 'demo-tx',

@@ -15,11 +15,12 @@ Plataforma de **intermediación segura** (encuentro físico + control digital): 
 
 - **Operaciones** con invite, checklist de entrega y flujo de estados hasta contratación del Agente / progreso / cierre.
 - **Tres roles en cada op:** Comprador, Vendedor y Agente — flujos detallados con diagramas en [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md).
-- **Pagos (modo vigente):** solo la **contratación del Agente** (UYU $500, `AGENT_FEE_ONLY`) vía **Mercado Pago** (Checkout Pro; MOCK si no hay token). El **precio del producto** se acuerda y se paga **fuera** de ConfiApp. Wallet de comisiones del Agente (hold 14 días + liquidación admin 1–10).
+- **Pagos (modo vigente):** solo la **contratación del Agente** (UYU $490, `AGENT_FEE_ONLY`) vía **Mercado Pago** (Checkout Pro; MOCK si no hay token). El **precio del producto** se acuerda y se paga **fuera** de ConfiApp. Wallet de comisiones del Agente (hold 14 días + liquidación admin 1–10).
 - **Agentes intermediarios:** onboarding, búsqueda, trabajos abiertos, ofertas de asignación; **suspender / cerrar agencia** y **solicitar salida** de una operación (la contratación del Agente no se mueve; se busca reemplazo).
 - **Chat** y **notificaciones** in-app en tiempo real.
 - **KYC** (review admin por fotos), **reputación** y **auditoría** (admin).
 - **Identidad Digital Abitab** para **Agentes**: onboarding + cada aceptación de trabajo (`acr=pin`; roadmap `liveness`). KYC fotos se mantiene sin bloquear el wizard. Detalle: [`docs/ID_DIGITAL_AGENTS.md`](./docs/ID_DIGITAL_AGENTS.md).
+- **Eliminación de cuenta** (perfil → Zona de peligro): gracia 30 días, restauración por login, bloqueos por ops/wallet/agente; TyC + Política de Privacidad (Ley 18.331).
 
 Detalle de pantallas: [`docs/WEB_APP.md`](./docs/WEB_APP.md).  
 **Flujos de compra / venta / intermediación:** [`docs/OPERATION_FLOWS.md`](./docs/OPERATION_FLOWS.md).  

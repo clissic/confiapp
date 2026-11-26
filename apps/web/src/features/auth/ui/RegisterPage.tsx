@@ -79,7 +79,9 @@ export function RegisterPage() {
       return;
     }
     if (!acceptedTerms) {
-      setError('Tenés que aceptar los Términos y Condiciones para crear la cuenta.');
+      setError(
+        'Tenés que aceptar los Términos y Condiciones y la Política de Privacidad para crear la cuenta.',
+      );
       return;
     }
 
@@ -249,7 +251,7 @@ export function RegisterPage() {
           <label className="ca-auth__check">
             <input
               type="checkbox"
-              name="accept-terms"
+              name="accept-terms-privacy"
               checked={acceptedTerms}
               onChange={(e) => setAcceptedTerms(e.target.checked)}
               required
@@ -263,6 +265,15 @@ export function RegisterPage() {
                 rel="noopener noreferrer"
               >
                 Términos y Condiciones
+              </Link>{' '}
+              y la{' '}
+              <Link
+                to={`/privacidad?volver=${encodeURIComponent(`/registro?next=${encodeURIComponent(next)}`)}`}
+                className="ca-auth__check-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Política de Privacidad
               </Link>
             </span>
           </label>

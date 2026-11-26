@@ -297,14 +297,14 @@ export function TransactionPayPage() {
           </p>
           <div className="ca-tx-pay-summary__fees-row">
             <span>
-              ConfiApp 20%:{' '}
+              ConfiApp 30%:{' '}
               {formatOperationMoney(
                 isAgentFeeOnly ? agentFeePlatform : feePreview!.platformFeeCents,
                 payCurrency,
               )}
             </span>
             <span>
-              Agente 80%:{' '}
+              Agente 70%:{' '}
               {formatOperationMoney(
                 isAgentFeeOnly ? agentFeeShare : feePreview!.agentFeeCents,
                 payCurrency,

@@ -367,7 +367,7 @@ export function WalletPage() {
         <section className="ca-wallet-panel mb-3">
           <h3 className="h6">Comisiones de agente</h3>
           <p className="ca-wallet__hint mb-2">
-            Tras completar una operación, tu 80% queda pendiente {AGENT_COMMISSION_HOLD_DAYS} días.
+            Tras completar una operación, tu 70% queda pendiente {AGENT_COMMISSION_HOLD_DAYS} días.
             Las transferencias del saldo disponible las realiza un administrador del{' '}
             <strong>1 al 10</strong> de cada mes.
           </p>

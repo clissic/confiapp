@@ -46,7 +46,7 @@ Chat 1──* Message
 
 ## Índices clave
 
-- `users.email` unique, `role`, `status`, `deletedAt`
+- `users.email` unique, `role`, `status`, `deletedAt`, `accountDeletionRequestedAt` (+ índice compuesto con status/deletedAt en API)
 - `products.owner+status`, `status+category+createdAt`, text `title/description`
 - `transactions.code` unique, `status+createdAt`, `participants.user+status`, `product+status`
 - `chats.transaction` unique parcial, `participants+lastMessageAt`
@@ -63,6 +63,13 @@ Chat 1──* Message
 `deletedAt` en User, Profile, Product, Transaction, Chat, Message, Notification, Review, Payment, AgentAvailability, Evidence, Dispute.
 
 **AuditLog y RefreshToken (TTL)** no usan soft delete de negocio.
+
+### Baja de cuenta de usuario
+
+- Campo `accountDeletionRequestedAt`: marca el inicio de la gracia (30 días).
+- Durante la gracia: `status=SUSPENDED`, `deletedAt=null` (recuperable por login).
+- Tras purge: anonimización de PII + `deletedAt` set; se conserva `_id` para FKs de operaciones/pagos/auditoría.
+- Detalle de producto/API: `docs/SYSTEM_ARCHITECTURE.md` §5.3, `docs/WEB_APP.md` (Eliminación de cuenta).
 
 ## Estados de Transaction (resumen)
 

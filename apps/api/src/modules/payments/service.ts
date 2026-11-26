@@ -528,7 +528,7 @@ export class PaymentsService {
   }
 
   /**
-   * Contratación del Agente (UYU $500) → preferencia a cuenta ConfiApp (retención).
+   * Contratación del Agente (UYU $490) → preferencia a cuenta ConfiApp (retención).
    */
   private async createAgentFeeOnlyCheckout(
     userId: string,
@@ -1158,7 +1158,7 @@ export class PaymentsService {
   }
 
   /**
-   * Cierre: descuenta 20% plataforma, acredita comisión del Agente; en ESCROW_FULL también el neto vendedor.
+   * Cierre: descuenta 30% plataforma, acredita comisión del Agente; en ESCROW_FULL también el neto vendedor.
    */
   async releaseEscrow(userId: string, code: string) {
     const tx = await this.loadTxForParticipant(userId, code);
@@ -1510,7 +1510,7 @@ export class PaymentsService {
       direction: WalletMovementDirection.DEBIT,
       amountCents: Math.max(1, platformFee || 1),
       currency,
-      description: `Comisión ConfiApp (20% de la intermediación) · ${tx.code}`,
+      description: `Comisión ConfiApp (30% de la intermediación) · ${tx.code}`,
       paymentId: String(fee._id),
       transactionId: String(tx._id),
       metadata: { informational: true, ...feesAuditMeta(split) },

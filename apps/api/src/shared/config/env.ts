@@ -127,10 +127,10 @@ const envSchema = z.object({
    * de la operación no está en USD.
    */
   USD_UYU_RATE: z.coerce.number().positive().default(40),
-  /** % de la comisión de intermediación para la plataforma (2000 = 20%). */
-  PAYMENTS_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(2000),
-  /** % de la comisión de intermediación para el agente (8000 = 80%). */
-  PAYMENTS_AGENT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(8000),
+  /** % de la comisión de intermediación para la plataforma (3000 = 30%). */
+  PAYMENTS_PLATFORM_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(3000),
+  /** % de la comisión de intermediación para el agente (7000 = 70%). */
+  PAYMENTS_AGENT_FEE_BPS: z.coerce.number().int().min(0).max(10_000).default(7000),
   /**
    * Habilita crear operaciones con fundingMode=ESCROW_FULL (resguardo completo).
    * Off mientras no esté disponible el cobro MP 1:N.

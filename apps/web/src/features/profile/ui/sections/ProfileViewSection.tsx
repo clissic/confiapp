@@ -6,6 +6,7 @@ import { formatPayoutMethodType } from '../../model/payout-methods';
 import type { UserProfile } from '../../model/types';
 import { MaskedAccountNumber } from '../MaskedAccountNumber';
 import { VerifiedName } from '@/shared/ui/VerifiedName';
+import { DeleteAccountSection } from './DeleteAccountSection';
 
 function displayOrDash(value: string | undefined | null): string {
   const trimmed = value?.trim();
@@ -133,6 +134,8 @@ export function ProfileViewSection({
           )}
         </div>
       </div>
+
+      <DeleteAccountSection />
     </section>
   );
 }

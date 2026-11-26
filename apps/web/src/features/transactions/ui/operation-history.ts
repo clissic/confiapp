@@ -28,7 +28,7 @@ const HISTORY_NOTE_LABELS: Record<string, string> = {
     'Vendedor confirmó la venta — acuerdo cerrado, pendiente de pago',
   'Pago liberado: neto al vendedor, comisión ConfiApp/agente':
     'Entrega confirmada — operación cerrada',
-  'Escrow liberado: neto vendedor, fee 20% plataforma, pago agente':
+  'Escrow liberado: neto vendedor, fee 30% plataforma, pago agente':
     'Entrega confirmada — operación cerrada',
   'Fondos liberados al vendedor':
     'Entrega confirmada — operación cerrada',

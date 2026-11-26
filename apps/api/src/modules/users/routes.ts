@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { PlatformRole } from '@confiapp/database';
+import { ACCOUNT_DELETION_CONFIRMATION } from '@confiapp/shared';
 import { z } from 'zod';
 
 import {
@@ -66,6 +67,18 @@ usersRoutes.post(
     }),
   }),
   asyncHandler(controller.requestIdentityChange),
+);
+
+usersRoutes.post(
+  '/me/delete-account',
+  authenticate,
+  authRateLimiter,
+  validateRequest({
+    body: z.object({
+      confirmation: z.literal(ACCOUNT_DELETION_CONFIRMATION),
+    }),
+  }),
+  asyncHandler(controller.deleteAccount),
 );
 
 usersRoutes.get(
